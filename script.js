@@ -35,7 +35,7 @@ document.getElementById('upload').addEventListener('change', function(e) {
             });
 
             displayTable(extractedData);
-            addPDFButton();
+            addPDFButton(); // This adds the button after table is created
 
         } catch (error) {
             alert("Error parsing file: " + error.message);
@@ -66,14 +66,21 @@ function displayTable(data) {
 }
 
 function addPDFButton() {
+    // Remove existing button if it exists
     const existingBtn = document.getElementById('pdf-export');
-    if (existingBtn) return;
+    if (existingBtn) {
+        existingBtn.remove();
+    }
     
+    // Create new button
     const btn = document.createElement('button');
     btn.id = 'pdf-export';
     btn.textContent = 'Export to PDF';
     btn.addEventListener('click', exportToPDF);
-    document.body.insertBefore(btn, document.getElementById('output').nextSibling);
+    
+    // Insert after the upload input
+    const uploadInput = document.getElementById('upload');
+    uploadInput.insertAdjacentElement('afterend', btn);
 }
 
 function exportToPDF() {
