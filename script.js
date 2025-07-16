@@ -90,7 +90,7 @@ function exportToPDF() {
         return;
     }
 
-    const title = "Excel Data (Columns A-G)";
+    const title = "Daily Status Report";
     const fileName = "extracted_columns.pdf";
     const dateStr = new Date().toLocaleDateString();
     
