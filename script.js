@@ -18,10 +18,15 @@ document.getElementById('upload').addEventListener('change', function (e) {
 
 function displayTable(data) {
     let html = "<table>";
-    data.forEach(row => {
+    data.forEach((row, rowIndex) => {
         html += "<tr>";
         row.forEach(cell => {
-            html += `<td>${cell !== undefined ? cell : ""}</td>`;
+            // Use <th> for the first row (headers)
+            if (rowIndex === 0) {
+                html += `<th>${cell !== undefined ? cell : ""}</th>`;
+            } else {
+                html += `<td>${cell !== undefined ? cell : ""}</td>`;
+            }
         });
         html += "</tr>";
     });
