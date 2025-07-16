@@ -2,21 +2,21 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Daily Excel Report</title>
+    <title>Daily Status Report</title>
     <style>
         body { font-family: Arial; padding: 20px; }
-        table { border-collapse: collapse; width: 100%; }
-        th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+        table { border-collapse: collapse; width: 100%; margin-top: 20px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; font-weight: bold; }
+        tr:nth-child(even) { background-color: #f9f9f9; }
     </style>
 </head>
 <body>
-
-    <h2>Daily Excel Report</h2>
+    <h2>Excel Column Extractor (Columns A-G)</h2>
     <input type="file" id="upload" accept=".xlsx, .xls" />
-    <br><br>
     <div id="output"></div>
 
-    <!-- SheetJS -->
+    <!-- SheetJS Library -->
     <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
     <script src="script.js"></script>
 </body>
