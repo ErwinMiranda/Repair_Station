@@ -1,8 +1,10 @@
+// Initialize jsPDF
+const { jsPDF } = window.jspdf;
+
 document.getElementById('upload').addEventListener('change', function(e) {
     const file = e.target.files[0];
     if (!file) return;
 
-    // Validate file type
     if (!file.name.match(/\.(xlsx|xls)$/i)) {
         alert("Please upload an Excel file (.xlsx or .xls)!");
         return;
@@ -21,57 +23,90 @@ document.getElementById('upload').addEventListener('change', function(e) {
 
             const firstSheet = workbook.SheetNames[0];
             const worksheet = workbook.Sheets[firstSheet];
-            const json = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+            const jsonData = XLSX.utils.sheet_to_json(worksheet, { 
+                header: 1, 
+                defval: "",
+                range: 0
+            });
 
-            displayTable(json);
-            addExportButton(); // Optional: Add export button
+            const extractedData = jsonData.map(row => {
+                const paddedRow = Array(7).fill("").map((_, i) => row[i] || "");
+                return paddedRow.slice(0, 7);
+            });
+
+            displayTable(extractedData);
+            addPDFButton();
+
         } catch (error) {
             alert("Error parsing file: " + error.message);
+            console.error(error);
         }
     };
     reader.readAsArrayBuffer(file);
 });
 
 function displayTable(data) {
+    const output = document.getElementById('output');
     if (!data || data.length === 0) {
-        document.getElementById('output').innerHTML = "<p>No data found.</p>";
+        output.innerHTML = "<p>No data found.</p>";
         return;
     }
 
-    let html = "<table>";
+    let html = "<table id='data-table'>";
     data.forEach((row, rowIndex) => {
         html += "<tr>";
-        row.forEach(cell => {
-            if (rowIndex === 0) {
-                html += `<th>${cell !== undefined ? cell : ""}</th>`;
-            } else {
-                html += `<td>${cell !== undefined ? cell : ""}</td>`;
-            }
+        row.forEach((cell, colIndex) => {
+            const tag = rowIndex === 0 ? "th" : "td";
+            html += `<${tag}>${cell}</${tag}>`;
         });
         html += "</tr>";
     });
     html += "</table>";
-    document.getElementById('output').innerHTML = html;
+    output.innerHTML = html;
 }
 
-// Optional: Export functionality
-function addExportButton() {
-    if (document.getElementById('exportBtn')) return;
-
-    const button = document.createElement('button');
-    button.id = 'exportBtn';
-    button.textContent = 'Export to Excel';
-    button.style.margin = '10px 0';
-    button.onclick = exportToExcel;
-    document.body.insertBefore(button, document.getElementById('output'));
+function addPDFButton() {
+    const existingBtn = document.getElementById('pdf-export');
+    if (existingBtn) return;
+    
+    const btn = document.createElement('button');
+    btn.id = 'pdf-export';
+    btn.textContent = 'Export to PDF';
+    btn.addEventListener('click', exportToPDF);
+    document.body.insertBefore(btn, document.getElementById('output').nextSibling);
 }
 
-function exportToExcel() {
-    const table = document.querySelector('#output table');
+function exportToPDF() {
+    const table = document.getElementById('data-table');
     if (!table) {
-        alert("No table to export!");
+        alert("No data to export!");
         return;
     }
-    const workbook = XLSX.utils.table_to_book(table);
-    XLSX.writeFile(workbook, 'exported_data.xlsx');
+
+    const title = "Excel Data (Columns A-G)";
+    const fileName = "extracted_columns.pdf";
+    const dateStr = new Date().toLocaleDateString();
+    
+    html2canvas(table).then(canvas => {
+        const imgData = canvas.toDataURL('image/png');
+        const pdf = new jsPDF({
+            orientation: canvas.width > canvas.height ? 'landscape' : 'portrait',
+            unit: 'mm'
+        });
+        
+        // Add title and date
+        pdf.setFontSize(16);
+        pdf.text(title, 10, 10);
+        pdf.setFontSize(10);
+        pdf.text(`Generated on: ${dateStr}`, 10, 15);
+        
+        // Calculate dimensions
+        const imgProps = pdf.getImageProperties(imgData);
+        const pdfWidth = pdf.internal.pageSize.getWidth() - 20;
+        const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+        
+        // Add table image
+        pdf.addImage(imgData, 'PNG', 10, 20, pdfWidth, pdfHeight);
+        pdf.save(fileName);
+    });
 }
