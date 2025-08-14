@@ -930,7 +930,7 @@ let bulkClosingMode = false;
 document.addEventListener('click', (e) => {
   const taskDiv = e.target.closest('.task-block');
   if (!taskDiv) return;
-
+ if (!(e.ctrlKey || e.metaKey)) return;
   const tid = taskDiv.dataset.taskId;
 
   // Prevent selecting closed tasks
