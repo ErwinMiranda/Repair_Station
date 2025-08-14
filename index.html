@@ -1,20 +1,1117 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>Daily Status Report</title>
-    <link rel="stylesheet" href="styles.css">
+  <meta charset="utf-8" />
+  <title>Web Based MilestonePlan</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    /* --- trimmed / same style as you provided with minor adjustments --- */
+    body { font-family: Arial, sans-serif; padding: 18px; margin:0; background:#fafafa; }
+    .plan-heading { position: sticky; top:0; z-index:100; font-size:18px; font-weight:700;
+      background:#ecf0f1; padding:10px; border-left:6px solid #3498db; margin-bottom:14px;}
+    #controls { display:flex; gap:8px; align-items:center; margin-bottom:10px; }
+    .importexcel { display:none; } /* import removed per request */
+    #matrix-container { overflow:auto; border:1px solid #ddd; background:#fff; border-radius:6px }
+    table { width:100%; border-spacing:0; min-width:1000px; border-collapse:separate; border:1px solid #ccc; }
+    th, td { padding:0; min-width:120px; border-left:1px solid #ccc; border-right:1px solid #ccc; box-sizing:border-box; }
+    th { background:#f4f4f4; padding:6px; border-bottom:2px solid #ccc; position:sticky; top:0; z-index:21; }
+    tr.skill-row td { background:#ecf0f1; padding:8px 12px; font-weight:700; text-align:left; cursor:pointer; position:sticky; left:0; z-index:11; }
+    table th:first-child, table td:first-child { position: sticky; left: 0; z-index:14; background:#ffffff; border-right:1px solid #ccc; }
+    .sunday { background:#fccc7869; }
+    .open { background:#fbffd6; }
+    .closed { background:#d4f7d4; }
+    .cell-wrapper { display:flex; align-items:center; justify-content:center; padding:6px; height:42px; position:relative; }
+    .glow-line { position:absolute; top:50%; height:2px; width:100%; z-index:1; transform: translateY(-50%); }
+    .start-dot { width:12px; height:12px; border-radius:50%; position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); z-index:3; }
+    .task-block { padding:4px 6px; border-radius:4px; border:2px solid #ccc; background:white; font-size:12px; cursor:grab; height:100%; width: 100%; display:block; position: relative; z-index: 2; box-sizing: border-box;}
+    .task-block.advance{ border-color:rgb(2, 255, 2); animation:pulseGreen 2s infinite; }
+    .task-block.delay{ border-color:rgb(255, 0, 0); animation:pulseRed 2s infinite; }
+    .task-block.ontime{ border-color:gray; }
+    @keyframes pulseRed { 0%{box-shadow:0 0 4px red}50%{box-shadow:0 0 12px red}100%{box-shadow:0 0 4px red} }
+    @keyframes pulseGreen { 0%{box-shadow:0 0 4px rgb(1, 245, 1)}50%{box-shadow:0 0 12px rgb(0, 255, 0)}100%{box-shadow:0 0 4px rgb(2, 248, 2)} }
+    td.drop-target { outline:3px dashed rgba(52,152,219,0.6); }
+    /* Modal & remarks editor */
+    .modal { position:fixed; left:0; top:0; right:0; bottom:0; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,0.35); z-index:9999;}
+    .modal .card { width:760px; background:white; padding:12px; border-radius:8px; box-shadow:0 8px 30px rgba(0,0,0,0.2); }
+    .form-row{ display:flex; gap:8px; margin-bottom:8px; }
+    label{ font-size:12px; color:#333; margin-bottom:4px; display:block; }
+    input[type="text"], textarea { padding:6px; width:100%; box-sizing:border-box; border:1px solid #ccc; border-radius:4px; font-size:13px; }
+    textarea{ resize:vertical; min-height:60px; }
+    .modal .actions{ display:flex; justify-content:flex-end; gap:8px; margin-top:10px;}
+    button { padding:6px 10px; border-radius:6px; border: none; cursor:pointer; }
+    .primary{ background:#2b8cff; color:#fff; } .danger{ background:#e74c3c; color:#fff; } .muted{ background:#ddd; }
+    #remarks-editor{ position:absolute; z-index:9998; display:none; background:#fff; border:1px solid #ccc; padding:8px; border-radius:6px; box-shadow:0 6px 20px rgba(0,0,0,0.14); }
+    .inline-edit { outline:1px dashed rgba(0,0,0,0.13); padding:2px 4px; border-radius:3px; }
+    .glow-span {
+      position: absolute;
+      top: 50%;
+      left: 0;
+      height: 2px;
+      width: 100%;
+      transform: translateY(-50%);
+    }
+
+      .glow-advance { background-color: #8ac08d; }
+      .glow-delay   { background-color: #e08b8b; }
+      .glow-ontime  { background-color: #d0d0d0; }
+
+    .start-dot {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+    }
+
+    .dot-advance { background-color: #1ff129; }
+    .dot-delay   { background-color: #f02929; }
+    .dot-ontime  { background-color: #d0d0d0; }
+    .task-block {
+      position: relative;
+      z-index: 2;
+    }
+
+.glow-span, .start-dot {
+  z-index: 1;
+}
+td {
+  position: relative;
+}
+.half-glow {
+  position: absolute;
+  top: 50%;
+  height: 2px;
+  width: 50%;
+  transform: translateY(-50%);
+}
+
+.half-glow.right { left: 50%; }
+.half-glow.left  { left: 0; }
+.skill-row {
+background: #a3a0a0;
+z-index: 30;
+}
+.task-selected {
+  outline: 2px solid blue;
+}
+
+
+
+
+  </style>
 </head>
 <body>
-    <h2>Daily Status Report</h2>
-    <input type="file" id="upload" accept=".xlsx, .xls" />
-     <div class="section-title">1. Project Overview</div>
-    <div id="output"></div>
+  <div class="plan-heading" id="date-range-heading">Loading…</div>
 
-    <!-- Libraries -->
-    <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-    <script src="script.js"></script>
+  <div id="controls">
+    <!-- <button id="add-task-btn" class="primary">＋ Add Task</button> -->
+    <button id="export-button">📤 Export to Excel</button>
+    <!--<button id="clear-local" class="muted" title="(Does not touch Firestore) Clear local UI cache">Clear UI</button>-->
+    <div style="flex:1"></div>
+    <div id="status-indicator" style="font-size:13px;color:#666">Firestore: connecting…</div>
+  </div>
+
+<div style="margin-bottom:10px;">
+  <label for="wo-filter">Filter by WO:</label>
+  <input type="text" id="wo-filter" placeholder="Enter Work Order" style="width:160px;">
+  <button id="wo-search">Search</button>
+</div>
+
+
+
+
+  <div id="matrix-container"></div>
+
+  <!-- Modal for create/edit -->
+  <div id="task-modal" class="modal" role="dialog">
+    <div class="card">
+      <h3 id="modal-title">Edit Task</h3>
+      <div class="form-row">
+        <div style="flex:1">
+          <label>Task ID (optional)</label>
+          <input id="f-taskid" type="text" placeholder="taskid or leave blank to auto" />
+        </div>
+        <div style="flex:1">
+          <label>Skill</label>
+          <input id="f-skill" type="text" />
+        </div>
+      </div>
+      <div class="form-row">
+        <div style="flex:1">
+          <label>Planned Start (sdate) — ISO or Excel serial</label>
+          <input id="f-sdate" type="text" placeholder="2025-07-25 or 44636" />
+        </div>
+        <div style="flex:1">
+          <label>Planned End (edate)</label>
+          <input id="f-edate" type="text" placeholder="2025-07-28 or 44639" />
+        </div>
+      </div>
+      <div class="form-row">
+        <div style="flex:1">
+          <label>Revised Start (rev_sdate)</label>
+          <input id="f-rev_sdate" type="text" />
+        </div>
+        <div style="flex:1">
+          <label>Revised End (rev_edate)</label>
+          <input id="f-rev_edate" type="text" />
+        </div>
+      </div>
+      <div class="form-row">
+        <div style="flex:1">
+          <label>Title</label>
+          <input id="f-tasktitle" type="text" />
+        </div>
+        <div style="flex:1">
+          <label>A/C Reg</label>
+          <input id="f-acreg" type="text" />
+        </div>
+      </div>
+      <div>
+        <label>Remarks</label>
+        <textarea id="f-remarks"></textarea>
+      </div>
+      <div class="form-row">
+        <div style="flex:1">
+          <label>Status</label>
+          <input id="f-status" type="text" placeholder="open / closed" />
+        </div>
+        <div style="flex:1">
+          <label>Workorder</label>
+          <input id="f-workorder" type="text" />
+        </div>
+      </div>
+      <div class="actions">
+        <button id="delete-task-btn" class="danger">Delete</button>
+        <button id="cancel-modal" class="muted">Cancel</button>
+        <button id="save-modal" class="primary">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Floating remarks editor -->
+  <div id="remarks-editor">
+    <textarea id="remarks-text" style="width:300px;height:100px"></textarea><br>
+    <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:8px;">
+      <button id="remarks-save" class="primary">Save</button>
+      <button id="remarks-cancel" class="muted">Cancel</button>
+      <button id="remarks-close-task" class="danger">Close Task</button>
+    </div>
+  </div>
+
+  <!-- SheetJS -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+  <!-- Firebase modules -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import {
+      getFirestore, collection, doc, addDoc, setDoc, updateDoc, deleteDoc,
+      onSnapshot, query, orderBy, writeBatch, serverTimestamp
+    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+    // ---------- CONFIG ----------
+    const firebaseConfig = {
+      apiKey: "AIzaSyBZ6wqCgHdV_gGG5jxEHEIo_bu0-gK0Bn8",
+      authDomain: "webmp-b83f7.firebaseapp.com",
+      projectId: "webmp-b83f7",
+      storageBucket: "webmp-b83f7.appspot.com",
+      messagingSenderId: "777263885684",
+      appId: "1:777263885684:web:f1c0121ed62c606b7f5021"
+    };
+
+    // ---------- INIT ----------
+    let db;
+    let firestoreConnected = false;
+    try {
+      const app = initializeApp(firebaseConfig);
+      db = getFirestore(app);
+      document.getElementById('status-indicator').innerText = 'Milestone Database: connected';
+      firestoreConnected = true;
+    } catch (err) {
+      console.error('Firebase init error', err);
+      document.getElementById('status-indicator').innerText = 'Milestone Database: init failed';
+    }
+
+    // ---------- helpers for date parsing ----------
+    function excelSerialToDate(serial) {
+      // Excel serial number to JS Date (handles whole number only)
+      // Excel epoch: 1899-12-30
+      const epoch = new Date(Date.UTC(1899, 11, 30));
+      const days = Math.floor(Number(serial));
+      const ms = days * 24 * 60 * 60 * 1000;
+      const date = new Date(epoch.getTime() + ms);
+      return date;
+    }
+    function parseDateField(val) {
+      // Accept number (excel serial) or ISO string (YYYY-MM-DD) or Date object
+      if (val === undefined || val === null || val === '') return null;
+      if (typeof val === 'number') return new Date(val); // assume ms epoch if number (rare)
+      if (!isNaN(Number(val)) && String(val).indexOf('-') === -1) {
+        // numeric-looking without dashes -> treat as excel serial
+        return excelSerialToDate(Number(val));
+      }
+      // try Date parse
+      const d = new Date(val);
+      if (!isNaN(d.getTime())) return d;
+      return null;
+    }
+    function toSerialDayKey(dateObj) {
+      // convert Date -> integer day count (ms -> days)
+      // use zeroed local midnight to avoid timezone shifts
+      const d = new Date(Date.UTC(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate()));
+      return Math.floor(d.getTime() / (24 * 60 * 60 * 1000));
+    }
+    function dayKeyToDate(dayKey) {
+      return new Date(dayKey * 24 * 60 * 60 * 1000);
+    }
+    function formatDisplayDateShort(dateObj) {
+      return dateObj.toLocaleDateString('en-US', { month:'short', day:'2-digit', year:'numeric' });
+    }
+    function weekdayShort(dateObj) { return dateObj.toLocaleDateString('en-US', { weekday:'short' }); }
+
+    // ---------- Firestore collection ----------
+    const tasksCol = () => collection(db, 'tasks');
+
+    // ---------- UI state ----------
+    window.currentRows = []; // cached docs as objects { _id, ...fields }
+    let unsubscribe = null;
+
+    // ---------- Listen real-time ----------
+        let savedValue = localStorage.getItem("woFilterValue");
+        let woFilterValue = savedValue;
+
+document.getElementById('wo-search').addEventListener('click', () => {
+  woFilterValue = document.getElementById('wo-filter').value.trim().toLowerCase();
+  localStorage.setItem("woFilterValue", woFilterValue);
+  applyWOfilterAndRender();
+});
+
+
+
+function applyWOfilterAndRender() {
+  if (!woFilterValue) {
+    // Input box empty - clear matrix or show message
+    //document.getElementById('matrix-container').innerHTML = '<div style="padding:10px;color:#999">Please enter a Work Order</div>';
+    document.getElementById('date-range-heading').innerText = '';
+    return;
+  }
+  let filteredRows = window.currentRows.filter(r =>
+    (r.workorder || "").toString().toLowerCase().includes(woFilterValue)
+  );
+  buildMatrixTable(filteredRows);
+}
+
+
+
+
+
+
+ function startRealtime() {
+  if (!firestoreConnected) return;
+  const q = query(tasksCol(), orderBy('sdate'));
+  unsubscribe = onSnapshot(q, snapshot => {
+    const rows = [];
+    snapshot.forEach(docSnap => {
+      rows.push({ _id: docSnap.id, ...docSnap.data() });
+    });
+    window.currentRows = rows;
+    applyWOfilterAndRender(); // ✅ filter before rendering
+  }, err => {
+    console.error('onSnapshot error', err);
+    document.getElementById('status-indicator').innerText = 'Firestore: disconnected';
+  });
+}
+
+
+    // Start listener
+    startRealtime();
+
+    // ---------- CRUD helpers ----------
+    async function createTask(payload) {
+      if (!firestoreConnected) { console.warn('Firestore not ready'); return; }
+      // allow adding with custom id if provided
+      if (payload._id) {
+        const ref = doc(db, 'tasks', payload._id);
+        const copy = {...payload}; delete copy._id;
+        await setDoc(ref, { ...copy, updatedAt: serverTimestamp() }, { merge: true });
+        return payload._id;
+      } else {
+        const r = await addDoc(tasksCol(), { ...payload, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+        return r.id;
+      }
+    }
+    async function updateTask(id, updates) {
+      if (!firestoreConnected) { console.warn('Firestore not ready'); return; }
+      try {
+        const ref = doc(db, 'tasks', id);
+        await updateDoc(ref, { ...updates, updatedAt: serverTimestamp() });
+      } catch (err) {
+        console.error('updateTask err', err);
+      }
+    }
+    async function deleteTask(id) {
+      if (!firestoreConnected) { console.warn('Firestore not ready'); return; }
+      try {
+        await deleteDoc(doc(db, 'tasks', id));
+      } catch (err) { console.error('deleteTask err', err); }
+    }
+
+    // ---------- Build matrix table ----------
+   // store collapsed skills globally
+let collapsedSkills = new Set();
+
+function buildMatrixTable(rows) {
+  // normalize rows
+  const normalized = rows.map(r => {
+    const s = parseDateField(r.sdate);
+    const e = parseDateField(r.edate);
+    const rs = parseDateField(r.rev_sdate ?? r.sdate);
+    const re = parseDateField(r.rev_edate ?? r.edate);
+    return { ...r, _sdate: s, _edate: e, _rev_sdate: rs, _rev_edate: re };
+  });
+
+  // compute min/max dates
+  const sCandidates = normalized.map(r => r._sdate).filter(Boolean);
+  const eCandidates = normalized.map(r => r._edate).filter(Boolean);
+  if (!sCandidates.length || !eCandidates.length) {
+    document.getElementById('matrix-container').innerHTML = '<div style="padding:10px">No date data</div>';
+    document.getElementById('date-range-heading').innerText = 'No date range';
+    return;
+  }
+  let minDate = new Date(Math.min(...sCandidates.map(d => d.getTime())));
+  let maxDate = new Date(Math.max(...eCandidates.map(d => d.getTime())));
+  minDate = new Date(minDate.getFullYear(), minDate.getMonth(), minDate.getDate());
+  maxDate = new Date(maxDate.getFullYear(), maxDate.getMonth(), maxDate.getDate());
+
+  // build array of day keys
+  const dayKeys = [];
+  for (let k = toSerialDayKey(minDate); k <= toSerialDayKey(maxDate); k++) dayKeys.push(k);
+
+  // update heading
+  const acregs = [...new Set(rows.map(r => r.acreg).filter(Boolean))];
+  document.getElementById('date-range-heading').innerText =
+    `${acregs.join(', ') || 'Milestone Plan'} | TAT: ${dayKeys.length} days (${formatDisplayDateShort(minDate)} – ${formatDisplayDateShort(maxDate)})`;
+
+  // group by skill
+  const grouped = {};
+  normalized.forEach(task => {
+    const sk = task.skill || 'Unassigned';
+    if (!grouped[sk]) grouped[sk] = [];
+    grouped[sk].push(task);
+  });
+
+  // custom skill order
+  const skillOrder = ["SHOP", "CAB", "AVI", "CRG", "ENG", "FLC", "LDG", "STR"];
+  const sortedGrouped = Object.entries(grouped).sort(([a], [b]) => {
+    const ia = skillOrder.indexOf(a);
+    const ib = skillOrder.indexOf(b);
+    return (ia === -1 ? Infinity : ia) - (ib === -1 ? Infinity : ib);
+  });
+
+  // create table
+  const table = document.createElement('table');
+
+  // header rows
+  const headerRow1 = document.createElement('tr');
+  headerRow1.innerHTML = `<th rowspan="3" style="min-width:120px; position:sticky; left:0; z-index:24; background:white;">Skill</th>`;
+  dayKeys.forEach(k => {
+    const dateObj = dayKeyToDate(k);
+    const th = document.createElement('th');
+    th.dataset.day = k;
+    if (dateObj.getUTCDay() === 0) th.classList.add('sunday');
+    th.textContent = formatDisplayDateShort(dateObj);
+    headerRow1.appendChild(th);
+  });
+  table.appendChild(headerRow1);
+
+  const headerRow2 = document.createElement('tr');
+  dayKeys.forEach(k => {
+    const dateObj = dayKeyToDate(k);
+    const th = document.createElement('th');
+    th.textContent = weekdayShort(dateObj);
+    if (dateObj.getUTCDay() === 0) th.classList.add('sunday');
+    headerRow2.appendChild(th);
+  });
+  table.appendChild(headerRow2);
+
+  const headerRow3 = document.createElement('tr');
+  dayKeys.forEach((k, idx) => {
+    const dateObj = dayKeyToDate(k);
+    const th = document.createElement('th');
+    th.textContent = `Day ${idx + 1}`;
+    if (dateObj.getUTCDay() === 0) th.classList.add('sunday');
+    headerRow3.appendChild(th);
+  });
+  table.appendChild(headerRow3);
+
+  // iterate skill groups
+  sortedGrouped.forEach(([skill, tasks], skillIndex) => {
+    const groupId = `skill-${skillIndex}`;
+
+    // skill header row
+    const skillTr = document.createElement('tr');
+    skillTr.classList.add('skill-row');
+    const skillTd = document.createElement('td');
+    skillTd.colSpan = dayKeys.length + 1;
+    skillTd.style.background = '#ecf0f1';
+    skillTd.style.padding = '2px 6px';
+    skillTd.style.fontSize = '12px';
+    skillTd.style.lineHeight = '1.2';
+    skillTd.style.height = '20px';
+    skillTd.style.cursor = 'pointer';
+    skillTd.textContent = collapsedSkills.has(skill) ? `▶ ${skill}` : `▼`;
+
+    skillTd.addEventListener('click', () => {
+      const rows = document.querySelectorAll(`.task-row-${groupId}`);
+      if (!rows.length) return;
+      const isVisible = rows[0].style.display !== 'none';
+      rows.forEach(tr => tr.style.display = isVisible ? 'none' : '');
+      if (isVisible) {
+        collapsedSkills.add(skill);
+        skillTd.textContent = `▶ ${skill}`;
+      } else {
+        collapsedSkills.delete(skill);
+        skillTd.textContent = `▼`;
+      }
+    });
+
+    skillTr.appendChild(skillTd);
+    table.appendChild(skillTr);
+
+    // stacking
+    const stackedRows = [];
+    tasks.forEach(task => {
+      const sKey = task._sdate ? toSerialDayKey(task._sdate) : null;
+      const revSKey = task._rev_sdate ? toSerialDayKey(task._rev_sdate) : sKey;
+      const revEKey = task._rev_edate ? toSerialDayKey(task._rev_edate) : (task._edate ? toSerialDayKey(task._edate) : revSKey);
+
+      const used = new Set();
+      if (sKey !== null && revSKey !== null && sKey !== revSKey) {
+        if (revSKey < sKey) for (let d = revSKey; d <= sKey; d++) used.add(d);
+        else for (let d = sKey; d <= revSKey; d++) used.add(d);
+      }
+      for (let d = revSKey; d <= revEKey; d++) used.add(d);
+
+      let placed = false;
+      for (const rowArr of stackedRows) {
+        const conflict = dayKeys.some((dk, idx) => used.has(dk) && rowArr[idx + 1]?.hasChildNodes());
+        if (!conflict) {
+          insertTaskToRow(rowArr, task, used, dayKeys);
+          placed = true;
+          break;
+        }
+      }
+      if (!placed) {
+        const rowArr = [];
+        if (stackedRows.length === 0) {
+          const skillCell = document.createElement('td');
+          skillCell.textContent = skill;
+          skillCell.dataset.isSkillCell = 'true';
+          skillCell.style.fontWeight = 'bold';
+          skillCell.style.background = '#fff';
+          skillCell.style.position = 'sticky';
+          skillCell.style.left = '0';
+          skillCell.style.zIndex = '3';
+          skillCell.style.borderRight = '1px solid #ccc';
+          skillCell.style.verticalAlign = 'middle';
+          skillCell.style.textAlign = 'center';
+          rowArr.push(skillCell);
+        } else {
+          rowArr.push(document.createElement('td'));
+        }
+        for (let i = 0; i < dayKeys.length; i++) {
+          rowArr.push(document.createElement('td'));
+        }
+        insertTaskToRow(rowArr, task, used, dayKeys);
+        stackedRows.push(rowArr);
+      }
+    });
+
+    // append stacked rows
+    stackedRows.forEach(rowArr => {
+      const tr = document.createElement('tr');
+      tr.classList.add(`task-row-${groupId}`);
+      tr.dataset.skill = skill;
+      if (collapsedSkills.has(skill)) tr.style.display = 'none';
+      rowArr.forEach(td => tr.appendChild(td));
+      table.appendChild(tr);
+    });
+  });
+
+  // set dataset.day and drop handlers
+  const trs = table.querySelectorAll('tr');
+  trs.forEach((tr, idx) => {
+    if (idx < 3) return;
+    const tds = tr.querySelectorAll('td');
+    if (!tds.length) return;
+    const headerTh = table.querySelector('tr:first-child').querySelectorAll('th');
+    for (let i = 1; i < tds.length; i++) {
+      const hd = headerTh[i];
+      if (hd?.dataset?.day) {
+        tds[i].dataset.day = hd.dataset.day;
+      }
+      attachDropHandlersToTd(tds[i]);
+    }
+  });
+
+  // render container
+  const container = document.getElementById('matrix-container');
+  container.innerHTML = '';
+  container.appendChild(table);
+}
+ // buildMatrixTable end
+
+   function insertTaskToRow(rowTds, task, usedDatesSet, dayKeys) {
+      const sKey = task._sdate ? toSerialDayKey(task._sdate) : null;
+      const revSKey = task._rev_sdate ? toSerialDayKey(task._rev_sdate) : sKey;
+      const revEKey = task._rev_edate
+        ? toSerialDayKey(task._rev_edate)
+        : (task._edate ? toSerialDayKey(task._edate) : revSKey);
+      const diff = (revSKey !== null && sKey !== null) ? (revSKey - sKey) : 0;
+
+      dayKeys.forEach((dk, index) => {
+        const td = rowTds[index + 1];
+        if (!td) return;
+        // mark Sunday
+        if (dayKeyToDate(dk).getUTCDay() === 0) td.classList.add('sunday');
+        // GLOW LINE: span from sKey to revSKey
+        if (sKey !== null && revSKey !== null && dk >= Math.min(sKey, revSKey) && dk <= Math.max(sKey, revSKey)) {
+            const glow = document.createElement('div');
+            const isStartCell = dk === sKey;
+            const isAdvance = diff < 0;
+            if (isStartCell) {
+                glow.classList.add('half-glow', isAdvance ? 'left' : 'right');
+            } else {
+                glow.classList.add('glow-span');
+            }
+            glow.classList.add(
+                diff < 0 ? 'glow-advance' :
+                diff > 0 ? 'glow-delay' :
+                'glow-ontime'
+            );
+        td.appendChild(glow);
+            if (dk === sKey) {
+                const dot = document.createElement('span');
+                dot.classList.add(
+                    'start-dot',
+                    diff < 0 ? 'dot-advance' :
+                    diff > 0 ? 'dot-delay' :
+                    'dot-ontime'
+                );
+                td.appendChild(dot);
+            }
+        }
+
+        // TASK BLOCK: only one rendering, based on revised dates
+        if (revSKey !== null && revEKey !== null && dk >= revSKey && dk <= revEKey) {
+          const taskDiv = document.createElement('div');
+          taskDiv.classList.add('task-block');
+            taskDiv.style.position = 'relative'; // allow positioning of icon
+
+
+            // set background color based on status
+            if ((task.status || '').toLowerCase() === 'closed') {
+              taskDiv.style.backgroundColor = '#E7FAFE';
+              taskDiv.style.color = 'Black';
+            } else {
+              taskDiv.style.backgroundColor = '#FDFBBE';
+            }
+
+          if (diff < 0) taskDiv.classList.add('advance');
+          else if (diff > 0) taskDiv.classList.add('delay');
+          else taskDiv.classList.add('ontime');
+
+          // build advance/delay text
+            let diffText = '';
+            if (diff !== null && diff !== 0) {
+            diffText = `${Math.abs(diff)} day(s) ${diff < 0 ? 'advance' : 'delay'}`;
+            } else if (diff === 0) {
+            diffText = 'On time';
+            }
+
+
+          taskDiv.textContent = task.tasktitle || '(no title)';
+          taskDiv.title = 
+                `Skill: ${task.skill || ''}\n` +
+                `${formatDisplayDateShort(dayKeyToDate(dk))}\n` +
+                `${task.tasktitle || ''}\n` +
+                `Remarks: ${task.remarks || ''}\n` +
+                `Status: ${task.status || ''}\n` +
+                `${diffText}`;
+          taskDiv.dataset.taskId = task._id;
+                  // add icon if remarks exist
+                    if (task.remarks && task.remarks.trim() !== '') {
+                        const icon = document.createElement('span');
+                        icon.textContent = '⚠️';
+                        icon.style.position = 'absolute';
+                        icon.style.bottom = '2px';
+                        icon.style.right = '1px';
+                        icon.style.fontSize = '10px';
+                        taskDiv.appendChild(icon);
+                    }
+
+
+          // draggable
+          taskDiv.draggable = true;
+          taskDiv.addEventListener('dragstart', onTaskDragStart);
+          taskDiv.addEventListener('dragend', onTaskDragEnd);
+
+
+
+          // right click to edit remarks
+taskDiv.addEventListener('contextmenu', (ev) => {
+  ev.preventDefault();
+
+  if (selectedTaskIds.length > 1) {
+    bulkClosingMode = true;
+    remarksEditingTaskId = null; // Not a single task
+    remarksTextarea.value = ""; // Empty by default
+
+    // Position editor near mouse
+    remarksEditor.style.left = (ev.clientX + window.scrollX + 6) + 'px';
+    remarksEditor.style.top = (ev.clientY + window.scrollY + 6) + 'px';
+    remarksEditor.style.display = 'block';
+    remarksTextarea.focus();
+
+  } else {
+    bulkClosingMode = false;
+    openRemarksEditor(ev, task._id);
+  }
+});
+
+            // double-click to edit in modal
+            taskDiv.addEventListener('dblclick', () => {
+            openTaskModal(task);
+            });
+
+          td.appendChild(taskDiv);
+        }
+      });
+    }
+
+      
+
+
+        // convert dayKey integer -> ISO string YYYY-MM-DD
+        function dayKeyToISO(dayKey) {
+          const dt = dayKeyToDate(Number(dayKey));
+          const yyyy = dt.getUTCFullYear();
+          const mm = String(dt.getUTCMonth()+1).padStart(2,'0');
+          const dd = String(dt.getUTCDate()).padStart(2,'0');
+          return `${yyyy}-${mm}-${dd}`;
+        }
+
+        // ---------- Drag & Drop handlers ----------
+function onTaskDragStart(e) {
+  const tid = e.target.dataset.taskId;
+  if (!tid) return;
+
+  const t = window.currentRows.find(r => r._id === tid);
+  if (t && (t.status || '').toLowerCase() === 'closed') { e.preventDefault(); return; }
+
+  // If the dragged task is not in the selection, select only it
+  if (!selectedTaskIds.includes(tid)) {
+    document.querySelectorAll('.task-selected').forEach(el => el.classList.remove('task-selected'));
+    selectedTaskIds = [tid];
+    e.target.classList.add('task-selected');
+  }
+
+  e.dataTransfer.setData('text/plain', tid);
+  e.dataTransfer.effectAllowed = 'move';
+
+  // Custom drag image
+  try {
+    const clone = e.target.cloneNode(true);
+    clone.style.position = 'absolute';
+    clone.style.top = '-100px';
+    clone.style.left = '-100px';
+    clone.style.width = '220px';
+    document.body.appendChild(clone);
+    e.dataTransfer.setDragImage(clone, 10, 10);
+    setTimeout(() => document.body.removeChild(clone), 0);
+  } catch (err) {}
+}
+
+        function onTaskDragEnd(e) {
+          document.querySelectorAll('td.drop-target').forEach(td => td.classList.remove('drop-target'));
+        }
+
+        function attachDropHandlersToTd(td) {
+          if (td._dropAttached) return;
+          td._dropAttached = true;
+          td.addEventListener('dragover', (ev) => { ev.preventDefault(); td.classList.add('drop-target'); });
+          td.addEventListener('dragleave', (ev) => { td.classList.remove('drop-target'); });
+          td.addEventListener('drop', async (ev) => {
+  ev.preventDefault();
+  td.classList.remove('drop-target');
+
+  const tid = ev.dataTransfer.getData('text/plain');
+  if (!tid) return;
+  const dayStr = td.dataset.day;
+  if (!dayStr) return;
+
+  const dayKey = Number(dayStr);
+  const draggedTask = window.currentRows.find(r => r._id === tid);
+  if (!draggedTask) return;
+
+  const revS = parseDateField(draggedTask.rev_sdate ?? draggedTask.sdate);
+  const startKey = toSerialDayKey(revS || parseDateField(draggedTask.sdate));
+  const dayShift = dayKey - startKey;
+
+  // Move all selected tasks
+  for (const id of selectedTaskIds) {
+    const task = window.currentRows.find(r => r._id === id);
+    if (!task) continue;
+
+    const revS = parseDateField(task.rev_sdate ?? task.sdate);
+    const revE = parseDateField(task.rev_edate ?? task.edate);
+    const startKeyTask = toSerialDayKey(revS || parseDateField(task.sdate));
+    const endKeyTask = toSerialDayKey(revE || parseDateField(task.edate));
+    const duration = endKeyTask - startKeyTask;
+
+    const newRevS_ISO = dayKeyToISO(startKeyTask + dayShift);
+    const newRevE_ISO = dayKeyToISO(startKeyTask + dayShift + duration);
+
+    let newSkill = task.skill;
+    const rowTr = td.closest('tr');
+    if (rowTr && rowTr.dataset && rowTr.dataset.skill) newSkill = rowTr.dataset.skill;
+
+    await updateTask(task._id, {
+      rev_sdate: newRevS_ISO,
+      rev_edate: newRevE_ISO,
+      skill: newSkill
+    });
+  }
+});
+
+        }
+
+    // ---------- Inline editor (title) ----------
+    function openInlineEditor(el, task) {
+      // create small input overlay
+      const input = document.createElement('input');
+      input.type = 'text'; input.value = task.tasktitle || '';
+      input.className = 'inline-edit';
+      input.style.minWidth = '160px';
+      el.style.display = 'inline-block';
+      el.innerHTML = '';
+      el.appendChild(input);
+      input.focus();
+      input.select();
+
+      const commit = async () => {
+        const val = input.value.trim();
+        el.textContent = val || '(no title)';
+        await updateTask(task._id, { tasktitle: val });
+      };
+      input.addEventListener('blur', commit);
+      input.addEventListener('keydown', async (e) => {
+        if (e.key === 'Enter') { input.blur(); }
+        if (e.key === 'Escape') { el.textContent = task.tasktitle || '(no title)'; }
+      });
+    }
+
+    // ---------- Remarks editor ----------
+    const remarksEditor = document.getElementById('remarks-editor');
+    const remarksTextarea = document.getElementById('remarks-text');
+    let remarksEditingTaskId = null;
+    
+    function openRemarksEditor(mouseEvent, taskId) {
+      const task = window.currentRows.find(r => r._id === taskId);
+      if (!task) return;
+      remarksEditingTaskId = taskId;
+      remarksTextarea.value = task.remarks || '';
+      // position editor near mouse
+      const x = mouseEvent.clientX + window.scrollX;
+      const y = mouseEvent.clientY + window.scrollY;
+      remarksEditor.style.left = (x + 6) + 'px';
+      remarksEditor.style.top = (y + 6) + 'px';
+      remarksEditor.style.display = 'block';
+      remarksTextarea.focus();
+
+      // show/hide close button
+      const closeBtn = document.getElementById('remarks-close-task');
+      if ((task.status || '').toLowerCase() === 'closed') {
+        closeBtn.style.display = 'none';
+      } else closeBtn.style.display = '';
+    }
+
+    document.getElementById('remarks-save').addEventListener('click', async () => {
+  const remarksText = remarksTextarea.value.trim();
+
+  if (selectedTaskIds.length > 1) {
+    // Multi-select: append to all selected tasks
+    for (const id of selectedTaskIds) {
+      const task = window.currentRows.find(r => r._id === id);
+      if (!task) continue;
+
+      const existingRemarks = task.remarks?.trim() || "";
+      const newRemarks = existingRemarks
+        ? `${existingRemarks}\n${remarksText}`   // append on new line
+        : remarksText;
+
+      await updateTask(id, { remarks: newRemarks });
+    }
+  } else if (remarksEditingTaskId) {
+    // Single task mode (replace)
+    await updateTask(remarksEditingTaskId, { remarks: remarksText });
+  }
+
+  // Close the editor and clear selection
+  remarksEditor.style.display = 'none';
+  remarksEditingTaskId = null;
+  selectedTaskIds = [];
+  document.querySelectorAll('.task-selected').forEach(el => el.classList.remove('task-selected'));
+});
+
+    document.getElementById('remarks-cancel').addEventListener('click', () => {
+      remarksEditor.style.display = 'none'; remarksEditingTaskId = null;
+    });
+document.getElementById('remarks-close-task').addEventListener('click', async () => {
+  const remarksText = remarksTextarea.value.trim();
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  const todayKey = toSerialDayKey(yesterday);
+
+  if (bulkClosingMode) {
+    for (const id of selectedTaskIds) {
+      const task = window.currentRows.find(r => r._id === id);
+      if (!task) continue;
+
+      const revS = parseDateField(task.rev_sdate ?? task.sdate);
+      const revE = parseDateField(task.rev_edate ?? task.edate);
+      const startKey = revS ? toSerialDayKey(revS) : toSerialDayKey(parseDateField(task.sdate));
+      const duration = revE ? (toSerialDayKey(revE) - startKey) : 0;
+
+      await updateTask(task._id, {
+        status: 'Closed',
+        remarks: remarksText,
+        rev_sdate: dayKeyToISO(todayKey),
+        rev_edate: dayKeyToISO(todayKey + duration)
+      });
+    }
+
+    // Clear selection after closing
+    document.querySelectorAll('.task-selected').forEach(el => el.classList.remove('task-selected'));
+    selectedTaskIds = [];
+    bulkClosingMode = false;
+
+  } else if (remarksEditingTaskId) {
+    const task = window.currentRows.find(r => r._id === remarksEditingTaskId);
+    if (!task) return;
+
+    const revS = parseDateField(task.rev_sdate ?? task.sdate);
+    const revE = parseDateField(task.rev_edate ?? task.edate);
+    const startKey = revS ? toSerialDayKey(revS) : toSerialDayKey(parseDateField(task.sdate));
+    const duration = revE ? (toSerialDayKey(revE) - startKey) : 0;
+
+    await updateTask(task._id, {
+      status: 'Closed',
+      remarks: remarksText,
+      rev_sdate: dayKeyToISO(todayKey),
+      rev_edate: dayKeyToISO(todayKey + duration)
+    });
+  }
+
+  // Close editor
+  remarksEditor.style.display = 'none';
+  remarksEditingTaskId = null;
+});
+
+
+
+    ///new***********************
+let selectedTaskIds = [];
+let bulkClosingMode = false;
+
+
+document.addEventListener('click', (e) => {
+  const taskDiv = e.target.closest('.task-block');
+  if (!taskDiv) return;
+
+  const tid = taskDiv.dataset.taskId;
+
+  // Prevent selecting closed tasks
+  const task = window.currentRows.find(r => r._id === tid);
+  if (task && (task.status || '').toLowerCase() === 'closed') {
+    return; // Ignore clicks on closed tasks
+  }
+
+  if (e.ctrlKey) {
+    // Toggle selection
+    if (selectedTaskIds.includes(tid)) {
+      selectedTaskIds = selectedTaskIds.filter(id => id !== tid);
+      taskDiv.classList.remove('task-selected');
+    } else {
+      selectedTaskIds.push(tid);
+      taskDiv.classList.add('task-selected');
+    }
+  } else {
+    // Clear selection and select only this task
+    document.querySelectorAll('.task-selected').forEach(el => el.classList.remove('task-selected'));
+    selectedTaskIds = [tid];
+    taskDiv.classList.add('task-selected');
+  }
+});
+
+
+function clearSelection() {
+  document.querySelectorAll('.task-selected').forEach(el => el.classList.remove('task-selected'));
+  selectedTaskIds = [];
+}
+
+// Clear selection when clicking anywhere that's NOT a task AND NOT the remarks editor
+document.addEventListener('click', (e) => {
+  if (e.target.closest('.task-block') || e.target.closest('#remarks-editor')) return;
+  clearSelection();
+});
+
+
+
+
+    // hide editor when clicking outside
+    document.addEventListener('click', (ev) => {
+      if (!remarksEditor.contains(ev.target)) { remarksEditor.style.display = 'none'; remarksEditingTaskId = null; }
+    });
+
+    // ---------- Modal edit / add ----------
+    const modal = document.getElementById('task-modal');
+    const modalTitle = document.getElementById('modal-title');
+    const f = { taskid: document.getElementById('f-taskid'),
+              skill: document.getElementById('f-skill'),
+              sdate: document.getElementById('f-sdate'),
+              edate: document.getElementById('f-edate'),
+              rev_sdate: document.getElementById('f-rev_sdate'),
+              rev_edate: document.getElementById('f-rev_edate'),
+              tasktitle: document.getElementById('f-tasktitle'),
+              acreg: document.getElementById('f-acreg'),
+              remarks: document.getElementById('f-remarks'),
+              status: document.getElementById('f-status'),
+              workorder: document.getElementById('f-workorder') };
+    let modalEditingId = null;
+   // document.getElementById('add-task-btn').addEventListener('click', () => openTaskModal(null));
+    document.getElementById('cancel-modal').addEventListener('click', closeTaskModal);
+    document.getElementById('delete-task-btn').addEventListener('click', async () => {
+      if (!modalEditingId) { alert('No task selected to delete'); return; }
+      if (!confirm('Delete this task?')) return;
+      await deleteTask(modalEditingId);
+      closeTaskModal();
+    });
+    document.getElementById('save-modal').addEventListener('click', async () => {
+      const payload = {
+        taskid: f.taskid.value || undefined,
+        skill: f.skill.value || undefined,
+        sdate: f.sdate.value || undefined,
+        edate: f.edate.value || undefined,
+        rev_sdate: f.rev_sdate.value || undefined,
+        rev_edate: f.rev_edate.value || undefined,
+        tasktitle: f.tasktitle.value || undefined,
+        acreg: f.acreg.value || undefined,
+        remarks: f.remarks.value || undefined,
+        status: f.status.value || 'open',
+        workorder: f.workorder.value || undefined,
+      };
+      if (modalEditingId) {
+        await updateTask(modalEditingId, payload);
+      } else {
+        // if taskid provided and you want it as doc ID, use it
+        if (payload.taskid) {
+          payload._id = payload.taskid;
+          await createTask(payload);
+        } else {
+          await createTask(payload);
+        }
+      }
+      closeTaskModal();
+    });
+
+    function openTaskModal(task) {
+      modalEditingId = null;
+      modalTitle.textContent = task ? 'Edit Task' : 'Add Task';
+      // reset
+      Object.values(f).forEach(inp => inp.value = '');
+      document.getElementById('delete-task-btn').style.display = task ? '' : 'none';
+      if (task) {
+        modalEditingId = task._id;
+        f.taskid.value = task.taskid || task._id;
+        f.skill.value = task.skill || '';
+        f.sdate.value = task.sdate || task._sdate ? (task.sdate || task._sdate.toISOString().slice(0,10)) : '';
+        f.edate.value = task.edate || task._edate ? (task.edate || task._edate.toISOString().slice(0,10)) : '';
+        f.rev_sdate.value = task.rev_sdate || task._rev_sdate ? (task.rev_sdate || task._rev_sdate.toISOString().slice(0,10)) : '';
+        f.rev_edate.value = task.rev_edate || task._rev_edate ? (task.rev_edate || task._rev_edate.toISOString().slice(0,10)) : '';
+        f.tasktitle.value = task.tasktitle || '';
+        f.acreg.value = task.acreg || '';
+        f.remarks.value = task.remarks || '';
+        f.status.value = task.status || '';
+        f.workorder.value = task.workorder || '';
+      }
+      modal.style.display = 'flex';
+    }
+    function closeTaskModal() { modal.style.display = 'none'; modalEditingId = null; }
+
+    // ---------- Export to Excel ----------
+    document.getElementById('export-button').addEventListener('click', () => {
+  // Use your filtered data array instead of DOM scraping
+  const filteredData = allData.filter(row => {
+    // Same filter condition you use for the table display
+    return row.wo === currentWOFilter;
+  });
+
+  if (!filteredData.length) {
+    alert('No data to export');
+    return;
+  }
+
+  const ws = XLSX.utils.json_to_sheet(filteredData);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Milestone Plan');
+
+  const acres = [...new Set(filteredData.map(r => r.acreg).filter(Boolean))];
+  const workorder = (acres.length === 1) ? acres[0] : 'MultiWO';
+  const now = new Date();
+  const dateStr = now.toISOString().slice(0,10).replace(/-/g,'');
+  const timeStr = now.toTimeString().slice(0,8).replace(/:/g,'');
+  XLSX.writeFile(wb, `${workorder}_MPlan_${dateStr}_${timeStr}.xlsx`);
+});
+
+const tableContainer = document.getElementById('matrix-container');
+
+let isPanning = false;
+let startX, startY, scrollLeft, scrollTop;
+
+tableContainer.addEventListener('mousedown', (e) => {
+  if (e.button !== 0) return; // left click only
+  isPanning = true;
+  tableContainer.style.cursor = 'grabbing';
+  startX = e.pageX - tableContainer.offsetLeft;
+  startY = e.pageY - tableContainer.offsetTop;
+  scrollLeft = tableContainer.scrollLeft;
+  scrollTop = tableContainer.scrollTop;
+});
+
+tableContainer.addEventListener('mousemove', (e) => {
+  // Only pan if left button is still held
+  if (!isPanning || e.buttons !== 1) return;
+
+  e.preventDefault();
+  const x = e.pageX - tableContainer.offsetLeft;
+  const y = e.pageY - tableContainer.offsetTop;
+  const walkX = x - startX;
+  const walkY = y - startY;
+  tableContainer.scrollLeft = scrollLeft - walkX;
+  tableContainer.scrollTop = scrollTop - walkY;
+});
+
+// Stop on mouseup anywhere
+window.addEventListener('mouseup', () => {
+  isPanning = false;
+  tableContainer.style.cursor = 'default';
+});
+
+
+
+  </script>
 </body>
 </html>
