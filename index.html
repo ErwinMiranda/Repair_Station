@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Login</title>
+<style>
+  :root { --bg:#0f172a; --card:#111827; --muted:#9ca3af; --accent:#2563eb; --error:#ef4444; }
+  * { box-sizing: border-box; font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial; }
+  body { margin:0; background:linear-gradient(135deg,#0f172a,#1f2937); min-height:100vh; display:grid; place-items:center; }
+  .card { width:min(420px,96vw); background:rgba(17,24,39,.85); color:#e5e7eb; padding:28px; border-radius:18px; box-shadow:0 10px 30px rgba(0,0,0,.35); }
+  h1 { margin:0 0 12px; font-size:1.35rem; }
+  p.sub { margin:0 0 20px; color:var(--muted); font-size:.95rem; }
+  .field { margin:12px 0 16px; }
+  label { display:block; margin:0 0 6px; color:#cbd5e1; font-size:.9rem; }
+  .input-wrap { position:relative; }
+  input[type="text"], input[type="password"] {
+    width:100%; padding:12px 44px 12px 12px; border:1px solid #374151; border-radius:12px; background:#0b1220; color:#e5e7eb;
+    outline:none; transition:.2s border;
+  }
+  input:focus { border-color:#4b5563; }
+  .toggle {
+    position:absolute; right:8px; top:50%; transform:translateY(-50%);
+    background:#0b1220; border:1px solid #374151; color:#cbd5e1; padding:6px 8px; border-radius:8px; cursor:pointer; font-size:.8rem;
+  }
+  .row { display:flex; align-items:center; justify-content:space-between; margin-top:4px; }
+  .caps, .error, .lock { font-size:.85rem; margin-top:6px; }
+  .caps { color:#f59e0b; display:none; }
+  .error { color:var(--error); display:none; }
+  .lock { color:#f87171; display:none; }
+  button[type="submit"] {
+    width:100%; padding:12px; border:none; border-radius:12px; cursor:pointer; margin-top:6px;
+    background:var(--accent); color:white; font-weight:600; font-size:1rem;
+  }
+  button[disabled] { opacity:.6; cursor:not-allowed; }
+  .hint { margin-top:16px; color:#94a3b8; font-size:.85rem; user-select:text; }
+  .hint code { background:#0b1220; padding:2px 6px; border:1px solid #374151; border-radius:6px; }
+</style>
+</head>
+<body>
+
+  <form class="card" id="loginForm" autocomplete="off" novalidate>
+    <h1>Welcome back</h1>
+    <p class="sub">Sign in with your credentials.</p>
+
+    <div class="field">
+      <label for="username">Username</label>
+      <div class="input-wrap">
+        <input id="username" name="username" type="text" inputmode="latin" spellcheck="false" autocomplete="off" required />
+      </div>
+    </div>
+
+    <div class="field">
+      <label for="password">Password</label>
+      <div class="input-wrap">
+        <input id="password" name="password" type="password" required />
+        <button type="button" class="toggle" id="togglePw" aria-label="Show password">Show</button>
+      </div>
+      <div class="caps" id="capsWarn">Caps Lock is ON</div>
+      <div class="error" id="errorMsg">Invalid username or password.</div>
+      <div class="lock" id="lockMsg"></div>
+    </div>
+
+    <div class="row">
+      <label style="display:flex; gap:8px; align-items:center; color:#cbd5e1; font-size:.9rem;">
+        <input type="checkbox" id="remember" /> Remember me
+      </label>
+      <a href="#" style="color:#93c5fd; text-decoration:none; font-size:.9rem;" onclick="return false;">Need help?</a>
+    </div>
+
+    <button id="submitBtn" type="submit">Sign in</button>
+
+    <!-- Optional: show the static demo creds -->
+    <div class="hint">Demo creds → <code>admin</code> / <code>secret123</code></div>
+  </form>
+
+<script>
+  // ---------- Static credentials (client-side demo only) ----------
+  const STATIC_USER = "AO";
+  const STATIC_PASS = "AO1";
+  const SESSION_KEY = "demo_session"; // used for a simple front-end "session"
+
+  // If already "logged in", redirect to your app page
+  if (localStorage.getItem(SESSION_KEY) === "true") {
+    // change this to your real app page
+    // location.href = "app.html";
+  }
+
+  const form = document.getElementById("loginForm");
+  const username = document.getElementById("username");
+  const password = document.getElementById("password");
+  const togglePw = document.getElementById("togglePw");
+  const errorMsg = document.getElementById("errorMsg");
+  const capsWarn = document.getElementById("capsWarn");
+  const lockMsg = document.getElementById("lockMsg");
+  const submitBtn = document.getElementById("submitBtn");
+  const remember = document.getElementById("remember");
+
+  // Basic lockout after 5 failed attempts for 30 seconds
+  const MAX_ATTEMPTS = 5;
+  const LOCK_SECONDS = 30;
+  let attempts = 0;
+  let lockUntil = 0;
+
+  function updateLockUI() {
+    const now = Date.now();
+    if (now < lockUntil) {
+      const remaining = Math.ceil((lockUntil - now) / 1000);
+      lockMsg.style.display = "block";
+      lockMsg.textContent = `Too many attempts. Try again in ${remaining}s.`;
+      submitBtn.disabled = true;
+    } else {
+      lockMsg.style.display = "none";
+      submitBtn.disabled = false;
+    }
+  }
+
+  // Tick lock UI every second if locked
+  setInterval(updateLockUI, 1000);
+
+  // Toggle password visibility
+  togglePw.addEventListener("click", () => {
+    const isPwd = password.getAttribute("type") === "password";
+    password.setAttribute("type", isPwd ? "text" : "password");
+    togglePw.textContent = isPwd ? "Hide" : "Show";
+    password.focus();
+  });
+
+  // Caps Lock detection for password field
+  function handleCaps(e) {
+    const caps = e.getModifierState && e.getModifierState("CapsLock");
+    capsWarn.style.display = caps ? "block" : "none";
+  }
+  password.addEventListener("keydown", handleCaps);
+  password.addEventListener("keyup", handleCaps);
+
+  // Optional: prevent leading/trailing spaces in username/password
+  function trimOnBlur(el) {
+    el.addEventListener("blur", () => { el.value = el.value.trim(); });
+  }
+  trimOnBlur(username);
+  trimOnBlur(password);
+
+  // Prevent paste into password (optional—remove if you don’t want this)
+  // password.addEventListener("paste", (e) => e.preventDefault());
+
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+    updateLockUI();
+    if (Date.now() < lockUntil) return;
+
+    errorMsg.style.display = "none";
+
+    const u = username.value.trim();
+    const p = password.value;
+
+    const ok = (u === STATIC_USER && p === STATIC_PASS);
+
+    if (ok) {
+      // set a simple "session"
+      if (remember.checked) {
+        localStorage.setItem(SESSION_KEY, "true");
+      } else {
+        // sessionStorage would clear on tab close; pick one
+        sessionStorage.setItem(SESSION_KEY, "true");
+      }
+
+      // redirect to your app
+      // change to your actual page
+      alert("Login successful! (Redirecting to app...)");
+       location.href = "wbmp.html";
+    } else {
+      attempts++;
+      errorMsg.style.display = "block";
+      if (attempts >= MAX_ATTEMPTS) {
+        lockUntil = Date.now() + LOCK_SECONDS * 1000;
+        updateLockUI();
+        attempts = 0; // reset counter after locking
+      }
+    }
+  });
+
+  // Accessibility: submit on Enter from password
+  password.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") form.requestSubmit();
+  });
+</script>
+
+</body>
+</html>
