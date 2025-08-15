@@ -37,6 +37,8 @@
   .hint code { background:#0b1220; padding:2px 6px; border:1px solid #374151; border-radius:6px; }
 </style>
 </head>
+  <script src="auth.js"></script>
+
 <body>
 
   <form class="card" id="loginForm" autocomplete="off" novalidate>
@@ -78,7 +80,7 @@
   // ---------- Static credentials (client-side demo only) ----------
   const STATIC_USER = "AO";
   const STATIC_PASS = "AO1";
-  const SESSION_KEY = "demo_session"; // used for a simple front-end "session"
+  //const SESSION_KEY = "demo_session"; // used for a simple front-end "session"
 
   // If already "logged in", redirect to your app page
   if (localStorage.getItem(SESSION_KEY) === "true") {
