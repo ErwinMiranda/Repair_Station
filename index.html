@@ -396,14 +396,10 @@ const acregs = [...new Set(rows.map(r => r.acreg).filter(Boolean))];
 
 const todayKey = toSerialDayKey(new Date());
 const startKey = toSerialDayKey(minDate);
-let dayOfPlan = todayKey - startKey + 1;
-
-// Allow Day 0, cap at TAT
-dayOfPlan = Math.max(0, Math.min(dayOfPlan, dayKeys.length));
+const dayOfPlan = todayKey - startKey + 1;
 
 document.getElementById('date-range-heading').innerText =
   `${acregs.join(', ') || 'Milestone Plan'} | TAT: ${dayKeys.length} days (${formatDisplayDateShort(minDate)} – ${formatDisplayDateShort(maxDate)}) | Day ${dayOfPlan}`;
-
 
 
   // group by skill
@@ -799,6 +795,8 @@ function onTaskDragStart(e) {
       skill: newSkill
     });
   }
+    // 🔹 Auto reset selection after bulk move
+  clearSelection();
 });
 
         }
