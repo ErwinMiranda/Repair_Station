@@ -201,12 +201,19 @@ z-index: 30;
       <button id="remarks-close-task" class="danger">Close Task</button>
     </div>
   </div>
-
+  
   <!-- SheetJS -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
   <!-- Firebase modules -->
-  <script type="module">
+  <script 
+    const SESSION_KEY = "demo_session"; // must match login page's key
+  if (!localStorage.getItem(SESSION_KEY) && !sessionStorage.getItem(SESSION_KEY)) {
+    location.href = "index.html"; // send them back to login
+  }
+    
+    
+    type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
     import {
       getFirestore, collection, doc, addDoc, setDoc, updateDoc, deleteDoc,
