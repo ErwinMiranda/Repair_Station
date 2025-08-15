@@ -83,7 +83,7 @@
   // If already "logged in", redirect to your app page
   if (localStorage.getItem(SESSION_KEY) === "true") {
     // change this to your real app page
-    // location.href = "app.html";
+     location.href = "wbmp.html";
   }
 
   const form = document.getElementById("loginForm");
@@ -167,7 +167,7 @@
 
       // redirect to your app
       // change to your actual page
-      alert("Login successful! (Redirecting to app...)");
+      //alert("Login successful! (Redirecting to app...)");
        location.href = "wbmp.html";
     } else {
       attempts++;
