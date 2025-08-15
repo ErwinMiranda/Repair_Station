@@ -96,7 +96,9 @@ z-index: 30;
 .task-selected {
   outline: 2px solid blue;
 }
-
+.today-highlight {
+  background: #2b8aff53 ;
+}
 
 
 
@@ -389,10 +391,16 @@ function buildMatrixTable(rows) {
   const dayKeys = [];
   for (let k = toSerialDayKey(minDate); k <= toSerialDayKey(maxDate); k++) dayKeys.push(k);
 
-  // update heading
-  const acregs = [...new Set(rows.map(r => r.acreg).filter(Boolean))];
-  document.getElementById('date-range-heading').innerText =
-    `${acregs.join(', ') || 'Milestone Plan'} | TAT: ${dayKeys.length} days (${formatDisplayDateShort(minDate)} – ${formatDisplayDateShort(maxDate)})`;
+// update heading
+const acregs = [...new Set(rows.map(r => r.acreg).filter(Boolean))];
+
+const todayKey = toSerialDayKey(new Date());
+const startKey = toSerialDayKey(minDate);
+const dayOfPlan = todayKey - startKey + 1;
+
+document.getElementById('date-range-heading').innerText =
+  `${acregs.join(', ') || 'Milestone Plan'} | TAT: ${dayKeys.length} days (${formatDisplayDateShort(minDate)} – ${formatDisplayDateShort(maxDate)}) | Day ${dayOfPlan}`;
+
 
   // group by skill
   const grouped = {};
@@ -570,10 +578,13 @@ function buildMatrixTable(rows) {
         ? toSerialDayKey(task._rev_edate)
         : (task._edate ? toSerialDayKey(task._edate) : revSKey);
       const diff = (revSKey !== null && sKey !== null) ? (revSKey - sKey) : 0;
-
+      const todayKey = toSerialDayKey(new Date());
       dayKeys.forEach((dk, index) => {
         const td = rowTds[index + 1];
         if (!td) return;
+        if (dk === todayKey) {
+          td.classList.add('today-highlight');
+        }
         // mark Sunday
         if (dayKeyToDate(dk).getUTCDay() === 0) td.classList.add('sunday');
         // GLOW LINE: span from sKey to revSKey
@@ -930,7 +941,7 @@ let bulkClosingMode = false;
 document.addEventListener('click', (e) => {
   const taskDiv = e.target.closest('.task-block');
   if (!taskDiv) return;
- if (!(e.ctrlKey || e.metaKey)) return;
+    if (!(e.ctrlKey || e.metaKey)) return;
   const tid = taskDiv.dataset.taskId;
 
   // Prevent selecting closed tasks
