@@ -747,6 +747,7 @@ function onTaskDragStart(e) {
 
         function onTaskDragEnd(e) {
           document.querySelectorAll('td.drop-target').forEach(td => td.classList.remove('drop-target'));
+          tableContainer.style.cursor = 'default'; // 🛠 reset cursor after drag
         }
 
         function attachDropHandlersToTd(td) {
