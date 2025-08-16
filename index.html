@@ -3,173 +3,246 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Login</title>
+<title>BM Planning Login</title>
 <style>
-  :root { --bg:#0f172a; --card:#111827; --muted:#9ca3af; --accent:#2563eb; --error:#ef4444; }
-  * { box-sizing: border-box; font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial; }
-  body { margin:0; background:linear-gradient(135deg,#0f172a,#1f2937); min-height:100vh; display:grid; place-items:center; }
-  .card { width:min(420px,96vw); background:rgba(17,24,39,.85); color:#e5e7eb; padding:28px; border-radius:18px; box-shadow:0 10px 30px rgba(0,0,0,.35); }
-  h1 { margin:0 0 12px; font-size:1.35rem; }
-  p.sub { margin:0 0 20px; color:var(--muted); font-size:.95rem; }
-  .field { margin:12px 0 16px; }
-  label { display:block; margin:0 0 6px; color:#cbd5e1; font-size:.9rem; }
-  .input-wrap { position:relative; }
+  :root {
+    --bg-top: #0f172a;
+    --bg-bottom: #1e3a8a;
+    --card: rgba(255,255,255,0.08);
+    --muted: #9ca3af;
+    --accent: #ffcc00; /* Lufthansa yellow */
+    --error: #ef4444;
+    --radius: 14px;
+  }
+
+  * { box-sizing: border-box; font-family: "Segoe UI", Roboto, system-ui, sans-serif; }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    display: grid;
+    place-items: center;
+    background: linear-gradient(to bottom, var(--bg-top), var(--bg-bottom));
+  }
+
+  .card {
+    width: min(400px, 92vw);
+    background: var(--card);
+    backdrop-filter: blur(16px);
+    color: #f1f5f9;
+    padding: 32px;
+    border-radius: var(--radius);
+    box-shadow: 0 8px 28px rgba(0,0,0,.45);
+    animation: fadeIn .6s ease;
+    text-align: center;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .logo img {
+    max-width: 140px;
+    height: auto;
+    margin-bottom: 14px;
+  }
+
+  h1 {
+    margin: 0;
+    font-size: 1.4rem;
+    font-weight: 600;
+    letter-spacing: .5px;
+  }
+
+  p.sub {
+    margin: 6px 0 24px;
+    color: var(--muted);
+    font-size: .95rem;
+  }
+
+  .field { margin-bottom: 18px; text-align: left; }
+  label { display:block; margin-bottom: 6px; font-size:.88rem; color:#cbd5e1; }
+
+  .input-wrap { position: relative; }
   input[type="text"], input[type="password"] {
-    width:100%; padding:12px 44px 12px 12px; border:1px solid #374151; border-radius:12px; background:#0b1220; color:#e5e7eb;
-    outline:none; transition:.2s border;
+    width: 100%;
+    padding: 12px 44px 12px 14px;
+    border: 1px solid #334155;
+    border-radius: var(--radius);
+    background: rgba(0,0,0,.3);
+    color: #f1f5f9;
+    font-size: .95rem;
+    outline: none;
+    transition: border-color .25s;
   }
-  input:focus { border-color:#4b5563; }
+  input:focus { border-color: var(--accent); }
+
   .toggle {
-    position:absolute; right:8px; top:50%; transform:translateY(-50%);
-    background:#0b1220; border:1px solid #374151; color:#cbd5e1; padding:6px 8px; border-radius:8px; cursor:pointer; font-size:.8rem;
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    border: none;
+    background: transparent;
+    color: #94a3b8;
+    font-size: .85rem;
+    cursor: pointer;
   }
-  .row { display:flex; align-items:center; justify-content:space-between; margin-top:4px; }
-  .caps, .error, .lock { font-size:.85rem; margin-top:6px; }
-  .caps { color:#f59e0b; display:none; }
-  .error { color:var(--error); display:none; }
-  .lock { color:#f87171; display:none; }
+
+  .caps, .error, .lock {
+    font-size: .8rem;
+    margin-top: 6px;
+    display: none;
+  }
+  .caps { color: #facc15; }
+  .error { color: var(--error); }
+  .lock { color: #f87171; }
+
+  .row {
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    font-size:.85rem;
+    margin: 14px 0;
+  }
+  .row label { display:flex; align-items:center; gap:6px; cursor:pointer; color:#cbd5e1; }
+  .row a { color:#93c5fd; text-decoration:none; }
+
   button[type="submit"] {
-    width:100%; padding:12px; border:none; border-radius:12px; cursor:pointer; margin-top:6px;
-    background:var(--accent); color:white; font-weight:600; font-size:1rem;
+    width:100%;
+    padding:12px;
+    border:none;
+    border-radius: var(--radius);
+    background: var(--accent);
+    color:#111;
+    font-weight:600;
+    font-size:1rem;
+    cursor:pointer;
+    transition: background .25s;
   }
+  button[type="submit"]:hover { background:#eab308; }
   button[disabled] { opacity:.6; cursor:not-allowed; }
-  .hint { margin-top:16px; color:#94a3b8; font-size:.85rem; user-select:text; }
-  .hint code { background:#0b1220; padding:2px 6px; border:1px solid #374151; border-radius:6px; }
+
+  .stripe {
+    margin-top: 28px;
+    border-top: 1px dashed rgba(255,255,255,0.25);
+    padding-top: 14px;
+    font-size: .75rem;
+    color: #9ca3af;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
 </style>
 </head>
 <body>
 
-  <form class="card" id="loginForm" autocomplete="off" novalidate>
-    <h1>Welcome to BM Planning</h1>
-    <p class="sub">Sign in with your credentials.</p>
+<form class="card" id="loginForm" autocomplete="off" novalidate>
+  <div class="logo">
+    <img src="ltp-logo.png" alt="Lufthansa Technik Philippines" />
+  </div>
+  <h1>BM Planning Portal</h1>
+  <p class="sub">Milestone Plan Access</p>
 
-    <div class="field">
-      <label for="username">Username</label>
-      <div class="input-wrap">
-        <input id="username" name="username" type="text" inputmode="latin" spellcheck="false" autocomplete="off" required />
-      </div>
+  <div class="field">
+    <label for="username">Username</label>
+    <div class="input-wrap">
+      <input id="username" name="username" type="text" autocomplete="off" required />
     </div>
+  </div>
 
-    <div class="field">
-      <label for="password">Password</label>
-      <div class="input-wrap">
-        <input id="password" name="password" type="password" required />
-        <button type="button" class="toggle" id="togglePw" aria-label="Show password">Show</button>
-      </div>
-      <div class="caps" id="capsWarn">Caps Lock is ON</div>
-      <div class="error" id="errorMsg">Invalid username or password.</div>
-      <div class="lock" id="lockMsg"></div>
+  <div class="field">
+    <label for="password">Password</label>
+    <div class="input-wrap">
+      <input id="password" name="password" type="password" required />
+      <button type="button" class="toggle" id="togglePw">Show</button>
     </div>
+    <div class="caps" id="capsWarn">Caps Lock is ON</div>
+    <div class="error" id="errorMsg">Invalid username or password.</div>
+    <div class="lock" id="lockMsg"></div>
+  </div>
 
-    <div class="row">
-      <label style="display:flex; gap:8px; align-items:center; color:#cbd5e1; font-size:.9rem;">
-        <input type="checkbox" id="remember" /> Remember me
-      </label>
-      <a href="#" style="color:#93c5fd; text-decoration:none; font-size:.9rem;" onclick="return false;">Need help?</a>
-    </div>
+  <div class="row">
+    <label><input type="checkbox" id="remember" /> Remember me</label>
+    <a href="#">Need help?</a>
+  </div>
 
-    <button id="submitBtn" type="submit">Sign in</button>
+  <button id="submitBtn" type="submit">Sign in</button>
 
-    
-  </form>
+  <div class="stripe">Lufthansa Technik Philippines • Base Maintenance</div>
+</form>
 
 <script>
-  // ---------- Static credentials (client-side demo only) ----------
 const USERS = {
-  "BM":   { pass: "AO",   page: "wbmp" },
-  "BMS":{ pass: "Planning", page: "admin" }
+  "BM":   { pass: "AO", page: "wbmp" },
+  "BMS":  { pass: "Planning", page: "admin" }
 };
-  const SESSION_KEY = "demo_session";
+const SESSION_KEY = "demo_session";
 
-  // Redirect if already logged in
+// redirect if session exists
 const savedSession = JSON.parse(localStorage.getItem(SESSION_KEY) || sessionStorage.getItem(SESSION_KEY));
-if (savedSession && savedSession.page) {
-  location.href = savedSession.page;
-}
+if (savedSession?.page) location.href = savedSession.page;
 
-  const form = document.getElementById("loginForm");
-  const username = document.getElementById("username");
-  const password = document.getElementById("password");
-  const togglePw = document.getElementById("togglePw");
-  const errorMsg = document.getElementById("errorMsg");
-  const capsWarn = document.getElementById("capsWarn");
-  const lockMsg = document.getElementById("lockMsg");
-  const submitBtn = document.getElementById("submitBtn");
-  const remember = document.getElementById("remember");
+const form = document.getElementById("loginForm");
+const username = document.getElementById("username");
+const password = document.getElementById("password");
+const togglePw = document.getElementById("togglePw");
+const errorMsg = document.getElementById("errorMsg");
+const capsWarn = document.getElementById("capsWarn");
+const lockMsg = document.getElementById("lockMsg");
+const submitBtn = document.getElementById("submitBtn");
+const remember = document.getElementById("remember");
 
-  const MAX_ATTEMPTS = 5;
-  const LOCK_SECONDS = 30;
-  let attempts = 0;
-  let lockUntil = 0;
+let attempts = 0, lockUntil = 0;
+const MAX_ATTEMPTS = 5, LOCK_SECONDS = 30;
 
-  function updateLockUI() {
-    const now = Date.now();
-    if (now < lockUntil) {
-      const remaining = Math.ceil((lockUntil - now) / 1000);
-      lockMsg.style.display = "block";
-      lockMsg.textContent = `Too many attempts. Try again in ${remaining}s.`;
-      submitBtn.disabled = true;
-    } else {
-      lockMsg.style.display = "none";
-      submitBtn.disabled = false;
-    }
-  }
-  setInterval(updateLockUI, 1000);
-
-  togglePw.addEventListener("click", () => {
-    const isPwd = password.getAttribute("type") === "password";
-    password.setAttribute("type", isPwd ? "text" : "password");
-    togglePw.textContent = isPwd ? "Hide" : "Show";
-    password.focus();
-  });
-
-  function handleCaps(e) {
-    const caps = e.getModifierState && e.getModifierState("CapsLock");
-    capsWarn.style.display = caps ? "block" : "none";
-  }
-  password.addEventListener("keydown", handleCaps);
-  password.addEventListener("keyup", handleCaps);
-
-  function trimOnBlur(el) {
-    el.addEventListener("blur", () => { el.value = el.value.trim(); });
-  }
-  trimOnBlur(username);
-  trimOnBlur(password);
-
-  form.addEventListener("submit", (e) => {
-    e.preventDefault();
-    updateLockUI();
-    if (Date.now() < lockUntil) return;
-
-    errorMsg.style.display = "none";
-    const u = username.value.trim();
-    const p = password.value;
-
-if (USERS[u] && USERS[u].pass === p) {
-  // Save session (include page)
-  const sessionData = JSON.stringify({ username: u, page: USERS[u].page });
-  if (remember.checked) {
-    localStorage.setItem(SESSION_KEY, sessionData);
+function updateLockUI() {
+  const now = Date.now();
+  if (now < lockUntil) {
+    const remaining = Math.ceil((lockUntil - now) / 1000);
+    lockMsg.style.display = "block";
+    lockMsg.textContent = `Too many attempts. Try again in ${remaining}s.`;
+    submitBtn.disabled = true;
   } else {
-    sessionStorage.setItem(SESSION_KEY, sessionData);
+    lockMsg.style.display = "none";
+    submitBtn.disabled = false;
   }
-  // Redirect to correct page
-  location.href = USERS[u].page;
-    } else {
-      attempts++;
-      errorMsg.style.display = "block";
-      if (attempts >= MAX_ATTEMPTS) {
-        lockUntil = Date.now() + LOCK_SECONDS * 1000;
-        updateLockUI();
-        attempts = 0;
-      }
+}
+setInterval(updateLockUI, 1000);
+
+togglePw.addEventListener("click", () => {
+  const isPwd = password.type === "password";
+  password.type = isPwd ? "text" : "password";
+  togglePw.textContent = isPwd ? "Hide" : "Show";
+  password.focus();
+});
+
+password.addEventListener("keydown", e => {
+  capsWarn.style.display = e.getModifierState("CapsLock") ? "block" : "none";
+});
+
+form.addEventListener("submit", e => {
+  e.preventDefault();
+  updateLockUI();
+  if (Date.now() < lockUntil) return;
+
+  errorMsg.style.display = "none";
+  const u = username.value.trim(), p = password.value;
+
+  if (USERS[u]?.pass === p) {
+    const sessionData = JSON.stringify({ username: u, page: USERS[u].page });
+    (remember.checked ? localStorage : sessionStorage).setItem(SESSION_KEY, sessionData);
+    location.href = USERS[u].page;
+  } else {
+    attempts++;
+    errorMsg.style.display = "block";
+    if (attempts >= MAX_ATTEMPTS) {
+      lockUntil = Date.now() + LOCK_SECONDS * 1000;
+      attempts = 0;
+      updateLockUI();
     }
-  });
-
-  password.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") form.requestSubmit();
-  });
+  }
+});
 </script>
-
 </body>
 </html>
