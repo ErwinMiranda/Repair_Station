@@ -2,6 +2,9 @@
 <html lang="en">
 <head>
   <script src="auth.js"></script>
+  <script>
+  requireLogin();
+  </script>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Milestone DB</title>
@@ -25,7 +28,8 @@
   </style>
 </head>
 <body>
-  <h1>Milestone Plan DB</h1>
+  <h1>Milestone Plan DB</h1> 
+   <button onclick="logout()">Logout</button>
   <div class="small">Uploads Excel rows to Firestore (collection: <code>tasks</code>) using <code>taskid</code> as document ID. Live updates via Firestore onSnapshot.</div>
 
   <div class="controls">
