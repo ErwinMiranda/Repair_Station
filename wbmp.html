@@ -639,8 +639,8 @@ const ngayonKey = toSerialDayKey(new Date());
         counts[d] = (counts[d] || 0) + 1;
 
         // mark closed if task is finished and end date <= that day
-        if (task.status === "closed" && revEKey <= d) {
-          closedCounts[d] = (closedCounts[d] || 0) + 1;
+        if (task.status && task.status.toLowerCase() === "closed" && revEKey <= d) {
+  closedCounts[d] = (closedCounts[d] || 0) + 1;
         }
       }
     }
