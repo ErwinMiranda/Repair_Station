@@ -12,8 +12,22 @@
   <style>
     /* --- trimmed / same style as you provided with minor adjustments --- */
     body { font-family: Arial, sans-serif; padding: 18px; margin:0; background:#fafafa; }
-    .plan-heading { position: sticky; top:0; z-index:100; font-size:18px; font-weight:700;
-      background:#ecf0f1; padding:10px; border-left:6px solid #3498db; margin-bottom:14px;}
+.plan-header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #fff; /* or your page bg color */
+  padding: 8px 12px;
+}
+
+.plan-heading {
+  font-size: 18px;
+  font-weight: 700;
+}
+
     #controls { display:flex; gap:8px; align-items:center; margin-bottom:10px; }
     .importexcel { display:none; } /* import removed per request */
     #matrix-container { overflow:auto; border:1px solid #ddd; background:#fff; border-radius:6px }
@@ -110,8 +124,10 @@ z-index: 30;
   </style>
 </head>
 <body>
+<div class="plan-header">
   <div class="plan-heading" id="date-range-heading">Loading…</div>
-   <button onclick="logout()">Logout</button>
+  <button onclick="logout()">Logout</button>
+</div>
 
   <div id="controls">
     <!-- <button id="add-task-btn" class="primary">＋ Add Task</button> -->
