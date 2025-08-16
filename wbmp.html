@@ -131,7 +131,7 @@ z-index: 30;
 
   <div id="controls">
     <!-- <button id="add-task-btn" class="primary">＋ Add Task</button> -->
-    <button id="export-button">📤 Export to Excel</button>
+    
     <!--<button id="clear-local" class="muted" title="(Does not touch Firestore) Clear local UI cache">Clear UI</button>-->
     <div style="flex:1"></div>
     <div id="status-indicator" style="font-size:13px;color:#666">Firestore: connecting…</div>
@@ -142,12 +142,7 @@ z-index: 30;
   <input type="text" id="wo-filter" placeholder="Enter Work Order" style="width:160px;">
   <button id="wo-search">Search</button>
 </div>
-
-
-
-
   <div id="matrix-container"></div>
-
   <!-- Modal for create/edit -->
   <div id="task-modal" class="modal" role="dialog">
     <div class="card">
@@ -1101,30 +1096,7 @@ document.addEventListener('click', (e) => {
     }
     function closeTaskModal() { modal.style.display = 'none'; modalEditingId = null; }
 
-    // ---------- Export to Excel ----------
-    document.getElementById('export-button').addEventListener('click', () => {
-  // Use your filtered data array instead of DOM scraping
-  const filteredData = allData.filter(row => {
-    // Same filter condition you use for the table display
-    return row.wo === currentWOFilter;
-  });
 
-  if (!filteredData.length) {
-    alert('No data to export');
-    return;
-  }
-
-  const ws = XLSX.utils.json_to_sheet(filteredData);
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, 'Milestone Plan');
-
-  const acres = [...new Set(filteredData.map(r => r.acreg).filter(Boolean))];
-  const workorder = (acres.length === 1) ? acres[0] : 'MultiWO';
-  const now = new Date();
-  const dateStr = now.toISOString().slice(0,10).replace(/-/g,'');
-  const timeStr = now.toTimeString().slice(0,8).replace(/:/g,'');
-  XLSX.writeFile(wb, `${workorder}_MPlan_${dateStr}_${timeStr}.xlsx`);
-});
 
 const tableContainer = document.getElementById('matrix-container');
 
