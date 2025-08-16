@@ -10,6 +10,15 @@
   <title>Web Based MilestonePlan</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <style>
+      :root {
+    --bg-top: #0f172a;
+    --bg-bottom: #1e3a8a;
+    --card: rgba(255,255,255,0.08);
+    --muted: #9ca3af;
+    --accent: #ffcc00; /* Lufthansa yellow */
+    --error: #ef4444;
+    --radius: 14px;
+  }
     /* --- trimmed / same style as you provided with minor adjustments --- */
 body { font-family: Arial, sans-serif; padding: 18px; margin:0; background:#fafafa; }
 .plan-header {
@@ -19,13 +28,15 @@ body { font-family: Arial, sans-serif; padding: 18px; margin:0; background:#fafa
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: #fff; /* or your page bg color */
+  background: linear-gradient(to bottom, var(--bg-top), var(--bg-bottom));
   padding: 8px 12px;
+  border-radius: var(--radius);
 }
 
 .plan-heading {
   font-size: 18px;
   font-weight: 700;
+  color: #d0d0d0;
 }
 
     #controls { display:flex; gap:8px; align-items:center; margin-bottom:10px; }
@@ -118,7 +129,21 @@ z-index: 30;
 .today-highlight {
   background: #2b8aff53 ;
 }
+    .logout-btn {
+     background: linear-gradient(to bottom, var(--bg-top), var(--bg-bottom));   /* blue background */
+      color: rgb(244, 236, 236);          /* white text */
+      padding: 8px 16px;     /* spacing */
+      border:#f4f4f4;          /* no border */
+      border-radius: 8px;    /* rounded corners */
+      cursor: pointer;       /* pointer on hover */
+      font-size: 14px;
 
+    }
+
+    .logout-btn:hover {
+     
+     background: var(--accent); 
+    }
 
 
   </style>
@@ -126,7 +151,7 @@ z-index: 30;
 <body>
 <div class="plan-header">
   <div class="plan-heading" id="date-range-heading">Loading…</div>
-  <button onclick="logout()">Logout</button>
+  <button onclick="logout()" class="logout-btn">Logout</button>
 </div>
 
   <div id="controls">
@@ -134,11 +159,14 @@ z-index: 30;
     
     <!--<button id="clear-local" class="muted" title="(Does not touch Firestore) Clear local UI cache">Clear UI</button>-->
     <div style="flex:1"></div>
-    <div id="status-indicator" style="font-size:13px;color:#666">Firestore: connecting…</div>
+   <div id="status-indicator" style="font-size:13px;color:#363434;padding-top:10px;">
+  Firestore: connecting…
+</div>
+
   </div>
 
 <div style="margin-bottom:10px;">
-  <label for="wo-filter">Filter by WO:</label>
+  <label for="wo-filter">Select WO:</label>
   <input type="text" id="wo-filter" placeholder="Enter Work Order" style="width:160px;">
   <button id="wo-search">Search</button>
 </div>
