@@ -213,9 +213,17 @@ z-index: 30;
 
   <!-- Firebase modules -->
   <script 
-    const SESSION_KEY = "demo_session"; // must match login page's key
-  if (!localStorage.getItem(SESSION_KEY) && !sessionStorage.getItem(SESSION_KEY)) {
-    location.href = "index.html"; // send them back to login
+  const SESSION_KEY = "demo_session";
+  const savedSession = JSON.parse(localStorage.getItem(SESSION_KEY) || sessionStorage.getItem(SESSION_KEY));
+
+  if (!savedSession) {
+    location.href = "index.html"; // not logged in
+  } else {
+    // Role-based access check
+    const page = location.pathname.split("/").pop(); // current file name
+    if (savedSession.page !== page) {
+      location.href = "index.html"; // redirect if wrong user for this page
+    }
   }
     
     
