@@ -82,10 +82,10 @@ const USERS = {
   const SESSION_KEY = "demo_session";
 
   // Redirect if already logged in
-  const savedSession = JSON.parse(localStorage.getItem(SESSION_KEY) || sessionStorage.getItem(SESSION_KEY));
-  if (savedSession && USERS[savedSession.username]) {
-    location.href = USERS[savedSession.username].page;
-  }
+const savedSession = JSON.parse(localStorage.getItem(SESSION_KEY) || sessionStorage.getItem(SESSION_KEY));
+if (savedSession && savedSession.page) {
+  location.href = savedSession.page;
+}
 
   const form = document.getElementById("loginForm");
   const username = document.getElementById("username");
@@ -145,16 +145,16 @@ const USERS = {
     const u = username.value.trim();
     const p = password.value;
 
-   if (USERS[u] && USERS[u].pass === p) {
-      // Save session
-      const sessionData = JSON.stringify({ username: u });
-      if (remember.checked) {
-        localStorage.setItem(SESSION_KEY, sessionData);
-      } else {
-        sessionStorage.setItem(SESSION_KEY, sessionData);
-      }
-      // Redirect to correct page
-      location.href = USERS[u].page;
+if (USERS[u] && USERS[u].pass === p) {
+  // Save session (include page)
+  const sessionData = JSON.stringify({ username: u, page: USERS[u].page });
+  if (remember.checked) {
+    localStorage.setItem(SESSION_KEY, sessionData);
+  } else {
+    sessionStorage.setItem(SESSION_KEY, sessionData);
+  }
+  // Redirect to correct page
+  location.href = USERS[u].page;
     } else {
       attempts++;
       errorMsg.style.display = "block";
