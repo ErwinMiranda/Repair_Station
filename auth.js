@@ -1,33 +1,23 @@
-// Same session key for the whole site
+// auth.js
 const SESSION_KEY = "demo_session";
 
-/**
- * Checks if user is logged in.
- * If not, redirect to login page.
- */
 function requireLogin() {
-  const sessionData = localStorage.getItem(SESSION_KEY) || sessionStorage.getItem(SESSION_KEY);
+  const sessionData =
+    JSON.parse(localStorage.getItem(SESSION_KEY) || sessionStorage.getItem(SESSION_KEY));
 
-  if (!sessionData) {
-    location.href = "index.html"; // login page filename
+  if (!sessionData || !sessionData.username || !sessionData.page) {
+    // Not logged in → back to login page
+    location.href = "index.html";
     return;
   }
 
-  try {
-    const session = JSON.parse(sessionData);
-    if (!session.username) {
-      // invalid or tampered session
-      logout();
-    }
-    // ✅ session.username available if you need role-based logic
-  } catch {
-    logout(); // corrupted session data
+  // Extra: only allow correct user for this page
+  const currentPage = location.pathname.split("/").pop();
+  if (sessionData.page !== currentPage) {
+    location.href = "index.html";
   }
 }
 
-/**
- * Logs out the user and redirects to login page.
- */
 function logout() {
   localStorage.removeItem(SESSION_KEY);
   sessionStorage.removeItem(SESSION_KEY);
