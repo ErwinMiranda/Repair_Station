@@ -32,12 +32,12 @@
   <h1>Milestone Plan DB</h1>
   <button onclick="logout()">Logout</button>
 </div>
+
   <div class="small">Uploads Excel rows to Firestore (collection: <code>tasks</code>) using <code>taskid</code> as document ID. Live updates via Firestore onSnapshot.</div>
 
   <div class="controls">
     <input id="file" type="file" accept=".xlsx,.xls,.csv" />
     <button id="uploadBtn" class="primary">Parse & Upload to Firestore</button>
-    <button id="clearRemoteBtn" class="danger">Clear Remote (delete all)</button>
     <label style="margin-left:8px"><input id="useRemote" type="checkbox" checked /> Use Firestore (remote)</label>
     <span class="status" id="status">Ready</span>
   </div>
@@ -55,11 +55,7 @@
         </tbody>
       </table>
     </div>
-   <div style="flex:1 1 35%;">
-      <h3 style="margin:0 0 6px 0">Preview (local cache)</h3>
-      <pre id="jsonPreview">No local data</pre>
-   
-  </div>
+
 
   <!-- SheetJS for parsing -->
   <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
@@ -111,11 +107,10 @@
     const fileInput = document.getElementById('file');
     const uploadBtn = document.getElementById('uploadBtn');
     const statusSpan = document.getElementById('status');
-    const preview = document.getElementById('jsonPreview');
     const tasksBody = document.getElementById('tasksBody');
     const headerRow = document.getElementById('headerRow');
     const useRemote = document.getElementById('useRemote');
-    const clearRemoteBtn = document.getElementById('clearRemoteBtn');
+   
 
     const LOCAL_KEY = 'excel_tasks_local_v1';
     const TASKS_COLLECTION = 'tasks';
@@ -223,15 +218,7 @@
     }
 
     // Save to localStorage
-    function saveLocal(data){
-      try {
-        localStorage.setItem(LOCAL_KEY, JSON.stringify({ savedAt: Date.now(), rows: data }));
-        setStatus('Saved local snapshot');
-      } catch(e){
-        console.warn('local save failed', e);
-        setStatus('Local save failed', true);
-      }
-    }
+
 
     // Load local
     function loadLocal(){
@@ -433,7 +420,7 @@ function renderTable(rows) {
         // Map rows to canonical structure
         const mapped = rows.map(r => mapRow(r));
         // Show preview and save local
-        preview.textContent = JSON.stringify(mapped, null, 2);
+       
         saveLocal(mapped);
         if(useRemote.checked){
           setStatus('Uploading to Firestore...');
@@ -447,23 +434,11 @@ function renderTable(rows) {
       }
     });
 
-    clearRemoteBtn.addEventListener('click', async () => {
-      if(!useRemote.checked) return setStatus('Remote disabled', true);
-      if(!confirm('This will DELETE ALL documents in the remote "tasks" collection. Are you sure?')) return;
-      try {
-        setStatus('Deleting remote documents...');
-        await clearRemoteCollection();
-      } catch(err) {
-        console.error(err);
-        setStatus('Error clearing remote collection: ' + (err.message||err), true);
-      }
-    });
-
     // On load: populate preview from local and attach realtime listener
     (function init(){
       const local = loadLocal();
       if(local){
-        preview.textContent = JSON.stringify(local, null, 2);
+        
         // Render local preview in table while waiting for realtime data
         try {
           const previewRows = local.map(r => ({
