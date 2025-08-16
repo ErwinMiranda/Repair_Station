@@ -28,15 +28,15 @@
   </style>
 </head>
 <body>
-  <h1>Milestone Plan DB</h1> 
-   <button onclick="logout()">Logout</button>
+<div style="display:flex; justify-content:space-between; align-items:center;">
+  <h1>Milestone Plan DB</h1>
+  <button onclick="logout()">Logout</button>
+</div>
   <div class="small">Uploads Excel rows to Firestore (collection: <code>tasks</code>) using <code>taskid</code> as document ID. Live updates via Firestore onSnapshot.</div>
 
   <div class="controls">
     <input id="file" type="file" accept=".xlsx,.xls,.csv" />
     <button id="uploadBtn" class="primary">Parse & Upload to Firestore</button>
-    <button id="saveLocalBtn">Save Locally Only</button>
-    <button id="exportBtn">Export Local JSON</button>
     <button id="clearRemoteBtn" class="danger">Clear Remote (delete all)</button>
     <label style="margin-left:8px"><input id="useRemote" type="checkbox" checked /> Use Firestore (remote)</label>
     <span class="status" id="status">Ready</span>
@@ -110,13 +110,11 @@
     // DOM refs
     const fileInput = document.getElementById('file');
     const uploadBtn = document.getElementById('uploadBtn');
-    const saveLocalBtn = document.getElementById('saveLocalBtn');
     const statusSpan = document.getElementById('status');
     const preview = document.getElementById('jsonPreview');
     const tasksBody = document.getElementById('tasksBody');
     const headerRow = document.getElementById('headerRow');
     const useRemote = document.getElementById('useRemote');
-    const exportBtn = document.getElementById('exportBtn');
     const clearRemoteBtn = document.getElementById('clearRemoteBtn');
 
     const LOCAL_KEY = 'excel_tasks_local_v1';
@@ -447,34 +445,6 @@ function renderTable(rows) {
         console.error(err);
         setStatus('Error: ' + (err.message || err), true);
       }
-    });
-
-    saveLocalBtn.addEventListener('click', async () => {
-      const file = fileInput.files?.[0];
-      if(!file) return setStatus('Select a file first', true);
-      setStatus('Parsing file for local save...');
-      try {
-        const rows = await parseFileToRows(file);
-        const mapped = rows.map(r => mapRow(r));
-        preview.textContent = JSON.stringify(mapped, null, 2);
-        saveLocal(mapped);
-      } catch (err) {
-        console.error(err);
-        setStatus('Error: ' + (err.message || err), true);
-      }
-    });
-
-    exportBtn.addEventListener('click', () => {
-      const local = loadLocal();
-      if(!local) return setStatus('No local data to export', true);
-      const blob = new Blob([JSON.stringify(local, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'tasks_export.json';
-      a.click();
-      URL.revokeObjectURL(url);
-      setStatus('Export started');
     });
 
     clearRemoteBtn.addEventListener('click', async () => {
