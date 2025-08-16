@@ -24,9 +24,10 @@
   </style>
 </head>
 <body>
-  <h1>Real-time Excel → Firestore (Tasks)</h1>
+  <h1>Milestone Planning Database (Tasks)</h1>
+  
   <div class="small">Uploads Excel rows to Firestore (collection: <code>tasks</code>) using <code>taskid</code> as document ID. Live updates via Firestore onSnapshot.</div>
-
+  <button onclick="logout()">Logout</button>
   <div class="controls">
     <input id="file" type="file" accept=".xlsx,.xls,.csv" />
     <button id="uploadBtn" class="primary">Parse & Upload to Firestore</button>
