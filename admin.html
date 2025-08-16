@@ -60,12 +60,13 @@
   <!-- SheetJS for parsing -->
   <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
 
-  <script type="module">
-
+  <script 
         const SESSION_KEY = "demo_session"; // must match login page's key
   if (!localStorage.getItem(SESSION_KEY) && !sessionStorage.getItem(SESSION_KEY)) {
     location.href = "index.html"; // send them back to login
   }
+    
+    type="module">
     // ----- Firebase modular imports -----
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
     import {
