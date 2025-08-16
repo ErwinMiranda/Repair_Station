@@ -141,7 +141,7 @@ z-index: 30;
     }
 
     .logout-btn:hover {
-     color:Black;
+     
      background: var(--accent); 
     }
 
@@ -166,10 +166,7 @@ z-index: 30;
   </div>
 
 <div style="margin-bottom:10px;">
-  <label for="wo-filter" style="display:inline-block; padding-bottom:10px;">
-  Select WO:
-</label>
-
+  <label for="wo-filter">Select WO:</label>
   <input type="text" id="wo-filter" placeholder="Enter Work Order" style="width:160px;">
   <button id="wo-search">Search</button>
 </div>
@@ -484,37 +481,52 @@ document.getElementById('date-range-heading').innerText =
   const table = document.createElement('table');
 
   // header rows
-  const headerRow1 = document.createElement('tr');
-  headerRow1.innerHTML = `<th rowspan="3" style="min-width:120px; position:sticky; left:0; z-index:24; background:white;">Skill</th>`;
-  dayKeys.forEach(k => {
-    const dateObj = dayKeyToDate(k);
-    const th = document.createElement('th');
-    th.dataset.day = k;
-    if (dateObj.getUTCDay() === 0) th.classList.add('sunday');
-    th.textContent = formatDisplayDateShort(dateObj);
-    headerRow1.appendChild(th);
-  });
-  table.appendChild(headerRow1);
+ // header rows
+const headerRow1 = document.createElement('tr');
+headerRow1.innerHTML = `<th rowspan="3" 
+  style="min-width:120px; position:sticky; left:0; z-index:24; background:white;">Skill</th>`;
+dayKeys.forEach(k => {
+  const dateObj = dayKeyToDate(k);
+  const th = document.createElement('th');
+  th.dataset.day = k;
+  if (dateObj.getUTCDay() === 0) th.classList.add('sunday');
+  th.textContent = formatDisplayDateShort(dateObj);
+  th.style.position = "sticky";
+  th.style.top = "0";
+  th.style.background = "white";
+  th.style.zIndex = "10";
+  headerRow1.appendChild(th);
+});
+table.appendChild(headerRow1);
 
-  const headerRow2 = document.createElement('tr');
-  dayKeys.forEach(k => {
-    const dateObj = dayKeyToDate(k);
-    const th = document.createElement('th');
-    th.textContent = weekdayShort(dateObj);
-    if (dateObj.getUTCDay() === 0) th.classList.add('sunday');
-    headerRow2.appendChild(th);
-  });
-  table.appendChild(headerRow2);
+const headerRow2 = document.createElement('tr');
+dayKeys.forEach(k => {
+  const dateObj = dayKeyToDate(k);
+  const th = document.createElement('th');
+  th.textContent = weekdayShort(dateObj);
+  if (dateObj.getUTCDay() === 0) th.classList.add('sunday');
+  th.style.position = "sticky";
+  th.style.top = "25px";   // adjust based on header height
+  th.style.background = "white";
+  th.style.zIndex = "9";
+  headerRow2.appendChild(th);
+});
+table.appendChild(headerRow2);
 
-  const headerRow3 = document.createElement('tr');
-  dayKeys.forEach((k, idx) => {
-    const dateObj = dayKeyToDate(k);
-    const th = document.createElement('th');
-    th.textContent = `Day ${idx + 1}`;
-    if (dateObj.getUTCDay() === 0) th.classList.add('sunday');
-    headerRow3.appendChild(th);
-  });
-  table.appendChild(headerRow3);
+const headerRow3 = document.createElement('tr');
+dayKeys.forEach((k, idx) => {
+  const dateObj = dayKeyToDate(k);
+  const th = document.createElement('th');
+  th.textContent = `Day ${idx + 1}`;
+  if (dateObj.getUTCDay() === 0) th.classList.add('sunday');
+  th.style.position = "sticky";
+  th.style.top = "50px";   // adjust based on stacked header height
+  th.style.background = "white";
+  th.style.zIndex = "8";
+  headerRow3.appendChild(th);
+});
+table.appendChild(headerRow3);
+
 
   // iterate skill groups
   sortedGrouped.forEach(([skill, tasks], skillIndex) => {
@@ -524,6 +536,7 @@ document.getElementById('date-range-heading').innerText =
     const skillTr = document.createElement('tr');
     skillTr.classList.add('skill-row');
     const skillTd = document.createElement('td');
+    skillTd.style.position="sticky";
     skillTd.colSpan = dayKeys.length + 1;
     skillTd.style.background = '#ecf0f1';
     skillTd.style.padding = '2px 6px';
@@ -609,6 +622,71 @@ document.getElementById('date-range-heading').innerText =
       table.appendChild(tr);
     });
   });
+
+
+const ngayonKey = toSerialDayKey(new Date());
+
+  // ✅ compute totals per dayKey
+  const counts = {};
+  const closedCounts = {};
+
+  normalized.forEach(task => {
+    const revSKey = task._rev_sdate ? toSerialDayKey(task._rev_sdate) : (task._sdate ? toSerialDayKey(task._sdate) : null);
+    const revEKey = task._rev_edate ? toSerialDayKey(task._rev_edate) : (task._edate ? toSerialDayKey(task._edate) : revSKey);
+
+    if (revSKey !== null && revEKey !== null) {
+      for (let d = revSKey; d <= revEKey; d++) {
+        counts[d] = (counts[d] || 0) + 1;
+
+        // mark closed if task is finished and end date <= that day
+        if (task.status === "closed" && revEKey <= d) {
+          closedCounts[d] = (closedCounts[d] || 0) + 1;
+        }
+      }
+    }
+  });
+
+  // ✅ build cumulative row
+  const cumulativeTr = document.createElement('tr');
+  cumulativeTr.style.background = "#E9EAF2"; 
+  cumulativeTr.style.textAlign = "center";
+  cumulativeTr.style.fontSize = "14px";
+  cumulativeTr.style.height = "30px";   // thick black line
+
+  const labelCumTd = document.createElement('td');
+  labelCumTd.textContent = "Closed / Total";
+  cumulativeTr.appendChild(labelCumTd);
+
+  // fill cumulative per day
+  let runningTotal = 0;
+  let runningClosed = 0;
+
+  dayKeys.forEach(dk => {
+    runningTotal += counts[dk] || 0;
+    runningClosed += closedCounts[dk] || 0;
+
+    const td = document.createElement('td');
+    td.style.textAlign = "center";
+
+   
+      td.textContent = `${runningClosed} / ${runningTotal}`;
+   
+
+    cumulativeTr.appendChild(td);
+   
+    
+  });
+
+  // ✅ insert below header row
+  table.insertBefore(cumulativeTr, table.rows[3]);
+ //table.insertBefore(totalsTr, table.rows[3]);
+  // (optional) then insert "Total Tasks per Day" row right after it
+//table.insertBefore(totalsTr, table.rows[4]);
+
+
+  
+
+
 
   // set dataset.day and drop handlers
   const trs = table.querySelectorAll('tr');
