@@ -844,9 +844,16 @@ taskDiv.addEventListener('contextmenu', (ev) => {
 });
 
             // double-click to edit in modal
-            taskDiv.addEventListener('dblclick', () => {
-            openTaskModal(task);
-            });
+// assume you stored the logged in user as window.currentUser or sessionStorage/localStorage
+const currentUser = localStorage.getItem("username") || sessionStorage.getItem("username");
+
+// double-click to edit in modal (only for Admin)
+if (currentUser === "Admin") {
+  taskDiv.addEventListener('dblclick', () => {
+    openTaskModal(task);
+  });
+}
+
 
           td.appendChild(taskDiv);
         }
