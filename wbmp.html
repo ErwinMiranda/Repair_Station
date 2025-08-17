@@ -844,18 +844,11 @@ taskDiv.addEventListener('contextmenu', (ev) => {
 });
 
             // double-click to edit in modal
-// double-click to edit in modal (only Admin)
-if (loggedInUser === "Admin") {
-  taskDiv.addEventListener("dblclick", () => {
-    openTaskModal(task);
-  });
-} else {
-  // optional: feedback for non-admins
-  taskDiv.addEventListener("dblclick", (e) => {
-    e.preventDefault();
-    alert("Only Admin can edit tasks.");
-  });
-}
+// double-click to edit in modal
+taskDiv.addEventListener('dblclick', () => {
+  openTaskModal(task);
+});
+
 
 
 
