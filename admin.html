@@ -9,12 +9,19 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Milestone DB</title>
   <style>
+          :root {
+    --bg-top: #0f172a;
+    --bg-bottom: #1e3a8a;
+    --card: rgba(255,255,255,0.08);
+    --muted: #9ca3af;
+    --accent: #ffcc00; /* Lufthansa yellow */
+    --error: #ef4444;
+    --radius: 14px;
+  }
     :root { font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; }
     body { max-width:1100px; margin:18px auto; padding:18px; }
     h1 { margin:0 0 8px 0; font-size:20px; }
     .controls { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin:12px 0; }
-    button { padding:8px 12px; border-radius:6px; border:1px solid #bbb; background:#f5f5f5; cursor:pointer; }
-    button.primary { background:#0b74de; color:white; border-color:#0a66c2; }
     button.danger { background:#ffe6e6; border-color:#ff8b8b; }
     input[type=file] { padding:6px; }
     .status { margin-left:6px; color:#333; font-size:13px; }
@@ -25,20 +32,46 @@
     #tasksTable tbody tr:nth-child(even) { background:#fbfbfb; }
     pre { max-height:300px; overflow:auto; background:#f7f7f7; padding:10px; border-radius:6px; }
     .small { font-size:13px; color:#666; }
+  
+    .logout-btn {
+     background: linear-gradient(to bottom, var(--bg-top), var(--bg-bottom));   /* blue background */
+      color: rgb(244, 236, 236);          /* white text */
+      padding: 8px 16px;     /* spacing */
+      border:#f4f4f4;          /* no border */
+      border-radius: 8px;    /* rounded corners */
+      cursor: pointer;       /* pointer on hover */
+      font-size: 14px;
+
+    }
+       button.primary {
+     background: linear-gradient(to bottom, var(--bg-top), var(--bg-bottom));   /* blue background */
+      color: rgb(244, 236, 236);          /* white text */
+      padding: 8px 16px;     /* spacing */
+      border:#f4f4f4;          /* no border */
+      border-radius: 8px;    /* rounded corners */
+      cursor: pointer;       /* pointer on hover */
+      font-size: 14px;
+
+    }
+    .logout-btn:hover {
+     
+     background: var(--accent); 
+    }
+
   </style>
 </head>
 <body>
 <div style="display:flex; justify-content:space-between; align-items:center;">
   <h1>Milestone Plan DB</h1>
-  <button onclick="logout()">Logout</button>
+  <button onclick="logout()" class="logout-btn">Logout</button>
 </div>
 
-  <div class="small">Uploads Excel rows to Firestore (collection: <code>tasks</code>) using <code>taskid</code> as document ID. Live updates via Firestore onSnapshot.</div>
+  <div class="small">Uploads Excel rows to Milestone DB (collection: <code>tasks</code>) using <code>taskid</code> as document ID. Live updates via webmilestoneplan.netlify.com</div>
 
   <div class="controls">
     <input id="file" type="file" accept=".xlsx,.xls,.csv" />
-    <button id="uploadBtn" class="primary">Parse & Upload to Firestore</button>
-    <label style="margin-left:8px"><input id="useRemote" type="checkbox" checked /> Use Firestore (remote)</label>
+    <button id="uploadBtn" class="primary">Parse & Upload to Milestone DB</button>
+    <label style="margin-left:8px"><input id="useRemote" type="checkbox" checked /> Use Milestone DB (remote)</label>
     <span class="status" id="status">Ready</span>
   </div>
 
