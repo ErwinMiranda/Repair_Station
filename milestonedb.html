@@ -7,21 +7,14 @@
   </script>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Milestone DB</title>
+  <title>Real-time Excel → Firestore (Tasks)</title>
   <style>
-          :root {
-    --bg-top: #0f172a;
-    --bg-bottom: #1e3a8a;
-    --card: rgba(255,255,255,0.08);
-    --muted: #9ca3af;
-    --accent: #ffcc00; /* Lufthansa yellow */
-    --error: #ef4444;
-    --radius: 14px;
-  }
     :root { font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; }
     body { max-width:1100px; margin:18px auto; padding:18px; }
     h1 { margin:0 0 8px 0; font-size:20px; }
     .controls { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin:12px 0; }
+    button { padding:8px 12px; border-radius:6px; border:1px solid #bbb; background:#f5f5f5; cursor:pointer; }
+    button.primary { background:#0b74de; color:white; border-color:#0a66c2; }
     button.danger { background:#ffe6e6; border-color:#ff8b8b; }
     input[type=file] { padding:6px; }
     .status { margin-left:6px; color:#333; font-size:13px; }
@@ -30,65 +23,33 @@
     #tasksTable th, #tasksTable td { padding:6px 8px; border:1px solid #eee; text-align:left; font-size:13px; }
     #tasksTable tbody tr:nth-child(odd) { background:#fff; }
     #tasksTable tbody tr:nth-child(even) { background:#fbfbfb; }
-    pre { max-height:300px; overflow:auto; background:#f7f7f7; padding:10px; border-radius:6px; }
     .small { font-size:13px; color:#666; }
-  
-    .logout-btn {
-     background: linear-gradient(to bottom, var(--bg-top), var(--bg-bottom));   /* blue background */
-      color: rgb(244, 236, 236);          /* white text */
-      padding: 8px 16px;     /* spacing */
-      border:#f4f4f4;          /* no border */
-      border-radius: 8px;    /* rounded corners */
-      cursor: pointer;       /* pointer on hover */
-      font-size: 14px;
-
-    }
-       button.primary {
-     background: linear-gradient(to bottom, var(--bg-top), var(--bg-bottom));   /* blue background */
-      color: rgb(244, 236, 236);          /* white text */
-      padding: 8px 16px;     /* spacing */
-      border:#f4f4f4;          /* no border */
-      border-radius: 8px;    /* rounded corners */
-      cursor: pointer;       /* pointer on hover */
-      font-size: 14px;
-
-    }
-    .logout-btn:hover {
-     
-     background: var(--accent); 
-    }
-
   </style>
 </head>
 <body>
-<div style="display:flex; justify-content:space-between; align-items:center;">
-  <h1>Milestone Plan DB</h1>
-  <button onclick="logout()" class="logout-btn">Logout</button>
-</div>
-
-  <div class="small">Uploads Excel rows to Milestone DB (collection: <code>tasks</code>) using <code>taskid</code> as document ID. Live updates via webmilestoneplan.netlify.com</div>
+  <h1>Real-time Excel → Firestore (Tasks)</h1>
+  <div class="small">Uploads Excel rows to Firestore (collection: <code>tasks</code>) using <code>taskid</code> as document ID. Live updates via Firestore onSnapshot.</div>
 
   <div class="controls">
     <input id="file" type="file" accept=".xlsx,.xls,.csv" />
-    <button id="uploadBtn" class="primary">Parse & Upload to Milestone DB</button>
-    <label style="margin-left:8px"><input id="useRemote" type="checkbox" checked /> Use Milestone DB (remote)</label>
-    <span class="status" id="status">Ready</span>
+    <button id="uploadBtn" class="primary">Upload to Firestore</button>
+    <label for="workorderSelect">Select Workorder:</label>
+    <select id="workorderSelect"></select>
+    <button id="deleteWorkorderBtn" class="danger">Delete Workorder</button>
+    <label style="margin-left:8px"><input id="useRemote" type="checkbox" checked /> Use Firestore (remote)</label>
+    <span class="status" id="status">Initializing Firebase...</span>
   </div>
 
-  <div style="display:flex; gap:12px;">
-    <div style="flex:1 1 60%;">
-      <table id="tasksTable" aria-label="Tasks table">
-        <thead>
-          <tr id="headerRow">
-            <!-- header populated dynamically -->
-          </tr>
-        </thead>
-        <tbody id="tasksBody">
-          <tr><td colspan="12" class="small">No tasks loaded yet.</td></tr>
-        </tbody>
-      </table>
-    </div>
-
+  <div style="flex:1 1 100%;">
+    <table id="tasksTable" aria-label="Tasks table">
+      <thead>
+        <tr id="headerRow"></tr>
+      </thead>
+      <tbody id="tasksBody">
+        <tr><td colspan="12" class="small">No tasks loaded yet.</td></tr>
+      </tbody>
+    </table>
+  </div>
 
   <!-- SheetJS for parsing -->
   <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
@@ -107,57 +68,41 @@
     }
   }
     type="module">
-    // ----- Firebase modular imports -----
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
     import {
-      getFirestore, collection, doc, setDoc, writeBatch, onSnapshot, query, orderBy, getDocs, deleteDoc, serverTimestamp
+      getFirestore, collection, doc, writeBatch, onSnapshot, query, where, orderBy, getDocs, serverTimestamp
     } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+    import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
-    // ----- Replace/confirm your firebaseConfig here -----
     const firebaseConfig = {
-      apiKey: "AIzaSyBZ6wqCgHdV_gGG5jxEHEIo_bu0-gK0Bn8",
-      authDomain: "webmp-b83f7.firebaseapp.com",
-      projectId: "webmp-b83f7",
-      storageBucket: "webmp-b83f7.appspot.com",
-      messagingSenderId: "777263885684",
-      appId: "1:777263885684:web:f1c0121ed62c606b7f5021"
+      apiKey: "AIzaSyCUNjFesHA_nMEsULylFlEdNZHy-MlT7_o",
+      authDomain: "webmilestoneplan.firebaseapp.com",
+      projectId: "webmilestoneplan",
+      storageBucket: "webmilestoneplan.firebasestorage.app",
+      messagingSenderId: "757067401738",
+      appId: "1:757067401738:web:697d0440b4aa7264562df3"
     };
-    // ----------------------------------------------------
 
-    // Initialize Firebase
-    let app, db;
+    let app, db, auth;
     let firebaseReady = false;
-    try {
-      app = initializeApp(firebaseConfig);
-      db = getFirestore(app);
-      firebaseReady = true;
-    } catch (e) {
-      console.warn("Firebase init failed:", e);
-      firebaseReady = false;
-    }
 
-    // DOM refs
     const fileInput = document.getElementById('file');
     const uploadBtn = document.getElementById('uploadBtn');
     const statusSpan = document.getElementById('status');
     const tasksBody = document.getElementById('tasksBody');
     const headerRow = document.getElementById('headerRow');
     const useRemote = document.getElementById('useRemote');
-   
 
-    const LOCAL_KEY = 'excel_tasks_local_v1';
     const TASKS_COLLECTION = 'tasks';
-    const BATCH_LIMIT = 400; // stay under Firestore 500 limit, leave margin
+    const BATCH_LIMIT = 400;
 
     function setStatus(msg, isError=false){
       statusSpan.textContent = msg;
       statusSpan.style.color = isError ? 'crimson' : '#333';
     }
 
-    // Convert SheetJS date or string to ISO date (yyyy-mm-dd) if possible; else return original string
     function normalizeDate(value){
       if(value == null) return null;
-      // If it's a Date object
       if(Object.prototype.toString.call(value) === '[object Date]'){
         if(isNaN(value)) return null;
         const y = value.getFullYear();
@@ -165,53 +110,27 @@
         const d = String(value.getDate()).padStart(2,'0');
         return `${y}-${m}-${d}`;
       }
-      // If it's a number (Excel serialized date may appear as number)
       if(typeof value === 'number'){
-        // Excel dates can be parsed by SheetJS earlier; but fallback: use JS epoch baseline (not perfect)
-        // We'll convert by treating value as days since 1899-12-31 which XLSX uses when dateNF present
-        const excelEpoch = new Date(1899,11,30); // 1899-12-30 is the baseline sometimes used
-        const dt = new Date(excelEpoch.getTime() + value * 24*60*60*1000);
-        const y = dt.getFullYear();
-        const m = String(dt.getMonth()+1).padStart(2,'0');
-        const d = String(dt.getDate()).padStart(2,'0');
-        return `${y}-${m}-${d}`;
+        const excelEpoch = new Date(1899,11,30);
+        const dt = new Date(excelEpoch.getTime() + value * 86400000);
+        return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
       }
-      // If it's a string like "7/19/2025" or "2025-07-19", try Date parse
       const maybe = new Date(value);
       if(!isNaN(maybe)) {
-        const y = maybe.getFullYear();
-        const m = String(maybe.getMonth()+1).padStart(2,'0');
-        const d = String(maybe.getDate()).padStart(2,'0');
-        return `${y}-${m}-${d}`;
+        return `${maybe.getFullYear()}-${String(maybe.getMonth()+1).padStart(2,'0')}-${String(maybe.getDate()).padStart(2,'0')}`;
       }
       return String(value);
     }
 
-    // Parse Excel into array of objects
-    function parseFileToRows(file){
+    async function parseFileToRows(file){
       return new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = (e) => {
           try {
-            const data = e.target.result;
-            const wb = XLSX.read(data, { type: 'binary' });
-            // We'll take the first sheet by default
-            const sheetName = wb.SheetNames[0];
-            const sheet = wb.Sheets[sheetName];
+            const wb = XLSX.read(e.target.result, { type: 'binary' });
+            const sheet = wb.Sheets[wb.SheetNames[0]];
             const rows = XLSX.utils.sheet_to_json(sheet, { defval: null });
-            // Normalize column names to lowercase trimmed keys (optional)
-            const normalized = rows.map(r => {
-              const out = {};
-              for(const key in r){
-                if(!Object.prototype.hasOwnProperty.call(r,key)) continue;
-                const k = key.toString().trim();
-                // keep original case for header display, but use canonical field names:
-                // We'll map any header to expected fields if possible (case-insensitive)
-                out[k] = r[key];
-              }
-              return out;
-            });
-            resolve(normalized);
+            resolve(rows);
           } catch (err) { reject(err); }
         };
         reader.onerror = reject;
@@ -219,11 +138,8 @@
       });
     }
 
-    // Map row object to canonical fields expected by UI/Firestore
     function mapRow(raw){
-      // Attempt to find fields by case-insensitive header matching
       const mapKey = (names) => {
-        // names: array of possible header names in priority order
         const keys = Object.keys(raw);
         for(const n of names){
           const found = keys.find(k => k.trim().toLowerCase() === n.toLowerCase());
@@ -231,275 +147,169 @@
         }
         return null;
       };
-      const out = {};
-      out.taskid = raw[mapKey(['taskid','task id','id'])] ?? null;
-      out.skill = raw[mapKey(['skill'])] ?? raw['skill'] ?? null;
-      out.sdate = normalizeDate(raw[mapKey(['sdate','start','start date'])] ?? null);
-      out.edate = normalizeDate(raw[mapKey(['edate','end','end date'])] ?? null);
-      out.rev_sdate = normalizeDate(raw[mapKey(['rev_sdate','rev sdate','rev start'])] ?? null);
-      out.rev_edate = normalizeDate(raw[mapKey(['rev_edate','rev edate','rev end'])] ?? null);
-      out.tasktitle = raw[mapKey(['tasktitle','task title','title'])] ?? null;
-      out.remarks = raw[mapKey(['remarks'])] ?? null;
-      out.status = raw[mapKey(['status'])] ?? null;
-      out.acreg = raw[mapKey(['acreg','aircraft','ac reg'])] ?? null;
-      out.workorder = raw[mapKey(['workorder','work order','wo'])] ?? null;
-      out.bay = raw[mapKey(['bay'])] ?? null;
-
-      // Add raw extras copy for debugging
-      out._raw = raw;
-      return out;
+      return {
+        taskid: raw[mapKey(['taskid','task id','id'])] ?? null,
+        skill: raw[mapKey(['skill'])] ?? null,
+        sdate: normalizeDate(raw[mapKey(['sdate','start','start date'])] ?? null),
+        edate: normalizeDate(raw[mapKey(['edate','end','end date'])] ?? null),
+        rev_sdate: normalizeDate(raw[mapKey(['rev_sdate','rev sdate','rev start'])] ?? null),
+        rev_edate: normalizeDate(raw[mapKey(['rev_edate','rev edate','rev end'])] ?? null),
+        tasktitle: raw[mapKey(['tasktitle','task title','title'])] ?? null,
+        remarks: raw[mapKey(['remarks'])] ?? null,
+        status: raw[mapKey(['status'])] ?? null,
+        acreg: raw[mapKey(['acreg','aircraft','ac reg'])] ?? null,
+        workorder: raw[mapKey(['workorder','work order','wo'])] ?? null,
+        bay: raw[mapKey(['bay'])] ?? null
+      };
     }
 
-    // Save to localStorage
+    const HEADER_LABELS = {
+      taskid: "Task ID", skill: "Skill", sdate: "Start Date", edate: "End Date",
+      rev_sdate: "Revised Start", rev_edate: "Revised End", tasktitle: "Task Title",
+      remarks: "Remarks", status: "Status", acreg: "AC Reg", workorder: "Work Order", bay: "Bay"
+    };
 
-
-    // Load local
-    function loadLocal(){
-      try {
-        const raw = localStorage.getItem(LOCAL_KEY);
-        if(!raw) return null;
-        const parsed = JSON.parse(raw);
-        return parsed.rows || null;
-      } catch(e) { return null; }
-    }
-        const HEADER_LABELS = {
-  taskid: "Task ID",
-  skill: "Skill",
-  sdate: "Start Date",
-  edate: "End Date",
-  rev_sdate: "Revised Start",
-  rev_edate: "Revised End",
-  tasktitle: "Task Title",
-  remarks: "Remarks",
-  status: "Status",
-  acreg: "AC Reg",
-  workorder: "Work Order",
-  bay: "Bay"
-};
-
-    // Render table from rows array (array of mapped rows)
-function renderTable(rows) {
-  const headers = Object.keys(HEADER_LABELS);
-
-  // Sort by sdate then taskid
-  rows = [...rows].sort((a, b) => {
-    const dateA = new Date(a.sdate || "2100-01-01");
-    const dateB = new Date(b.sdate || "2100-01-01");
-    if (dateA - dateB !== 0) return dateA - dateB;
-    return String(a.taskid).localeCompare(String(b.taskid));
-  });
-
-  // Render header
-  headerRow.innerHTML = '';
-  headers.forEach(h => {
-    const th = document.createElement('th');
-    th.textContent = HEADER_LABELS[h] || h;
-    headerRow.appendChild(th);
-  });
-
-  // Render body
-  tasksBody.innerHTML = '';
-  if (!rows || rows.length === 0) {
-    const tr = document.createElement('tr');
-    const td = document.createElement('td');
-    td.colSpan = headers.length;
-    td.className = 'small';
-    td.textContent = 'No tasks found.';
-    tr.appendChild(td);
-    tasksBody.appendChild(tr);
-    return;
-  }
-
-  rows.forEach(r => {
-    const tr = document.createElement('tr');
-    headers.forEach(h => {
-      const td = document.createElement('td');
-      let v = r[h] ?? '';
-      td.textContent = v;
-
-      // Highlight missing Bay
-      if (h === 'bay' && (!v || String(v).trim() === '')) {
-        td.style.backgroundColor = '#ffe6e6';
-        td.style.color = '#a00';
-        td.textContent = '(missing)';
-      }
-
-      tr.appendChild(td);
-    });
-    tasksBody.appendChild(tr);
-  });
-}
-
-
-    // Batch upload mapped rows to Firestore using taskid as doc ID
-    async function uploadRowsToFirestore(mappedRows){
-      if(!firebaseReady) throw new Error('Firebase not initialized');
-      if(!Array.isArray(mappedRows) || mappedRows.length === 0) return;
-
-      // Ensure each row has taskid
-      const missing = mappedRows.filter(r => !r.taskid || String(r.taskid).trim() === '');
-      if(missing.length){
-        throw new Error('Some rows missing taskid. Ensure the sheet has a taskid column and each row has a value.');
-      }
-
-      // Chunk into BATCH_LIMIT per batch
-      const chunks = [];
-      for(let i=0;i<mappedRows.length;i+=BATCH_LIMIT){
-        chunks.push(mappedRows.slice(i, i+BATCH_LIMIT));
-      }
-
-      setStatus(`Uploading ${mappedRows.length} rows in ${chunks.length} batch(es)...`);
-      for(const [ci, chunk] of chunks.entries()){
-        const batch = writeBatch(db);
-        for(const row of chunk){
-          const id = String(row.taskid).trim();
-          const docRef = doc(db, TASKS_COLLECTION, id);
-          // Prepare payload (remove _raw or keep if useful)
-          const payload = {
-            taskid: row.taskid ?? null,
-            skill: row.skill ?? null,
-            sdate: row.sdate ?? null,
-            edate: row.edate ?? null,
-            rev_sdate: row.rev_sdate ?? null,
-            rev_edate: row.rev_edate ?? null,
-            tasktitle: row.tasktitle ?? null,
-            remarks: row.remarks ?? null,
-            status: row.status ?? null,
-            acreg: row.acreg ?? null,
-            workorder: row.workorder ?? null,
-            bay: row.bay ?? null,
-
-            updatedAt: serverTimestamp()
-          };
-          // Overwrite document with set (via batch.set)
-          batch.set(docRef, payload);
-        }
-        await batch.commit();
-        setStatus(`Committed batch ${ci+1}/${chunks.length}`);
-      }
-      setStatus('All batches uploaded');
-    }
-
-    // Delete all docs in tasks collection (CAREFUL)
-    async function clearRemoteCollection(){
-      if(!firebaseReady) throw new Error('Firebase not initialized');
-      setStatus('Clearing remote collection (fetching docs first)...');
-      // Fetch all doc IDs (be aware of large collections)
-      const q = query(collection(db, TASKS_COLLECTION));
-      const snap = await getDocs(q);
-      if(snap.empty){ setStatus('Remote collection empty'); return; }
-      const docs = snap.docs;
-      const chunks = [];
-      for(let i=0;i<docs.length;i+=BATCH_LIMIT){
-        chunks.push(docs.slice(i, i+BATCH_LIMIT));
-      }
-      for(const [ci, chunk] of chunks.entries()){
-        const batch = writeBatch(db);
-        for(const d of chunk){
-          batch.delete(d.ref);
-        }
-        await batch.commit();
-        setStatus(`Deleted chunk ${ci+1}/${chunks.length}`);
-      }
-      setStatus('Remote collection cleared');
-    }
-
-    // Listen to Firestore collection in real-time and render table
-    function attachRealtimeListener(){
-      if(!firebaseReady) {
-        setStatus('Firestore not available — running local only');
+    function renderTable(rows) {
+      const headers = Object.keys(HEADER_LABELS);
+      rows = [...rows].sort((a, b) => new Date(a.sdate||"2100-01-01") - new Date(b.sdate||"2100-01-01"));
+      headerRow.innerHTML = '';
+      headers.forEach(h => {
+        const th = document.createElement('th');
+        th.textContent = HEADER_LABELS[h];
+        headerRow.appendChild(th);
+      });
+      tasksBody.innerHTML = '';
+      if (!rows.length) {
+        tasksBody.innerHTML = `<tr><td colspan="${headers.length}" class="small">No tasks found.</td></tr>`;
         return;
       }
-      const q = query(collection(db, TASKS_COLLECTION), orderBy('sdate'));
-      // onSnapshot will call immediately with current data then update on changes
-      onSnapshot(q, snapshot => {
-        const rows = [];
-        snapshot.forEach(docSnap => {
-          const d = docSnap.data();
-          rows.push({
-            taskid: d.taskid ?? docSnap.id,
-            skill: d.skill ?? '',
-            sdate: d.sdate ?? '',
-            edate: d.edate ?? '',
-            rev_sdate: d.rev_sdate ?? '',
-            rev_edate: d.rev_edate ?? '',
-            tasktitle: d.tasktitle ?? '',
-            remarks: d.remarks ?? '',
-            status: d.status ?? '',
-            acreg: d.acreg ?? '',
-           workorder: d.workorder ?? '',
-            bay: d.bay ?? ''
-
-            
-          });
+      rows.forEach(r => {
+        const tr = document.createElement('tr');
+        headers.forEach(h => {
+          const td = document.createElement('td');
+          td.textContent = r[h] ?? '';
+          if (h === 'bay' && !r[h]) {
+            td.style.backgroundColor = '#ffe6e6'; td.style.color = '#a00'; td.textContent = '(missing)';
+          }
+          tr.appendChild(td);
         });
-        renderTable(rows);
-        // Keep local cache in sync with remote (optionally)
-        try { localStorage.setItem(LOCAL_KEY, JSON.stringify({ savedAt: Date.now(), rows })); } catch {}
-        setStatus(`Realtime: ${rows.length} tasks`);
-      }, err => {
-        console.error('onSnapshot error', err);
-        setStatus('Realtime listener error (see console)', true);
+        tasksBody.appendChild(tr);
+        populateWorkorderDropdown();
       });
     }
 
-    // Wire buttons
+    async function uploadRowsToFirestore(mappedRows){
+      if(!firebaseReady) throw new Error('Firebase not ready');
+      const chunks = [];
+      for(let i=0;i<mappedRows.length;i+=BATCH_LIMIT) chunks.push(mappedRows.slice(i,i+BATCH_LIMIT));
+      for(const chunk of chunks){
+        const batch = writeBatch(db);
+        for(const row of chunk){
+          batch.set(doc(db, TASKS_COLLECTION, String(row.taskid)), { ...row, updatedAt: serverTimestamp() });
+        }
+        await batch.commit();
+      }
+      setStatus("Upload complete");
+    }
+
+    function attachRealtimeListener(){
+      const q = query(collection(db, TASKS_COLLECTION), orderBy('sdate'));
+      onSnapshot(q, snapshot => {
+        const rows = [];
+        snapshot.forEach(docSnap => rows.push(docSnap.data()));
+        renderTable(rows);
+        setStatus(`Realtime: ${rows.length} tasks`);
+      }, err => setStatus("Listener error: " + err.message, true));
+    }
+
     uploadBtn.addEventListener('click', async () => {
       const file = fileInput.files?.[0];
-      if(!file) return setStatus('Select a file first', true);
-      setStatus('Parsing file...');
-      try {
-        const rows = await parseFileToRows(file);
-        // Map rows to canonical structure
-        const mapped = rows.map(r => mapRow(r));
-        // Show preview and save local
-       
-        saveLocal(mapped);
-        if(useRemote.checked){
-          setStatus('Uploading to Firestore...');
-          await uploadRowsToFirestore(mapped);
-        } else {
-          setStatus('Local-only saved (remote checkbox unchecked)');
-        }
-      } catch (err) {
-        console.error(err);
-        setStatus('Error: ' + (err.message || err), true);
-      }
+      if(!file) return setStatus("Select file", true);
+      const rows = (await parseFileToRows(file)).map(r => mapRow(r));
+      if(useRemote.checked) await uploadRowsToFirestore(rows);
+      else setStatus("Remote disabled (no upload)");
     });
 
-    // On load: populate preview from local and attach realtime listener
-    (function init(){
-      const local = loadLocal();
-      if(local){
-        
-        // Render local preview in table while waiting for realtime data
-        try {
-          const previewRows = local.map(r => ({
-            taskid: r.taskid ?? '',
-            skill: r.skill ?? '',
-            sdate: r.sdate ?? '',
-            edate: r.edate ?? '',
-            rev_sdate: r.rev_sdate ?? '',
-            rev_edate: r.rev_edate ?? '',
-            tasktitle: r.tasktitle ?? '',
-            remarks: r.remarks ?? '',
-            status: r.status ?? '',
-            acreg: r.acreg ?? '',
-            workorder: r.workorder ?? '',
-            bay: r.bay ?? ''
-          }));
-          renderTable(previewRows);
-          setStatus('Loaded local snapshot');
-        } catch(e){}
+    try {
+      app = initializeApp(firebaseConfig);
+      db = getFirestore(app);
+      auth = getAuth(app);
+      signInAnonymously(auth)
+        .then(() => {
+          setStatus("Signed in (anonymous)");
+          firebaseReady = true;
+          attachRealtimeListener();
+        })
+        .catch(err => setStatus("Auth failed: " + err.message, true));
+    } catch (e) {
+      setStatus("Firebase init failed: " + e.message, true);
+    }
+
+    async function populateWorkorderDropdown() {
+      const snap = await getDocs(collection(db, TASKS_COLLECTION));
+      const workorders = new Set();
+
+      snap.forEach(d => {
+        if (d.data().workorder !== undefined && d.data().workorder !== null) {
+          workorders.add(d.data().workorder);
+        }
+      });
+
+      const select = document.getElementById('workorderSelect');
+      select.innerHTML = "";
+
+      if (workorders.size === 0) {
+        const opt = document.createElement("option");
+        opt.value = "";
+        opt.textContent = "No workorders found";
+        select.appendChild(opt);
+        select.disabled = true;
       } else {
-        setStatus('No local snapshot found');
+        workorders.forEach(wo => {
+          const opt = document.createElement("option");
+          opt.value = wo;
+          opt.textContent = wo;
+          select.appendChild(opt);
+        });
+        select.disabled = false;
       }
-      if(firebaseReady) {
-        attachRealtimeListener();
-      } else {
-        setStatus('Firebase not initialized — running local-only', true);
+    }
+    populateWorkorderDropdown();
+
+    deleteWorkorderBtn.addEventListener('click', async () => {
+      const select = document.getElementById('workorderSelect');
+      let workorder = select.value;
+
+      if (!workorder) {
+        return setStatus("Please select a workorder", true);
       }
-    })();
+
+      let q = query(collection(db, TASKS_COLLECTION), where("workorder", "==", workorder));
+      let snap = await getDocs(q);
+
+      if (snap.empty && !isNaN(workorder)) {
+        q = query(collection(db, TASKS_COLLECTION), where("workorder", "==", Number(workorder)));
+        snap = await getDocs(q);
+      }
+
+      if (snap.empty) {
+        return setStatus(`No tasks found for Workorder "${workorder}"`, true);
+      }
+
+      const docs = snap.docs;
+      const count = docs.length;
+
+      if (!confirm(`Delete ${count} task(s) for Workorder "${workorder}"?`)) return;
+
+      for (let i = 0; i < docs.length; i += BATCH_LIMIT) {
+        const batch = writeBatch(db);
+        docs.slice(i, i + BATCH_LIMIT).forEach(d => batch.delete(d.ref));
+        await batch.commit();
+      }
+
+      setStatus(`Deleted ${count} task(s) for Workorder "${workorder}"`);
+      populateWorkorderDropdown();
+    });
 
   </script>
 </body>
