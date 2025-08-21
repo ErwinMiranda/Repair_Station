@@ -278,157 +278,179 @@ z-index: 30;
   
     type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-    import {
-      getFirestore, collection, doc, addDoc, setDoc, updateDoc, deleteDoc,
-      onSnapshot, query, orderBy, writeBatch, serverTimestamp
-    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+  import {
+    getFirestore, collection, query, orderBy, onSnapshot,
+    doc, setDoc, addDoc, updateDoc, deleteDoc, serverTimestamp
+  } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+  import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
-    // ---------- CONFIG ----------
-    const firebaseConfig = {
-      apiKey: "AIzaSyBZ6wqCgHdV_gGG5jxEHEIo_bu0-gK0Bn8",
-      authDomain: "webmp-b83f7.firebaseapp.com",
-      projectId: "webmp-b83f7",
-      storageBucket: "webmp-b83f7.appspot.com",
-      messagingSenderId: "777263885684",
-      appId: "1:777263885684:web:f1c0121ed62c606b7f5021"
-    };
+  // 🔑 Firebase Config
+  const firebaseConfig = {
+    apiKey: "AIzaSyCUNjFesHA_nMEsULylFlEdNZHy-MlT7_o",
+    authDomain: "webmilestoneplan.firebaseapp.com",
+    projectId: "webmilestoneplan",
+    storageBucket: "webmilestoneplan.firebasestorage.app",
+    messagingSenderId: "757067401738",
+    appId: "1:757067401738:web:697d0440b4aa7264562df3"
+  };
 
-    // ---------- INIT ----------
-    let db;
-    let firestoreConnected = false;
-    try {
-      const app = initializeApp(firebaseConfig);
-      db = getFirestore(app);
-      document.getElementById('status-indicator').innerText = 'Milestone Database: connected';
-      firestoreConnected = true;
-    } catch (err) {
-      console.error('Firebase init error', err);
-      document.getElementById('status-indicator').innerText = 'Milestone Database: init failed';
-    }
+  // Globals
+  let app, db, auth;
+  let firestoreConnected = false; // ✅ added flag
+  let unsubscribe = null;
 
-    // ---------- helpers for date parsing ----------
-    function excelSerialToDate(serial) {
-      // Excel serial number to JS Date (handles whole number only)
-      // Excel epoch: 1899-12-30
-      const epoch = new Date(Date.UTC(1899, 11, 30));
-      const days = Math.floor(Number(serial));
-      const ms = days * 24 * 60 * 60 * 1000;
-      const date = new Date(epoch.getTime() + ms);
-      return date;
-    }
-    function parseDateField(val) {
-      // Accept number (excel serial) or ISO string (YYYY-MM-DD) or Date object
-      if (val === undefined || val === null || val === '') return null;
-      if (typeof val === 'number') return new Date(val); // assume ms epoch if number (rare)
-      if (!isNaN(Number(val)) && String(val).indexOf('-') === -1) {
-        // numeric-looking without dashes -> treat as excel serial
-        return excelSerialToDate(Number(val));
-      }
-      // try Date parse
-      const d = new Date(val);
-      if (!isNaN(d.getTime())) return d;
-      return null;
-    }
-    function toSerialDayKey(dateObj) {
-      // convert Date -> integer day count (ms -> days)
-      // use zeroed local midnight to avoid timezone shifts
-      const d = new Date(Date.UTC(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate()));
-      return Math.floor(d.getTime() / (24 * 60 * 60 * 1000));
-    }
-    function dayKeyToDate(dayKey) {
-      return new Date(dayKey * 24 * 60 * 60 * 1000);
-    }
-    function formatDisplayDateShort(dateObj) {
-      return dateObj.toLocaleDateString('en-US', { month:'short', day:'2-digit', year:'numeric' });
-    }
-    function weekdayShort(dateObj) { return dateObj.toLocaleDateString('en-US', { weekday:'short' }); }
+  try {
+    app = initializeApp(firebaseConfig);
+    db = getFirestore(app);
+    auth = getAuth(app);
 
-    // ---------- Firestore collection ----------
-    const tasksCol = () => collection(db, 'tasks');
+    document.getElementById('status-indicator').innerText = 'Firestore: connecting…';
 
-    // ---------- UI state ----------
-    window.currentRows = []; // cached docs as objects { _id, ...fields }
-    let unsubscribe = null;
+    signInAnonymously(auth)
+      .then(() => {
+        firestoreConnected = true;
+        console.log("✅ Signed in anonymously");
+        document.getElementById('status-indicator').innerText = 'Firestore: signed in';
+        startRealtime(); // ✅ only start after signed in
+      })
+      .catch(err => {
+        console.error("❌ Auth failed", err);
+        document.getElementById('status-indicator').innerText = 'Auth failed: ' + err.message;
+      });
 
-    // ---------- Listen real-time ----------
-        let savedValue = localStorage.getItem("woFilterValue");
-        let woFilterValue = savedValue;
-
-document.getElementById('wo-search').addEventListener('click', () => {
-  woFilterValue = document.getElementById('wo-filter').value.trim().toLowerCase();
-  localStorage.setItem("woFilterValue", woFilterValue);
-  applyWOfilterAndRender();
-});
-
-
-
-function applyWOfilterAndRender() {
-  if (!woFilterValue) {
-    // Input box empty - clear matrix or show message
-    //document.getElementById('matrix-container').innerHTML = '<div style="padding:10px;color:#999">Please enter a Work Order</div>';
-    document.getElementById('date-range-heading').innerText = '';
-    return;
+  } catch (err) {
+    console.error("Firebase init error", err);
+    document.getElementById('status-indicator').innerText = 'Firebase init failed: ' + err.message;
   }
-  let filteredRows = window.currentRows.filter(r =>
-    (r.workorder || "").toString().toLowerCase().includes(woFilterValue)
-  );
-  buildMatrixTable(filteredRows);
-}
 
+  // ---------- helpers for date parsing ----------
+  function excelSerialToDate(serial) {
+    // Excel serial number to JS Date (handles whole number only)
+    const epoch = new Date(Date.UTC(1899, 11, 30)); // Excel epoch
+    const days = Math.floor(Number(serial));
+    const ms = days * 24 * 60 * 60 * 1000;
+    return new Date(epoch.getTime() + ms);
+  }
 
+  function parseDateField(val) {
+    if (val === undefined || val === null || val === '') return null;
+    if (typeof val === 'number') return excelSerialToDate(val); // ✅ fixed
+    if (!isNaN(Number(val)) && String(val).indexOf('-') === -1) {
+      return excelSerialToDate(Number(val));
+    }
+    const d = new Date(val);
+    if (!isNaN(d.getTime())) return d;
+    return null;
+  }
 
+  function toSerialDayKey(dateObj) {
+    const d = new Date(Date.UTC(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate()));
+    return Math.floor(d.getTime() / (24 * 60 * 60 * 1000));
+  }
+  function dayKeyToDate(dayKey) {
+    return new Date(dayKey * 24 * 60 * 60 * 1000);
+  }
+  function formatDisplayDateShort(dateObj) {
+    return dateObj.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
+  }
+  function weekdayShort(dateObj) {
+    return dateObj.toLocaleDateString('en-US', { weekday: 'short' });
+  }
 
+  // ---------- Firestore collection ----------
+  const tasksCol = () => collection(db, 'tasks');
 
+  // ---------- UI state ----------
+  window.currentRows = []; // cached docs as objects { _id, ...fields }
 
- function startRealtime() {
-  if (!firestoreConnected) return;
-  const q = query(tasksCol(), orderBy('sdate'));
-  unsubscribe = onSnapshot(q, snapshot => {
-    const rows = [];
-    snapshot.forEach(docSnap => {
-      rows.push({ _id: docSnap.id, ...docSnap.data() });
-    });
-    window.currentRows = rows;
-    applyWOfilterAndRender(); // ✅ filter before rendering
-  }, err => {
-    console.error('onSnapshot error', err);
-    document.getElementById('status-indicator').innerText = 'Firestore: disconnected';
+  // ---------- Work Order filter ----------
+  let savedValue = localStorage.getItem("woFilterValue");
+  let woFilterValue = savedValue || "";
+
+  // ✅ restore filter into input
+  if (savedValue) {
+    document.getElementById('wo-filter').value = savedValue;
+  }
+
+  document.getElementById('wo-search').addEventListener('click', () => {
+    woFilterValue = document.getElementById('wo-filter').value.trim().toLowerCase();
+    localStorage.setItem("woFilterValue", woFilterValue);
+    applyWOfilterAndRender();
   });
-}
 
+  function applyWOfilterAndRender() {
+    if (!woFilterValue) {
+      document.getElementById('date-range-heading').innerText = '';
+      document.getElementById('matrix-container').innerHTML =
+        '<div style="padding:10px;color:#999">Please enter a Work Order</div>';
+      return;
+    }
 
-    // Start listener
-    startRealtime();
+    let filteredRows = window.currentRows.filter(r =>
+      (r.workorder || "").toString().toLowerCase().includes(woFilterValue)
+    );
 
-    // ---------- CRUD helpers ----------
-    async function createTask(payload) {
-      if (!firestoreConnected) { console.warn('Firestore not ready'); return; }
-      // allow adding with custom id if provided
-      if (payload._id) {
-        const ref = doc(db, 'tasks', payload._id);
-        const copy = {...payload}; delete copy._id;
-        await setDoc(ref, { ...copy, updatedAt: serverTimestamp() }, { merge: true });
-        return payload._id;
-      } else {
-        const r = await addDoc(tasksCol(), { ...payload, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
-        return r.id;
-      }
+    if (filteredRows.length === 0) {
+      document.getElementById('matrix-container').innerHTML =
+        '<div style="padding:10px;color:#999">No tasks found for this Work Order</div>';
+      document.getElementById('date-range-heading').innerText = '';
+      return;
     }
-    async function updateTask(id, updates) {
-      if (!firestoreConnected) { console.warn('Firestore not ready'); return; }
-      try {
-        const ref = doc(db, 'tasks', id);
-        await updateDoc(ref, { ...updates, updatedAt: serverTimestamp() });
-      } catch (err) {
-        console.error('updateTask err', err);
-      }
+
+    buildMatrixTable(filteredRows);
+  }
+
+  // ---------- Listen real-time ----------
+  function startRealtime() {
+    const q = query(tasksCol(), orderBy('sdate'));
+    unsubscribe = onSnapshot(q, snapshot => {
+      const rows = [];
+      snapshot.forEach(docSnap => {
+        rows.push({ _id: docSnap.id, ...docSnap.data() });
+      });
+      window.currentRows = rows;
+      applyWOfilterAndRender();
+    }, err => {
+      console.error('onSnapshot error', err);
+      document.getElementById('status-indicator').innerText = 'Firestore: disconnected, retrying…';
+
+      // ✅ auto-retry after 5s
+      setTimeout(startRealtime, 5000);
+    });
+  }
+
+  // ---------- CRUD helpers ----------
+  async function createTask(payload) {
+    if (!firestoreConnected) { console.warn('Firestore not ready'); return; }
+    if (payload._id) {
+      const ref = doc(db, 'tasks', payload._id);
+      const copy = { ...payload }; delete copy._id;
+      await setDoc(ref, { ...copy, updatedAt: serverTimestamp() }, { merge: true });
+      return payload._id;
+    } else {
+      const r = await addDoc(tasksCol(), { ...payload, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+      return r.id;
     }
-    async function deleteTask(id) {
-      if (!firestoreConnected) { console.warn('Firestore not ready'); return; }
-      try {
-        await deleteDoc(doc(db, 'tasks', id));
-      } catch (err) { console.error('deleteTask err', err); }
+  }
+
+  async function updateTask(id, updates) {
+    if (!firestoreConnected) { console.warn('Firestore not ready'); return; }
+    try {
+      const ref = doc(db, 'tasks', id);
+      await updateDoc(ref, { ...updates, updatedAt: serverTimestamp() });
+    } catch (err) {
+      console.error('updateTask err', err);
     }
+  }
+
+  async function deleteTask(id) {
+    if (!firestoreConnected) { console.warn('Firestore not ready'); return; }
+    try {
+      await deleteDoc(doc(db, 'tasks', id));
+    } catch (err) {
+      console.error('deleteTask err', err);
+    }
+  }
 
     // ---------- Build matrix table ----------
    // store collapsed skills globally
