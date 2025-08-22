@@ -485,7 +485,7 @@ function buildMatrixTable(rows) {
 
 // update heading
 const acregs = [...new Set(rows.map(r => r.acreg).filter(Boolean))];
-
+window.currentAcregs = acregs;
 const todayKey = toSerialDayKey(new Date());
 const startKey = toSerialDayKey(minDate);
 const dayOfPlan = todayKey - startKey + 1;
@@ -976,7 +976,47 @@ function onTaskDragStart(e) {
     // 🔹 Auto reset selection after bulk move
   clearSelection();
 });
+ // ✅ NEW: double click empty cell to add a task
+  td.addEventListener('dblclick', async () => {
+    if (td.querySelector('.task-block')) return; // already has a task
+    const dayKey = Number(td.dataset.day);
+    if (!dayKey) return;
 
+    const skill = td.closest('tr')?.dataset?.skill || "Unassigned";
+
+    // --- Generate unique task ID based on date + time ---
+    const now = new Date();
+    const pad = (n) => String(n).padStart(2, "0");
+    const taskId = 
+      now.getFullYear().toString() +
+      pad(now.getMonth() + 1) +
+      pad(now.getDate()) + "-" +
+      pad(now.getHours()) +
+      pad(now.getMinutes()) +
+      pad(now.getSeconds()) + "-" +
+      now.getMilliseconds();
+  // ✅ get acreg from the table heading data we saved
+  const acregFromHeading =
+    (window.currentAcregs && window.currentAcregs.length)
+      ? window.currentAcregs[0]
+      : "";
+    // --- Pre-fill modal form ---
+    modalEditingId = null; // new task
+    f.taskid.value = taskId;
+    f.skill.value = skill;
+    f.sdate.value = dayKeyToISO(dayKey);
+    f.edate.value = dayKeyToISO(dayKey);
+    f.rev_sdate.value = dayKeyToISO(dayKey);
+    f.rev_edate.value = dayKeyToISO(dayKey);
+    f.tasktitle.value = "";
+    f.acreg.value   = acregFromHeading; 
+    f.remarks.value = "Newly Added";
+    f.status.value = "open";
+    f.workorder.value = woFilterValue || "";
+
+    modalTitle.textContent = "Add Task";
+    modal.style.display = "block";
+  });
         }
 
     // ---------- Inline editor (title) ----------
