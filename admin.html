@@ -488,7 +488,7 @@ function buildMatrixTable(rows) {
   let maxDate = new Date(Math.max(...eCandidates.map(d => d.getTime())));
   minDate = new Date(minDate.getFullYear(), minDate.getMonth(), minDate.getDate());
   maxDate = new Date(maxDate.getFullYear(), maxDate.getMonth(), maxDate.getDate());
-
+  window.minDate = minDate;
   // build array of day keys
   const dayKeys = [];
   for (let k = toSerialDayKey(minDate); k <= toSerialDayKey(maxDate); k++) dayKeys.push(k);
@@ -824,17 +824,18 @@ const ngayonKey = toSerialDayKey(new Date());
             } else if (diff === 0) {
             diffText = 'On time';
             }
+          // ✅ Compute Day Number
+  const startKey = toSerialDayKey(window.minDate || minDate); // ensure global access
+  const dayNumber = dk - startKey + 1;
 
-
-          taskDiv.textContent = task.tasktitle || '(no title)';
-          taskDiv.title = 
-            
-                `Skill: ${task.skill || ''}\n` +
-                `${formatDisplayDateShort(dayKeyToDate(dk))}\n` +
-                `${task.tasktitle || ''}\n` +
-                `Remarks: ${task.remarks || ''}\n` +
-                `Status: ${task.status || ''}\n` +
-                `${diffText}`;
+  taskDiv.textContent = task.tasktitle || '(no title)';
+  taskDiv.title = 
+        `Skill: ${task.skill || ''}\n` +
+        `Date: ${formatDisplayDateShort(dayKeyToDate(dk))} (Day ${dayNumber})\n` +
+        `${task.tasktitle || ''}\n` +
+        `Remarks: ${task.remarks || ''}\n` +
+        `Status: ${task.status || ''}\n` +
+        `${diffText}`;
           taskDiv.dataset.taskId = task._id;
                   // add icon if remarks exist
                     if (task.remarks && task.remarks.trim() !== '') {
