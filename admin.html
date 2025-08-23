@@ -971,7 +971,11 @@ function onTaskDragStart(e) {
   for (const id of selectedTaskIds) {
     const task = window.currentRows.find(r => r._id === id);
     if (!task) continue;
-
+    // ✅ Also enforce same skill check for all selected tasks
+    if (dropSkill && task.skill !== dropSkill) {
+      console.warn(`Skipping ${task._id} – skill mismatch.`);
+      continue;
+    }
     const revS = parseDateField(task.rev_sdate ?? task.sdate);
     const revE = parseDateField(task.rev_edate ?? task.edate);
     const startKeyTask = toSerialDayKey(revS || parseDateField(task.sdate));
