@@ -314,13 +314,13 @@ td.bounce {
     db = getFirestore(app);
     auth = getAuth(app);
 
-    document.getElementById('status-indicator').innerText = 'Firestore: connecting…';
+    document.getElementById('status-indicator').innerText = 'Milestone db: connecting…';
 
     signInAnonymously(auth)
       .then(() => {
         firestoreConnected = true;
         console.log("✅ Signed in anonymously");
-        document.getElementById('status-indicator').innerText = 'Firestore: signed in';
+        document.getElementById('status-indicator').innerText = 'Milestone db: signed in';
         startRealtime(); // ✅ only start after signed in
       })
       .catch(err => {
