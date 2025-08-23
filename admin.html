@@ -156,8 +156,8 @@ z-index: 30;
      background: var(--accent); 
     }
  @keyframes bounceInvalid {
-  0%   { transform: translateX(0); }
-  25%  { transform: translateX(-6px); }
+  0%   { transform: translateX(0); background-color: red; }
+  25%  { transform: translateX(-6px); background-color: red; }
   50%  { transform: translateX(6px); }
   75%  { transform: translateX(-4px); }
   100% { transform: translateX(0); }
@@ -959,7 +959,7 @@ function onTaskDragStart(e) {
   const dropSkill = rowTr?.dataset?.skill;
  if (dropSkill && draggedTask.skill !== dropSkill) {
   td.classList.add('bounce');
-  setTimeout(() => td.classList.remove('bounce'), 300); // remove after animation
+  setTimeout(() => td.classList.remove('bounce'), 500); // remove after animation
   clearSelection();
   return; // ❌ stop if not same skill
 }
