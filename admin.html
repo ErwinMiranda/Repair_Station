@@ -155,7 +155,17 @@ z-index: 30;
      
      background: var(--accent); 
     }
+ @keyframes bounceInvalid {
+  0%   { transform: translateX(0); }
+  25%  { transform: translateX(-6px); }
+  50%  { transform: translateX(6px); }
+  75%  { transform: translateX(-4px); }
+  100% { transform: translateX(0); }
+}
 
+td.bounce {
+  animation: bounceInvalid 0.3s ease;
+}
 
   </style>
 </head>
@@ -944,7 +954,15 @@ function onTaskDragStart(e) {
   const dayKey = Number(dayStr);
   const draggedTask = window.currentRows.find(r => r._id === tid);
   if (!draggedTask) return;
-
+  // 🔹 Check if same skill row
+  const rowTr = td.closest('tr');
+  const dropSkill = rowTr?.dataset?.skill;
+ if (dropSkill && draggedTask.skill !== dropSkill) {
+  td.classList.add('bounce');
+  setTimeout(() => td.classList.remove('bounce'), 300); // remove after animation
+  clearSelection();
+  return; // ❌ stop if not same skill
+}
   const revS = parseDateField(draggedTask.rev_sdate ?? draggedTask.sdate);
   const startKey = toSerialDayKey(revS || parseDateField(draggedTask.sdate));
   const dayShift = dayKey - startKey;
