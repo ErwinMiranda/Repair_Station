@@ -23,7 +23,7 @@
     h1 { margin:0 0 8px 0; font-size:20px; }
     .controls { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin:12px 0; }
     button { padding:8px 12px; border-radius:6px; border:1px solid #bbb; background:#f5f5f5; cursor:pointer; }
-    button.primary { background:#0b74de; color:white; border-color:#0a66c2; }
+    button.primary {  background: linear-gradient(to bottom, var(--bg-top), var(--bg-bottom)); color:white; border-color:#0a66c2; }
     button.danger { background:#ffe6e6; border-color:#ff8b8b; }
     input[type=file] { padding:6px; }
     .status { margin-left:6px; color:#333; font-size:13px; }
@@ -41,7 +41,9 @@
       border-radius: 8px;    /* rounded corners */
       cursor: pointer;       /* pointer on hover */
       font-size: 14px;
-
+      text-align: center;
+      float: right;
+      width: 120px;
     }
 
     .logout-btn:hover {
@@ -52,9 +54,9 @@
   </style>
 </head>
 <body>
-  <div <button onclick="logout()" class="logout-btn">Logout</button> </div>  
-  <h1>Real-time Excel → Firestore (Tasks)</h1>
-  <div class="small">Uploads Excel rows to Firestore (collection: <code>tasks</code>) using <code>taskid</code> as document ID. Live updates via Firestore onSnapshot.</div>
+  <div <button onclick="logout()" class="logout-btn">Logout </button> </div>  
+  <h1>Real-time Excel → Milestone Database</h1>
+  <div class="small">Uploads Excel rows to Milestone database (collection: <code>tasks</code>) using <code>taskid</code> as document ID. Live updates via Web milestone plan onSnapshot.</div>
 
   <div class="controls">
     <input id="file" type="file" accept=".xlsx,.xls,.csv" />
