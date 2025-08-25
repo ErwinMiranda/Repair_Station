@@ -181,7 +181,7 @@ td.bounce {
 
 <div id="controls">
   <label for="wo-filter" style="padding-top: 4px;">Select WO:</label>
-  <input type="text" id="wo-filter" placeholder="Enter Work Order" style="width:160px;">
+   <select id="wo-filter" style = "width:160px;"></select>
   <button id="wo-search">Search</button>
   <div style="flex:1"></div>
   <div id="status-indicator" style="font-size:13px;color:#363434; padding-right: 5px;">
@@ -369,6 +369,61 @@ td.bounce {
 
   // ---------- Firestore collection ----------
   const tasksCol = () => collection(db, 'tasks');
+  async function populateWorkorderDropdown() {
+  const snap = await getDocs(tasksCol());
+
+  // Map workorder → acreg
+  const woMap = new Map();
+
+  snap.forEach(d => {
+    const data = d.data();
+    const wo = String(data.workorder || "").trim();
+    const ac = String(data.acreg || "").trim();
+
+    if (wo !== "") {
+      woMap.set(wo, ac); // if multiple docs share same workorder, last one wins
+    }
+  });
+
+  const select = document.getElementById("wo-filter");
+  select.innerHTML = "";
+
+  const savedValue = (localStorage.getItem("woFilterValue") || "").trim();
+
+  if (woMap.size === 0) {
+    const opt = document.createElement("option");
+    opt.value = "";
+    opt.textContent = "No workorders found";
+    select.appendChild(opt);
+    select.disabled = true;
+  } else {
+    woMap.forEach((acreg, wo) => {
+      const opt = document.createElement("option");
+      opt.value = wo;
+      opt.textContent = wo;
+      if (acreg) {
+        opt.title = acreg; // <-- this shows on hover
+      }
+      select.appendChild(opt);
+    });
+
+    // preselect saved value
+    if (woMap.has(savedValue)) {
+      select.value = savedValue;
+    }
+
+    select.disabled = false;
+  }
+
+  // save on change
+  select.onchange = function () {
+    localStorage.setItem("woFilterValue", this.value);
+  };
+}
+
+populateWorkorderDropdown();
+
+    
 
   // ---------- UI state ----------
   window.currentRows = []; // cached docs as objects { _id, ...fields }
