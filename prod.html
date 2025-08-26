@@ -833,8 +833,8 @@ const ngayonKey = toSerialDayKey(new Date());
   taskDiv.textContent = task.tasktitle || '(no title)';
   taskDiv.title = 
         //`Skill: ${task.skill || ''}\n` +
-        'DAY ${dayNumber}\n` +
-        `Date: ${formatDisplayDateShort(dayKeyToDate(dk))}\n' +
+        `DAY ${dayNumber}\n` +
+        `Date: ${formatDisplayDateShort(dayKeyToDate(dk))}\n` +
         `${task.tasktitle || ''}\n` +
         `Remarks: ${task.remarks || ''}\n` +
         `Status: ${task.status || ''}\n` +
