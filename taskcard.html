@@ -243,7 +243,26 @@ function updateSkillDropdown(rows) {
     };
 
 // ---------- Dependency helpers (replace old versions) ----------
+function weightStatus(status) {
+  switch ((status || "").toLowerCase()) {
+    case "open": return 1;
+    case "in progress": return 2;
+    case "hold": return 3;
+    case "blocked": return 4;
+    case "completed": return 5;
+    default: return 99;
+  }
+}
 
+function weightPhase(phase) {
+  switch ((phase || "").toLowerCase()) {
+    case "p1": return 1;
+    case "p2": return 2;
+    case "p3": return 3;
+    case "p4": return 4;
+    default: return 99;
+  }
+}
 // return integer priority from last segment, or null if "open" (non-number or "00")
 function parsePriorityFromTaskCard(taskCard) {
   if (!taskCard) return null;
@@ -630,35 +649,19 @@ function renderOpenPerPhase(rows) {
     });
   }
 
-  // --- search filter
+  // --- search filters
   if (q) rows = rows.filter(r =>
     String(r.reference_task_card || "").toLowerCase().includes(q) ||
     String(r.task_card_description || "").toLowerCase().includes(q)
   );
   if (seqQ) rows = rows.filter(r => String(r.seq || "").toLowerCase() === seqQ);
 
-  // --- 🔹 phase filter
+  // --- phase filter
   if (activePhaseFilters.size > 0) {
     rows = rows.filter(r => activePhaseFilters.has(r.phase || "(Unassigned)"));
   }
 
-  // --- sorting (keep your existing logic)
-  const weightStatus = s => ({ "Open":1, "In Progress":2, "Blocked":3, "Completed":4 }[bucket(s)] || 9);
-  const strictPhaseOrder = ["PH", "P0", "P1", "P2", "P3", "P4", "P5", "P6"];
-  function weightPhase(phase) {
-    if (!phase) return 999;
-    phase = phase.trim();
-    let startPhase = strictPhaseOrder.find(p => phase.startsWith(p));
-    if (!startPhase) return 999;
-    let idx = strictPhaseOrder.indexOf(startPhase);
-    if (phase.includes("-")) {
-      const endPhase = strictPhaseOrder.find(p => phase.endsWith(p));
-      const endIdx = endPhase ? strictPhaseOrder.indexOf(endPhase) : idx;
-      return idx + (endIdx - idx) * 0.1;
-    }
-    return idx;
-  }
-
+  // --- sorting ...
   rows.sort((a,b) => {
     const wStatus = weightStatus(a.status) - weightStatus(b.status);
     if (wStatus !== 0) return wStatus;
@@ -668,11 +671,12 @@ function renderOpenPerPhase(rows) {
   renderKpis(kpisFor(rows));
   renderTable(rows);
   renderChartByStatusPhase(rows);
-  renderOpenPerPhase(allRows); // always re-render with ALL_ROWS
+
+  // 🔹 FIX: show phase counts for filtered rows
+  renderOpenPerPhase(rows);
+
   chartCaptionEl.textContent = (skill === "__ALL__") ? "All skills" : `Skill: ${skill}`;
 }
-
-
     // ---------- Realtime subscription ----------
     signInAnonymously(auth).then(() => {
       statusEl.textContent = "Signed in (anonymous)";
