@@ -4,7 +4,10 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Task Cards — Live Monitor</title>
-
+      <script src="auth.js"></script>
+<script>
+  requireLogin();
+</script>
   <!-- Tailwind CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
 
@@ -42,9 +45,7 @@
         <button id="themeToggle" class="px-3 py-1 rounded bg-slate-200 text-slate-800 text-sm dark:bg-slate-700 dark:text-slate-100">
           🌞/🌙
         </button>
-        <button id="logoutBtn" class="px-3 py-1 rounded bg-slate-900 text-white text-sm dark:bg-slate-100 dark:text-slate-900">
-          Logout
-        </button>
+       <button onclick="logout()" class="logout-btn">Logout</button>
         <span id="status" class="text-sm text-slate-500 dark:text-slate-400">Initializing…</span>
       </div>
     </div>
@@ -150,6 +151,20 @@
 
   <!-- Firebase & App Logic -->
   <script type="module">
+
+const SESSION_KEY = "demo_session";
+  const savedSession = JSON.parse(localStorage.getItem(SESSION_KEY) || sessionStorage.getItem(SESSION_KEY));
+
+  if (!savedSession) {
+    location.href = "index.html"; // not logged in
+  } else {
+    // Role-based access check
+    const page = location.pathname.split("/").pop(); // current file name
+    if (savedSession.page !== page) {
+      location.href = "index.html"; // redirect if wrong user for this page
+    }
+  }
+    
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
     import { getFirestore, collection, onSnapshot, query, orderBy, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
     import { getAuth, signInAnonymously, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
@@ -173,7 +188,7 @@
     const rowsTbody = document.getElementById('rowsTbody');
     const tableCountEl = document.getElementById('tableCount');
     const chartCaptionEl = document.getElementById('chartCaption');
-    const logoutBtn = document.getElementById('logoutBtn');
+    //const logoutBtn = document.getElementById('logoutBtn');
     const actionBar = document.getElementById('actionBar');
     const selectedCountEl = document.getElementById('selectedCount');
     const markClosedBtn = document.getElementById('markClosedBtn');
@@ -688,7 +703,7 @@ function renderOpenPerPhase(rows) {
     seqSearchBoxEl.addEventListener('input', () => applyFilters(ALL_ROWS));
     skillFilterEl.addEventListener('change', () => applyFilters(ALL_ROWS));
     searchBoxEl.addEventListener('input', () => applyFilters(ALL_ROWS));
-    logoutBtn.addEventListener('click', async () => { await signOut(auth); statusEl.textContent="Signed out"; });
+    //logoutBtn.addEventListener('click', async () => { await signOut(auth); statusEl.textContent="Signed out"; });
 
     // Theme toggle
     const themeToggle = document.getElementById('themeToggle');
