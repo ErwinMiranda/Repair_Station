@@ -418,7 +418,15 @@ if (completedEl) {
   }
   completedEl.addEventListener("click", () => {
     completedFilterActive = !completedFilterActive;
-    applyFilters(ALL_ROWS);
+      if (completedFilterActive) {
+    chartMode = "completed";   // show counts instead of % when active
+    blockedFilterActive = false;
+    openFilterActive = false;
+  } else {
+    chartMode = "closed";      // default % mode
+  }
+
+  applyFilters(ALL_ROWS);
   });
 }
   
@@ -733,6 +741,63 @@ function renderChartBlockedByPhase(rows) {
     plugins: [ChartDataLabels]
   });
 }
+function renderChartCompletedByPhase(rows) {
+  chartTitleEl.textContent = "Closed Cards per Phase";
+  const ctx = document.getElementById('statusChart').getContext('2d');
+  const strictPhaseOrder = ["PH","P0","P1","P2","P3","P4","P5","P6"];
+
+  let phases = [...new Set(rows.map(r => r.phase || "(Unassigned)"))];
+  phases.sort((a, b) => {
+    const idxA = strictPhaseOrder.findIndex(p => a.startsWith(p));
+    const idxB = strictPhaseOrder.findIndex(p => b.startsWith(p));
+    return (idxA !== -1 ? idxA : 999) - (idxB !== -1 ? idxB : 999);
+  });
+
+  const data = phases.map(ph => 
+    rows.filter(r => (r.phase || "(Unassigned)") === ph && bucket(r.status) === "Completed").length
+  );
+
+  if (chart) chart.destroy();
+  chart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: phases,
+      datasets: [{
+        label: "Completed Cards",
+        data: data,
+        backgroundColor: "#34d399",
+        borderRadius: 8,
+        borderSkipped: false
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: false },
+        datalabels: {
+          color: "#fff",
+          font: { weight: '600', size: 11 },
+          anchor: 'center',
+          align: 'center',
+          formatter: v => v === 0 ? "" : v
+        },
+        tooltip: {
+          callbacks: {
+            label: ctx => ctx.raw + " completed"
+          }
+        }
+      },
+      scales: {
+        x: { grid: { drawTicks: false, borderDash: [4,4] } },
+        y: { beginAtZero: true, ticks: { precision:0 }, grid: { drawTicks: false, borderDash: [4,4] } }
+      },
+      animation: { duration: 1000, easing: 'easeOutQuart' }
+    },
+    plugins: [ChartDataLabels]
+  });
+
+  chartTitleEl.textContent = "Completed Cards per Phase";
+}
 
 let activePhaseFilters = new Set(); // multiple active phases
 
@@ -853,10 +918,12 @@ if (completedFilterActive) {
   if (showOpenChart) {
   renderChartOpenByPhase(rows);
 } else {
-  if (chartMode === "open") {
+if (chartMode === "open") {
   renderChartOpenByPhase(rows);
 } else if (chartMode === "blocked") {
   renderChartBlockedByPhase(rows);
+} else if (chartMode === "completed") {
+  renderChartCompletedByPhase(rows);
 } else {
   renderChartByStatusPhase(rows); // default closed %
 }
