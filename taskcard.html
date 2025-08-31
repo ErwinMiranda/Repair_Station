@@ -193,8 +193,10 @@ const SESSION_KEY = "demo_session";
     const selectedCountEl = document.getElementById('selectedCount');
     const markClosedBtn = document.getElementById('markClosedBtn');
     
-    let chart;
+   let chart;
     let SELECTED_IDS = new Set();
+    let blockedFilterActive = false;
+
 
     // ---------- Firebase init ----------
     const app = initializeApp(firebaseConfig);
@@ -312,24 +314,7 @@ function isBlocked(row, allRows) {
 }
 
 // collect blocking task_card strings (with bucketed status) for tooltip
-function getBlockingTasks(row, allRows) {
-  if (!row?.task_card) return [];
 
-  const myPri = parsePriorityFromTaskCard(row.task_card);
-  if (myPri === null) return [];
-
-  const base = baseKey(row.task_card);
-
-  return allRows
-    .filter(r => {
-      if (!r?.task_card) return false;
-      if (baseKey(r.task_card) !== base) return false;
-      const otherPri = parsePriorityFromTaskCard(r.task_card);
-      if (otherPri === null) return false;
-      return otherPri < myPri && bucket(r.status) !== "Completed";
-    })
-    .map(r => `${r.task_card} [${bucket(r.status)}]`);
-}
 
 function kpisFor(rows) {
   const total = rows.length;
@@ -337,7 +322,7 @@ function kpisFor(rows) {
 
   for (const r of rows) {
     const b = bucket(r.status);
-   const depBlocked = isBlocked(r, ALL_ROWS);
+    const depBlocked = isBlocked(r, ALL_ROWS);
 
     if (b === "Completed") {
       completed++;
@@ -357,10 +342,10 @@ function kpisFor(rows) {
 }
 
 function renderKpis(k) {
-  const tpl = (title, value, sub, color1, color2) => `
-<div class="rounded-xl border border-slate-200 dark:border-slate-700 
+  const tpl = (title, value, sub, color1, color2, id) => `
+<div id="${id||""}" class="rounded-xl border border-slate-200 dark:border-slate-700 
             bg-white/80 dark:bg-slate-800/80 shadow-md hover:shadow-md 
-            transition p-3 backdrop-blur-sm">
+            transition p-3 backdrop-blur-sm cursor-pointer">
   <div class="flex justify-between items-center">
     <span class="text-[10px] font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">${title}</span>
     <span class="text-[10px] text-slate-400 dark:text-slate-500">${sub||""}</span>
@@ -376,11 +361,11 @@ function renderKpis(k) {
     ${tpl("Total", k.total, "", "#94a3b8", "#64748b")}
     ${tpl("Open", k.open, "", "#60a5fa", "#3b82f6")}
     ${tpl("In Progress", k.progress, "", "#fbbf24", "#f59e0b")}
-   ${tpl("Blocked", k.blocked, "", "#f87171", "#ef4444")}
+    ${tpl("Blocked", k.blocked, "", "#f87171", "#ef4444", "blockedKpi")}
     ${tpl("Completed", k.completed, k.total? k.pct+"% of total" : "", "#34d399", "#10b981")}
   `;
 
-  // 🔢 Animate counters
+  // animate counters
   document.querySelectorAll('.counter').forEach(el => {
     const end = +el.dataset.value;
     let cur = 0;
@@ -396,7 +381,20 @@ function renderKpis(k) {
     };
     update();
   });
+
+  // 🔹 add click toggle for blocked filter
+  const blockedEl = document.getElementById("blockedKpi");
+  if (blockedEl) {
+    if (blockedFilterActive) {
+      blockedEl.classList.add("ring-2", "ring-red-400");
+    }
+    blockedEl.addEventListener("click", () => {
+      blockedFilterActive = !blockedFilterActive;
+      applyFilters(ALL_ROWS);
+    });
+  }
 }
+
 
     // ---------- Action bar ----------
     function updateActionBar() {
@@ -412,8 +410,9 @@ function renderKpis(k) {
   rowsTbody.innerHTML = "";
   for (const r of rows) {
     const b = bucket(r.status);
- const blocked = isBlocked(r, ALL_ROWS);
+const blocked = isBlocked(r, ALL_ROWS);
 const blockers = blocked ? getBlockingTasks(r, ALL_ROWS) : [];
+
 
     const badgeClass =
       b === "Completed" ? "badge-completed" :
@@ -660,6 +659,14 @@ function renderOpenPerPhase(rows) {
   if (activePhaseFilters.size > 0) {
     rows = rows.filter(r => activePhaseFilters.has(r.phase || "(Unassigned)"));
   }
+    // --- blocked filter
+if (blockedFilterActive) {
+  rows = rows.filter(r => {
+    const b = bucket(r.status);
+    // ✅ only tasks that are actually Blocked AND not Completed
+    return b !== "Completed" && (isBlocked(r, ALL_ROWS) || b === "Blocked");
+  });
+}
 
   // --- sorting ...
   rows.sort((a,b) => {
@@ -671,8 +678,6 @@ function renderOpenPerPhase(rows) {
   renderKpis(kpisFor(rows));
   renderTable(rows);
   renderChartByStatusPhase(rows);
-
-  // 🔹 FIX: show phase counts for filtered rows
   renderOpenPerPhase(rows);
 
   chartCaptionEl.textContent = (skill === "__ALL__") ? "All skills" : `Skill: ${skill}`;
