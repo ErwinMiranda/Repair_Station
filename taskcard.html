@@ -78,7 +78,7 @@
   <!-- Chart -->
   <div>
     <div class="flex items-center justify-between">
-      <h2 class="font-medium">Cards per Phase</h2>
+     <h2 id="chartTitle" class="font-medium">Closed Cards % per Phase</h2>
       <span id="chartCaption" class="text-sm text-slate-600 dark:text-slate-100">All skills</span>
     </div>
     <canvas id="statusChart" height="120" class="mt-2"></canvas>
@@ -188,7 +188,7 @@ const SESSION_KEY = "demo_session";
     const rowsTbody = document.getElementById('rowsTbody');
     const tableCountEl = document.getElementById('tableCount');
     const chartCaptionEl = document.getElementById('chartCaption');
-    //const logoutBtn = document.getElementById('logoutBtn');
+    const chartTitleEl = document.getElementById("chartTitle");
     const actionBar = document.getElementById('actionBar');
     const selectedCountEl = document.getElementById('selectedCount');
     const markClosedBtn = document.getElementById('markClosedBtn');
@@ -511,6 +511,7 @@ if (completedEl) {
 
    // ---------- Chart ----------
 function renderChartByStatusPhase(rows) {
+  chartTitleEl.textContent = "Closed Cards % per Phase";
   const ctx = document.getElementById('statusChart').getContext('2d');
   const strictPhaseOrder = ["PH", "P0", "P1", "P2", "P3", "P4", "P5", "P6"];
 
@@ -607,6 +608,7 @@ tooltip: {
   observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
 }
 function renderChartOpenByPhase(rows) {
+  chartTitleEl.textContent = "Open Cards per Phase";
   const ctx = document.getElementById('statusChart').getContext('2d');
   const strictPhaseOrder = ["PH","P0","P1","P2","P3","P4","P5","P6"];
 
@@ -670,6 +672,7 @@ function renderChartOpenByPhase(rows) {
   });
 }
 function renderChartBlockedByPhase(rows) {
+   chartTitleEl.textContent = "Blocked Cards per Phase";
   const ctx = document.getElementById('statusChart').getContext('2d');
   const strictPhaseOrder = ["PH","P0","P1","P2","P3","P4","P5","P6"];
 
