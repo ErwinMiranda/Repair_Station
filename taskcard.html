@@ -196,6 +196,8 @@ const SESSION_KEY = "demo_session";
    let chart;
     let SELECTED_IDS = new Set();
     let blockedFilterActive = false;
+    let openFilterActive = false;
+    let completedFilterActive = false;  
 
 
     // ---------- Firebase init ----------
@@ -359,10 +361,10 @@ function renderKpis(k) {
 
   document.getElementById('kpis').innerHTML = `
     ${tpl("Total", k.total, "", "#94a3b8", "#64748b")}
-    ${tpl("Open", k.open, "", "#60a5fa", "#3b82f6")}
+    ${tpl("Open", k.open, "", "#60a5fa", "#3b82f6", "openKpi")}
     ${tpl("In Progress", k.progress, "", "#fbbf24", "#f59e0b")}
     ${tpl("Blocked", k.blocked, "", "#f87171", "#ef4444", "blockedKpi")}
-    ${tpl("Completed", k.completed, k.total? k.pct+"% of total" : "", "#34d399", "#10b981")}
+    ${tpl("Completed", k.completed, k.total? k.pct+"% of total" : "", "#34d399", "#10b981", "completedKpi")}
   `;
 
   // animate counters
@@ -393,6 +395,29 @@ function renderKpis(k) {
       applyFilters(ALL_ROWS);
     });
   }
+  // 🔹 add click toggle for open filter
+const openEl = document.getElementById("openKpi");
+if (openEl) {
+  if (openFilterActive) {
+    openEl.classList.add("ring-2", "ring-blue-400");
+  }
+  openEl.addEventListener("click", () => {
+    openFilterActive = !openFilterActive;
+    applyFilters(ALL_ROWS);
+  });
+}
+// 🔹 add click toggle for completed filter
+const completedEl = document.getElementById("completedKpi");
+if (completedEl) {
+  if (completedFilterActive) {
+    completedEl.classList.add("ring-2", "ring-green-400");
+  }
+  completedEl.addEventListener("click", () => {
+    completedFilterActive = !completedFilterActive;
+    applyFilters(ALL_ROWS);
+  });
+}
+  
 }
 
 
@@ -667,7 +692,18 @@ if (blockedFilterActive) {
     return b !== "Completed" && (isBlocked(r, ALL_ROWS) || b === "Blocked");
   });
 }
-
+// --- open filter
+if (openFilterActive) {
+  rows = rows.filter(r => {
+    const b = bucket(r.status);
+    const depBlocked = isBlocked(r, ALL_ROWS);
+    return b === "Open" && !depBlocked;  // ✅ only true open tasks
+  });
+}
+// --- completed filter
+if (completedFilterActive) {
+  rows = rows.filter(r => bucket(r.status) === "Completed");
+}
   // --- sorting ...
   rows.sort((a,b) => {
     const wStatus = weightStatus(a.status) - weightStatus(b.status);
