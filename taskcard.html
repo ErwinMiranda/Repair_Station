@@ -78,7 +78,7 @@
   <!-- Chart -->
   <div>
     <div class="flex items-center justify-between">
-      <h2 class="font-medium">Closed Cards % per Phase</h2>
+      <h2 class="font-medium">Cards per Phase</h2>
       <span id="chartCaption" class="text-sm text-slate-600 dark:text-slate-100">All skills</span>
     </div>
     <canvas id="statusChart" height="120" class="mt-2"></canvas>
@@ -199,6 +199,7 @@ const SESSION_KEY = "demo_session";
     let openFilterActive = false;
     let completedFilterActive = false;  
     let showOpenChart = false;
+    let chartMode = "closed"; // "closed" | "open" | "blocked"
 
     // ---------- Firebase init ----------
     const app = initializeApp(firebaseConfig);
@@ -392,6 +393,7 @@ function renderKpis(k) {
     }
     blockedEl.addEventListener("click", () => {
       blockedFilterActive = !blockedFilterActive;
+      chartMode = blockedFilterActive ? "blocked" : "closed";
       applyFilters(ALL_ROWS);
     });
   }
@@ -403,6 +405,7 @@ if (openEl) {
   }
   openEl.addEventListener("click", () => {
     openFilterActive = !openFilterActive;
+    chartMode = openFilterActive ? "open" : "closed";
     showOpenChart = openFilterActive;   // 🔹 when open filter is active, show open chart
     applyFilters(ALL_ROWS);
   });
@@ -666,6 +669,67 @@ function renderChartOpenByPhase(rows) {
     plugins: [ChartDataLabels]
   });
 }
+function renderChartBlockedByPhase(rows) {
+  const ctx = document.getElementById('statusChart').getContext('2d');
+  const strictPhaseOrder = ["PH","P0","P1","P2","P3","P4","P5","P6"];
+
+  let phases = [...new Set(rows.map(r => r.phase || "(Unassigned)"))];
+  phases.sort((a, b) => {
+    const idxA = strictPhaseOrder.findIndex(p => a.startsWith(p));
+    const idxB = strictPhaseOrder.findIndex(p => b.startsWith(p));
+    return (idxA !== -1 ? idxA : 999) - (idxB !== -1 ? idxB : 999);
+  });
+
+  const data = phases.map(ph => {
+    return rows.filter(r => {
+      const depBlocked = isBlocked(r, ALL_ROWS);
+      return (r.phase || "(Unassigned)") === ph && depBlocked;
+    }).length;
+  });
+
+  if (chart) chart.destroy();
+  chart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: phases,
+      datasets: [{
+        label: "Blocked Cards",
+        data: data,
+        backgroundColor: "#f97316",
+        borderRadius: 8,
+        borderSkipped: false
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: false },
+        datalabels: {
+          color: "#fff",
+          font: { weight: '600', size: 11 },
+          anchor: 'center',
+          align: 'center',
+          formatter: v => v == 0 ? "" : v
+        },
+        tooltip: {
+          callbacks: {
+            label: ctx => ctx.raw + " blocked"
+          }
+        }
+      },
+      scales: {
+        x: { grid: { drawTicks: false, borderDash: [4,4] } },
+        y: {
+          beginAtZero: true,
+          ticks: { precision:0 },
+          grid: { drawTicks: false, borderDash: [4,4] }
+        }
+      },
+      animation: { duration: 1000, easing: 'easeOutQuart' }
+    },
+    plugins: [ChartDataLabels]
+  });
+}
 
 let activePhaseFilters = new Set(); // multiple active phases
 
@@ -786,7 +850,14 @@ if (completedFilterActive) {
   if (showOpenChart) {
   renderChartOpenByPhase(rows);
 } else {
-  renderChartByStatusPhase(rows);
+  if (chartMode === "open") {
+  renderChartOpenByPhase(rows);
+} else if (chartMode === "blocked") {
+  renderChartBlockedByPhase(rows);
+} else {
+  renderChartByStatusPhase(rows); // default closed %
+}
+
 }
 
   renderOpenPerPhase(rows);
