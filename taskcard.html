@@ -400,10 +400,10 @@ const openEl = document.getElementById("openKpi");
 if (openEl) {
   if (openFilterActive) {
     openEl.classList.add("ring-2", "ring-blue-400");
-    showOpenChart = openFilterActive;   // 🔹 when open filter is active, show open chart
   }
   openEl.addEventListener("click", () => {
     openFilterActive = !openFilterActive;
+    showOpenChart = openFilterActive;   // 🔹 when open filter is active, show open chart
     applyFilters(ALL_ROWS);
   });
 }
