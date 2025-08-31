@@ -407,78 +407,78 @@ function renderKpis(k) {
 
     // ---------- Table rendering with Gmail-style click selection ----------
     function renderTable(rows) {
-  rowsTbody.innerHTML = "";
-  for (const r of rows) {
-    const b = bucket(r.status);
-const blocked = isBlocked(r, ALL_ROWS);
-const blockers = blocked ? getBlockingTasks(r, ALL_ROWS) : [];
+    rowsTbody.innerHTML = "";
 
+    function getBlockingTasks(row, allRows) {
+      if (!row?.task_card) return [];
 
-    const badgeClass =
-      b === "Completed" ? "badge-completed" :
-      b === "In Progress" ? "badge-progress" :
-       b === "Blocked" ? "badge-blocked" :
-      "badge-open";
-
-    const tr = document.createElement('tr');
-
-function getBlockingTasks(row, allRows) {
-  if (!row?.task_card) return [];
-
-  const myPri = parsePriorityFromTaskCard(row.task_card);
-  if (myPri === null) return [];
-
-  const base = baseKey(row.task_card);
-
-  return allRows
-    .filter(r => {
+      const myPri = parsePriorityFromTaskCard(row.task_card);
+      if (myPri === null) return [];
+      const base = baseKey(row.task_card);
+      return allRows
+      .filter(r => {
       if (!r?.task_card) return false;
       if (baseKey(r.task_card) !== base) return false;
       const otherPri = parsePriorityFromTaskCard(r.task_card);
       if (otherPri === null) return false;
       return otherPri < myPri && bucket(r.status) !== "Completed";
-    })
-    .map(r =>
+      })
+      .map(r =>
       `Seq: ${r.seq || "—"} | Phase: ${r.phase || "—"} | Skill: ${r.skill || "(Unassigned)"}`
-    );
-}
-
-if (blocked && b !== "Completed") {
-  tr.classList.add("bg-red-100", "dark:bg-red-900/40", "opacity-60", "cursor-not-allowed");
-
-  tr.title = `Blocked until:\n- ${blockers.join("\n- ")}`;
-}
-
- else {
-      tr.classList.add("cursor-pointer", "hover:bg-slate-200", "dark:hover:bg-slate-600");
-      tr.addEventListener("click", () => {
-        if (SELECTED_IDS.has(r.id)) SELECTED_IDS.delete(r.id);
-        else SELECTED_IDS.add(r.id);
-        renderTable(rows);
-        updateActionBar();
-      });
+      );
     }
+    for (const r of rows) {
+  const b = bucket(r.status);
+  const blocked = isBlocked(r, ALL_ROWS);
+  const blockers = blocked ? getBlockingTasks(r, ALL_ROWS) : [];
 
-    if (SELECTED_IDS.has(r.id)) tr.classList.add("row-selected");
+  const badgeClass =
+    b === "Completed" ? "badge-completed" :
+    b === "In Progress" ? "badge-progress" :
+    b === "Blocked" ? "badge-blocked" :
+    "badge-open";
 
- tr.innerHTML = `
-  <td class="px-3 py-2 font-medium">${r.task_card || ""}</td>
-  <td class="px-3 py-2">${r.task_card_description || ""}</td>
-  <td class="px-3 py-2">${r.phase || ""}</td>
- <td class="px-3 py-2 whitespace-nowrap">${r.skill || "(Unassigned)"}</td>
-  <td class="px-3 py-2">
-    <span class="badge ${badgeClass}">
-      ${blocked && b !== "Completed" ? "🔒 " : ""}${b}
-    </span>
-  </td>
-  <td class="px-3 py-2">${r.seq ?? ""}</td>
-  <td class="px-3 py-2">${r.reference_task_card || ""}</td>`;
+  const tr = document.createElement('tr');
 
-    rowsTbody.appendChild(tr);
+  // 🚫 Disable blocked OR completed rows
+  if ((blocked && b !== "Completed") || b === "Completed") {
+    tr.classList.add("opacity-60", "cursor-not-allowed");
+    if (blocked && b !== "Completed") {
+      tr.classList.add("bg-red-100", "dark:bg-red-900/40");
+      tr.title = `Blocked until:\n- ${blockers.join("\n- ")}`;
+    }
+  } else {
+    // ✅ Only non-completed & non-blocked rows are selectable
+    tr.classList.add("cursor-pointer", "hover:bg-slate-200", "dark:hover:bg-slate-600");
+    tr.addEventListener("click", () => {
+      if (SELECTED_IDS.has(r.id)) SELECTED_IDS.delete(r.id);
+      else SELECTED_IDS.add(r.id);
+      renderTable(rows);
+      updateActionBar();
+    });
   }
-  tableCountEl.textContent = `${rows.length} item${rows.length===1?"":"s"}`;
-  updateActionBar();
+
+  if (SELECTED_IDS.has(r.id)) tr.classList.add("row-selected");
+
+  tr.innerHTML = `
+    <td class="px-3 py-2 font-medium">${r.task_card || ""}</td>
+    <td class="px-3 py-2">${r.task_card_description || ""}</td>
+    <td class="px-3 py-2">${r.phase || ""}</td>
+    <td class="px-3 py-2 whitespace-nowrap">${r.skill || "(Unassigned)"}</td>
+    <td class="px-3 py-2">
+      <span class="badge ${badgeClass}">
+        ${blocked && b !== "Completed" ? "🔒 " : ""}${b}
+      </span>
+    </td>
+    <td class="px-3 py-2">${r.seq ?? ""}</td>
+    <td class="px-3 py-2">${r.reference_task_card || ""}</td>
+  `;
+  rowsTbody.appendChild(tr);
 }
+
+    tableCountEl.textContent = `${rows.length} item${rows.length===1?"":"s"}`;
+    updateActionBar();
+  }
 
    // ---------- Chart ----------
 function renderChartByStatusPhase(rows) {
