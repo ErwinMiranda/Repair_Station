@@ -337,7 +337,7 @@ function kpisFor(rows) {
 
   for (const r of rows) {
     const b = bucket(r.status);
-    const depBlocked = isBlocked(r, rows);
+   const depBlocked = isBlocked(r, ALL_ROWS);
 
     if (b === "Completed") {
       completed++;
@@ -412,8 +412,8 @@ function renderKpis(k) {
   rowsTbody.innerHTML = "";
   for (const r of rows) {
     const b = bucket(r.status);
-    const blocked = isBlocked(r, rows);
-    const blockers = blocked ? getBlockingTasks(r, rows) : [];
+ const blocked = isBlocked(r, ALL_ROWS);
+const blockers = blocked ? getBlockingTasks(r, ALL_ROWS) : [];
 
     const badgeClass =
       b === "Completed" ? "badge-completed" :
@@ -593,7 +593,7 @@ function renderOpenPerPhase(rows) {
 
     const openCount = phaseRows.filter(r => {
       const b = bucket(r.status);
-      const depBlocked = isBlocked(r, rows);
+      const depBlocked = isBlocked(r, ALL_ROWS);
       return b === "Open" && !depBlocked;
     }).length;
 
