@@ -518,13 +518,16 @@ function renderChartByStatusPhase(rows) {
     return (idxA !== -1 ? idxA : 999) - (idxB !== -1 ? idxB : 999);
   });
 
-  // compute % closed for each phase
-  const data = phases.map(ph => {
-    const total = rows.filter(r => (r.phase || "(Unassigned)") === ph).length;
-    if (total === 0) return 0;
-    const closed = rows.filter(r => bucket(r.status) === "Completed" && (r.phase || "(Unassigned)") === ph).length;
-    return (closed / total * 100).toFixed(1);
-  });
+  // compute closed % for each phase AND keep raw counts
+const phaseStats = phases.map(ph => {
+  const total = rows.filter(r => (r.phase || "(Unassigned)") === ph).length;
+  const closed = rows.filter(r => bucket(r.status) === "Completed" && (r.phase || "(Unassigned)") === ph).length;
+  return { phase: ph, closed, total, pct: total ? (closed / total * 100).toFixed(1) : 0 };
+});
+
+// chart dataset = % only
+const data = phaseStats.map(s => s.pct);
+
 
   // gradient for "Completed"
   const gradient = ctx.createLinearGradient(0, 0, 0, 400);
@@ -555,11 +558,14 @@ function renderChartByStatusPhase(rows) {
           align: 'center',
           formatter: v => v == 0 ? "" : v + "%"
         },
-        tooltip: {
-          callbacks: {
-            label: ctx => ctx.raw + "%"
-          }
-        }
+tooltip: {
+  callbacks: {
+    label: ctx => {
+      const stat = phaseStats[ctx.dataIndex];
+      return `${stat.closed} of ${stat.total} closed`;
+    }
+  }
+}
       },
       scales: {
         x: { grid: { drawTicks: false, borderDash: [4,4] } },
