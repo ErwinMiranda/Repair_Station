@@ -36,6 +36,15 @@
 
 <body class="min-h-screen bg-white text-slate-800 font-sans dark:bg-slate-900 dark:text-slate-100 transition-colors">
 
+  <!-- Loading Overlay -->
+<div id="loadingOverlay" 
+     class="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 backdrop-blur-sm">
+  <div class="flex flex-col items-center gap-3">
+    <div class="w-12 h-12 border-4 border-blue-400 border-t-transparent rounded-full animate-spin"></div>
+    <span class="text-white font-medium text-sm">Loading, please wait…</span>
+  </div>
+</div>
+
   <!-- Top bar -->
   <header class="border-b bg-white dark:bg-slate-800 dark:border-slate-700 transition-colors">
     <div class="max-w-7xl mx-auto px-4 py-3 flex items-center gap-4">
@@ -151,6 +160,17 @@
 
   <!-- Firebase & App Logic -->
   <script type="module">
+const loadingOverlay = document.getElementById("loadingOverlay");
+
+// Show overlay
+function showLoading() {
+  loadingOverlay.classList.remove("hidden");
+}
+
+// Hide overlay
+function hideLoading() {
+  loadingOverlay.classList.add("hidden");
+}
 
 const SESSION_KEY = "demo_session";
   const savedSession = JSON.parse(localStorage.getItem(SESSION_KEY) || sessionStorage.getItem(SESSION_KEY));
@@ -862,6 +882,7 @@ function renderOpenPerPhase(rows) {
     // ---------- Filtering & sorting ----------
     let ALL_ROWS = [];
     function applyFilters(allRows) {
+      showLoading();
   const skill = skillFilterEl.value;
   const q = searchBoxEl.value.trim().toLowerCase();
   const seqQ = seqSearchBoxEl.value.trim().toLowerCase();
@@ -933,9 +954,11 @@ if (chartMode === "open") {
   renderOpenPerPhase(rows);
 
   chartCaptionEl.textContent = (skill === "__ALL__") ? "All skills" : `Skill: ${skill}`;
+        hideLoading();
 }
     // ---------- Realtime subscription ----------
     signInAnonymously(auth).then(() => {
+      showLoading();
       statusEl.textContent = "Signed in (anonymous)";
       const qTasks = query(collection(db, "tasks"), orderBy("sched_start_date"));
       onSnapshot(qTasks, (snap) => {
@@ -943,6 +966,7 @@ if (chartMode === "open") {
         ALL_ROWS = snap.docs.map(d => ({ id: d.id, ...d.data() }));
         updateSkillDropdown(ALL_ROWS);
         applyFilters(ALL_ROWS);
+         hideLoading();
         lastUpdateEl.textContent = "Live • " + new Date().toLocaleString();
         statusEl.textContent = `Realtime: ${ALL_ROWS.length} tasks`;
 
@@ -954,6 +978,7 @@ if (chartMode === "open") {
         updateActionBar();
       }, (err) => {
         console.error("snapshot error", err);
+         hideLoading();
         statusEl.textContent = "Realtime error";
       });
     }).catch(err => {
