@@ -882,12 +882,12 @@ function renderOpenPerPhase(rows) {
     // ---------- Filtering & sorting ----------
     let ALL_ROWS = [];
     function applyFilters(allRows) {
-   
+     showLoading();
   const skill = skillFilterEl.value;
   const q = searchBoxEl.value.trim().toLowerCase();
   const seqQ = seqSearchBoxEl.value.trim().toLowerCase();
   let rows = allRows;
-
+  showLoading();
   // --- skill filter
   if (skill && skill !== "__ALL__") {
     rows = rows.filter(r => {
@@ -933,7 +933,7 @@ if (completedFilterActive) {
     if (wStatus !== 0) return wStatus;
     return weightPhase(a.phase) - weightPhase(b.phase);
   });
-   showLoading();
+ 
   renderKpis(kpisFor(rows));
   renderTable(rows);
   if (showOpenChart) {
@@ -1048,6 +1048,7 @@ function showConfirmModal(count) {
 }
 // ---------- Shared bulk update logic ----------
 async function closeSelectedTasks() {
+    showLoading();
   if (SELECTED_IDS.size === 0) return;
 
   const ids = Array.from(SELECTED_IDS);
@@ -1078,6 +1079,7 @@ async function closeSelectedTasks() {
     console.error("update error", err);
     statusEl.textContent = "Update failed";
   }
+   hideLoading();
 }
 
 // ---------- Button click handler ----------
