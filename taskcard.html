@@ -1,196 +1,128 @@
-<!doctype html>
-<html lang="en" class="bg-white text-slate-800 dark:bg-slate-900 dark:text-slate-100">
+<!DOCTYPE html>
+<html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Task Cards — Live Monitor</title>
-      <script src="auth.js"></script>
-<script>
-  requireLogin();
-</script>
-  <!-- Tailwind CDN -->
-  <script src="https://cdn.tailwindcss.com"></script>
-
-  <!-- Tailwind Config -->
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mabilis Load</title>
+  <script src="auth.js"></script>
   <script>
-    tailwind.config = { darkMode: 'class' }
-  </script>
-
+  requireLogin();
+ </script>
   <style>
-    :root {
-      --open: #3b82f6;
-      --progress: #f59e0b;
-      --blocked: #ef4444;
-      --completed: #16a34a;
+    body { font-family: sans-serif; margin: 20px; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
     }
-    .badge { padding: .2rem .5rem; border-radius: 9999px; font-size: .75rem; font-weight: 500; }
-    .badge-open { background: var(--open); color: #fff; }
-    .badge-progress { background: var(--progress); color: #fff; }
-    .badge-hold { background: var(--hold); color: #fff; }
-    .badge-completed { background: var(--completed); color: #fff; }
-    .row-selected { background-color: rgba(16, 185, 129, 0.541); } /* subtle highlight */
-    .badge-blocked { background: var(--hold); color: #fff; }
+    th, td { padding: 6px; border: 1px solid #ddd; font-size: 14px; text-align: left; }
+    thead th { background: #f5f5f5; position: sticky; top: 0; z-index: 2; }
+    thead input {
+      width: 95%;
+      padding: 2px;
+      font-size: 12px;
+      box-sizing: border-box;
+    }
+    .clusterize-scroll {
+      height: 500px;
+      overflow-y: auto;
+      border: 1px solid #aaa;
+    }
+    #counter { margin-bottom: 10px; font-weight: bold; margin-top: 10px; }
 
+    /* Loading overlay */
+    #loadingOverlay {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(255,255,255,0.8);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      font-size: 18px;
+      color: #333;
+      opacity: 1;
+      transition: opacity 0.5s ease;
+    }
+    #loadingOverlay.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+    #loadingOverlay .spinner {
+      border: 4px solid #ccc;
+      border-top: 4px solid #0078d7;
+      border-radius: 50%;
+      width: 40px; height: 40px;
+      animation: spin 1s linear infinite;
+      margin-bottom: 10px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
   </style>
 </head>
-
-<body class="min-h-screen bg-white text-slate-800 font-sans dark:bg-slate-900 dark:text-slate-100 transition-colors">
-
-  <!-- Loading Overlay -->
-<div id="loadingOverlay" 
-     class="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 backdrop-blur-sm">
-  <div class="flex flex-col items-center gap-3">
-    <div class="w-12 h-12 border-4 border-blue-400 border-t-transparent rounded-full animate-spin"></div>
-    <span class="text-white font-medium text-sm">Loading, please wait…</span>
-  </div>
-</div>
-
-  <!-- Top bar -->
-  <header class="border-b bg-white dark:bg-slate-800 dark:border-slate-700 transition-colors">
-    <div class="max-w-7xl mx-auto px-4 py-3 flex items-center gap-4">
-      <h1 class="text-lg font-semibold">Task Cards</h1>
-      <span class="text-sm text-slate-500 dark:text-slate-400">Realtime Monitor</span>
-      <div class="ml-auto flex items-center gap-3">
-        <button id="themeToggle" class="px-3 py-1 rounded bg-slate-200 text-slate-800 text-sm dark:bg-slate-700 dark:text-slate-100">
-          🌞/🌙
-        </button>
-       <button onclick="logout()" class="logout-btn">Logout</button>
-        <span id="status" class="text-sm text-slate-500 dark:text-slate-400">Initializing…</span>
-      </div>
-    </div>
-  </header>
-
-  <!-- Controls -->
-  <main class="max-w-7xl mx-auto p-4 space-y-6">
-    <section class="flex flex-wrap items-center gap-4 text-sm">
-      <label>Skill</label>
-      <select id="skillFilter" class="px-2 py-1 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800">
-        <option value="__ALL__">All</option>
-      </select>
-
-      <label>Task Ref.</label>
-      <input id="searchBox" placeholder="LTP GENERATED"
-        class="px-2 py-1 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 w-56"/>
-
-      <label>Seq</label>
-      <input id="seqSearchBox" placeholder="001"
-        class="px-2 py-1 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 w-24"/>
-
-      <span id="lastUpdate" class="ml-auto text-xs text-slate-400 dark:text-slate-500">—</span>
-    </section>
-
-    <!-- KPI cards -->
-    <section id="kpis" class="grid grid-cols-2 md:grid-cols-5 gap-3"></section>
-
-<!-- Chart + Card Side by Side -->
-<section class="grid grid-cols-1 md:grid-cols-2 gap-4">
-  <!-- Chart -->
+<body>
+  <h2>Wan MTC</h2>
   <div>
-    <div class="flex items-center justify-between">
-     <h2 id="chartTitle" class="font-medium">Closed Cards % per Phase</h2>
-      <span id="chartCaption" class="text-sm text-slate-600 dark:text-slate-100">All skills</span>
-    </div>
-    <canvas id="statusChart" height="120" class="mt-2"></canvas>
+    <input type="text" id="woInput" placeholder="Enter Workorder ">
+    <button id="woSearchBtn">Search</button>
+  </div>
+  <div id="counter">Waiting for input...</div>
+
+  <div id="scrollArea" class="clusterize-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th style="width:15%;">TaskCard</th>
+          <th style="width:15%;">Reference</th>
+          <th style="width:25%;">Description</th>
+          <th style="width:10%;">Seq.No</th>
+          <th style="width:10%;">Skill</th>
+          <th style="width:10%;">Phase</th>
+          <th style="width:15%;">Status</th>
+        </tr>
+        <tr>
+          <th><input type="text" class="filter" data-field="task_card" placeholder="Search TaskCard"></th>
+          <th><input type="text" class="filter" data-field="reference_task_card" placeholder="Search Reference"></th>
+          <th><input type="text" class="filter" data-field="task_card_description" placeholder="Search Description"></th>
+          <th><input type="text" class="filter" data-field="seq" placeholder="Search Seq"></th>
+          <th><input type="text" class="filter" data-field="skill" placeholder="Search Skill"></th>
+          <th><input type="text" class="filter" data-field="phase" placeholder="Search Phase"></th>
+          <th><input type="text" class="filter" data-field="status" placeholder="Search Status"></th>
+        </tr>
+      </thead>
+      <tbody id="contentArea" class="clusterize-content">
+        <tr class="clusterize-no-data"><td colspan="7">No data yet</td></tr>
+      </tbody>
+    </table>
   </div>
 
-  <!-- Card: Open per Phase -->
-  <div class="rounded-2xl border border-slate-200 dark:border-slate-700 
-              bg-white/80 dark:bg-slate-800/80 shadow-md p-5 backdrop-blur-sm">
-    <h3 class="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-3">Open Cards per Phase</h3>
-    <ul id="phaseOpenList" class="space-y-2 text-sm"></ul>
-  </div>
-</section>
-
-    <!-- Table -->
-    <section>
-      <div class="flex items-center justify-between">
-        <h2 class="font-medium">Task Cards</h2>
-        <div class="text-sm text-slate-500 dark:text-slate-400" id="tableCount">0 items</div>
-      </div>
-      <div class="overflow-auto mt-2 border rounded border-slate-200 dark:border-slate-700">
-        <table class="min-w-full text-sm">
-          <thead class="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
-            <tr>
-              <th class="px-3 py-2">Task Card</th>
-              <th class="px-3 py-2">Description</th>
-              <th class="px-3 py-2">Phase</th>
-              <th class="px-3 py-2 w-auto whitespace-nowrap">Skill</th>
-              <th class="px-3 py-2">Status</th>
-              <th class="px-3 py-2">Seq</th>
-              <th class="px-3 py-2">Reference</th>
-            </tr>
-          </thead>
-          <tbody id="rowsTbody" class="divide-y divide-slate-100 dark:divide-slate-700 bg-white dark:bg-slate-900"></tbody>
-        </table>
-      </div>
-    </section>
-  </main>
-<!-- Confirm Modal -->
-<div id="confirmModal"
-     class="fixed inset-0 z-50 hidden flex items-center justify-center bg-black/50">
-  <div class="bg-white dark:bg-slate-800 rounded-xl shadow-xl p-6 max-w-sm w-full text-center">
-    <h3 class="text-lg font-semibold mb-2 text-slate-800 dark:text-slate-100">Confirm Action</h3>
-    <p class="text-sm text-slate-600 dark:text-slate-400 mb-4">
-      Mark <span id="modalCount">0</span> selected item(s) as <b>Completed</b>?
-    </p>
-    <div class="flex justify-center gap-3">
-      <button id="modalCancel"
-        class="px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200">
-        Cancel
-      </button>
-      <button id="modalConfirm"
-        class="px-4 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700">
-        Yes, Confirm
-      </button>
-    </div>
-  </div>
-</div>
-
-  <!-- Floating Action Bar -->
-  <div id="actionBar" class="fixed bottom-4 left-1/2 -translate-x-1/2 hidden">
-    <div class="flex items-center gap-3 bg-emerald-600 text-white px-4 py-2 rounded-full shadow-lg">
-      <div id="selectedCount" class="text-sm font-medium">0 selected</div>
-      <button id="markClosedBtn" class="font-medium bg-emerald-700 px-3 py-1 rounded">Mark Selected as Closed</button>
-    </div>
+  <!-- Loading overlay -->
+  <div id="loadingOverlay" style="display:none;">
+    <div class="spinner"></div>
+    Loading data...
   </div>
 
-  <!-- Libs -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
-
-  <!-- Firebase & App Logic -->
+  <script src="https://cdn.jsdelivr.net/npm/clusterize.js@0.18.1/clusterize.min.js"></script>
   <script type="module">
-const loadingOverlay = document.getElementById("loadingOverlay");
+    const SESSION_KEY = "demo_session";
+    const savedSession = JSON.parse(localStorage.getItem(SESSION_KEY) || sessionStorage.getItem(SESSION_KEY));
 
-// Show overlay
-function showLoading() {
-  loadingOverlay.classList.remove("hidden");
-}
-
-// Hide overlay
-function hideLoading() {
-  loadingOverlay.classList.add("hidden");
-}
-
-const SESSION_KEY = "demo_session";
-  const savedSession = JSON.parse(localStorage.getItem(SESSION_KEY) || sessionStorage.getItem(SESSION_KEY));
-
-  if (!savedSession) {
-    location.href = "index.html"; // not logged in
-  } else {
-    // Role-based access check
-    const page = location.pathname.split("/").pop(); // current file name
-    if (savedSession.page !== page) {
-      location.href = "index.html"; // redirect if wrong user for this page
-    }
-  }
+    if (!savedSession) {
+      location.href = "index.html"; // not logged in
+    } else {
+        // Role-based access check
+      const page = location.pathname.split("/").pop(); // current file name
+      if (savedSession.page !== page) {
+        location.href = "index.html"; // redirect if wrong user for this page
+      }
+      }
     
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-    import { getFirestore, collection, onSnapshot, query, orderBy, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-    import { getAuth, signInAnonymously, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+    import { getFirestore, collection, onSnapshot, query, where } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+    import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
-    // ---------- Firebase config ----------
-    const firebaseConfig = {
+    const firebaseConfig = { 
       apiKey: "AIzaSyDCpHhUL8x4rs-fom1xyaNdWm5prSGf57U",
       authDomain: "onemtc-2222c.firebaseapp.com",
       projectId: "onemtc-2222c",
@@ -199,912 +131,94 @@ const SESSION_KEY = "demo_session";
       appId: "1:447271556426:web:562ba4d72e40b754599db3"
     };
 
-    // ---------- DOM ----------
-    const seqSearchBoxEl = document.getElementById('seqSearchBox');
-    const statusEl = document.getElementById('status');
-    const lastUpdateEl = document.getElementById('lastUpdate');
-    const skillFilterEl = document.getElementById('skillFilter');
-    const searchBoxEl = document.getElementById('searchBox');
-    const rowsTbody = document.getElementById('rowsTbody');
-    const tableCountEl = document.getElementById('tableCount');
-    const chartCaptionEl = document.getElementById('chartCaption');
-    const chartTitleEl = document.getElementById("chartTitle");
-    const actionBar = document.getElementById('actionBar');
-    const selectedCountEl = document.getElementById('selectedCount');
-    const markClosedBtn = document.getElementById('markClosedBtn');
-    
-   let chart;
-    let SELECTED_IDS = new Set();
-    let blockedFilterActive = false;
-    let openFilterActive = false;
-    let completedFilterActive = false;  
-    let showOpenChart = false;
-    let chartMode = "closed"; // "closed" | "open" | "blocked"
-
-    // ---------- Firebase init ----------
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
     const auth = getAuth(app);
-
-    // ----------------------
-// Place this BEFORE signInAnonymously(auth) / onSnapshot usage
-// ----------------------
-function updateSkillDropdown(rows) {
-  const skills = new Set(["__ALL__"]);
-  for (const r of rows) skills.add(skillGroupMap[r.skill] || r.skill || "(Unassigned)");
-  const prev = skillFilterEl.value;
-  skillFilterEl.innerHTML = "";
-  for (const s of skills) {
-    const opt = document.createElement('option');
-    opt.value = s;
-    opt.textContent = (s === "__ALL__") ? "All skills" : s;
-    skillFilterEl.appendChild(opt);
-  }
-  // restore previous selection if still present
-  if ([...skills].includes(prev)) skillFilterEl.value = prev;
-}
-
-
-
-
-    // ---------- Helpers ----------
-    const bucket = (s) => {
-      if (!s) return "Open";
-      const v = String(s).trim().toLowerCase();
-      if (["done","completed","closed","finish","finished"].includes(v)) return "Completed";
-      if (["wip","in progress","progress","ongoing","working"].includes(v)) return "In Progress";
-      if (["Blocked","pending parts","awaiting"].includes(v)) return "Blocked";
-      if (["open","new","todo","to do","created","planned"].includes(v)) return "Open";
-      return s;
-    };
-
-    const skillGroupMap = {
-      "ENG-E": "CRG/ENG",
-      "ENG-F": "CRG/ENG",
-      "CRG": "CRG/ENG",
-      "FLC-T": "LDG/FLC",
-      "FLC-W": "LDG/FLC",
-      "LDG": "LDG/FLC",
-    };
-
-// ---------- Dependency helpers (replace old versions) ----------
-function weightStatus(status) {
-  switch ((status || "").toLowerCase()) {
-    case "open": return 1;
-    case "in progress": return 2;
-    case "hold": return 3;
-    case "blocked": return 4;
-    case "completed": return 5;
-    default: return 99;
-  }
-}
-
-function weightPhase(phase) {
-  switch ((phase || "").toLowerCase()) {
-    case "p1": return 1;
-    case "p2": return 2;
-    case "p3": return 3;
-    case "p4": return 4;
-    default: return 99;
-  }
-}
-// return integer priority from last segment, or null if "open" (non-number or "00")
-function parsePriorityFromTaskCard(taskCard) {
-  if (!taskCard) return null;
-  const tc = String(taskCard).trim();
-  const lastHy = tc.lastIndexOf("-");
-  if (lastHy === -1) return null;
-  const lastSeg = tc.slice(lastHy + 1).trim();
-
-  // only accept pure numeric segments (e.g. "02", "1", "10")
-  if (!/^\d+$/.test(lastSeg)) return null;
-
-  // "00" means treat as open (no priority)
-  if (lastSeg === "00") return null;
-
-  return parseInt(lastSeg, 10); // e.g. "02" -> 2
-}
-
-// base key = everything before the final hyphen
-function baseKey(taskCard) {
-  if (!taskCard) return "";
-  const tc = String(taskCard).trim();
-  const lastHy = tc.lastIndexOf("-");
-  return lastHy === -1 ? tc : tc.slice(0, lastHy);
-}
-
-// true if this row is blocked by another row with same base and LOWER numeric priority
-function isBlocked(row, allRows) {
-  if (!row?.task_card) return false;
-
-  const myPri = parsePriorityFromTaskCard(row.task_card);
-  // If current task has no numeric priority (or "00"), leave it open
-  if (myPri === null) return false;
-
-  const base = baseKey(row.task_card);
-
-  return allRows.some(r => {
-    if (!r?.task_card) return false;
-    if (baseKey(r.task_card) !== base) return false;
-
-    const otherPri = parsePriorityFromTaskCard(r.task_card);
-    // ignore other tasks that are "open" (non-numeric or "00")
-    if (otherPri === null) return false;
-
-    // other has lower numeric priority and is not completed -> blocks this row
-    return otherPri < myPri && bucket(r.status) !== "Completed";
-  });
-}
-
-// collect blocking task_card strings (with bucketed status) for tooltip
-
-
-function kpisFor(rows) {
-  const total = rows.length;
-  let open = 0, progress = 0, blocked = 0, completed = 0;
-
-  for (const r of rows) {
-    const b = bucket(r.status);
-    const depBlocked = isBlocked(r, ALL_ROWS);
-
-    if (b === "Completed") {
-      completed++;
-    } else if (depBlocked) {
-      blocked++;   // 🔒 dependency blocks override raw status
-    } else if (b === "Open") {
-      open++;
-    } else if (b === "In Progress") {
-      progress++;
-    } else if (b === "Blocked") {
-      blocked++;   // status says blocked
-    }
-  }
-
-  const pct = total ? Math.round((completed / total) * 100) : 0;
-  return { total, open, progress, blocked, completed, pct };
-}
-
-function renderKpis(k) {
-  const tpl = (title, value, sub, color1, color2, id) => `
-<div id="${id||""}" class="rounded-xl border border-slate-200 dark:border-slate-700 
-            bg-white/80 dark:bg-slate-800/80 shadow-md hover:shadow-md 
-            transition p-3 backdrop-blur-sm cursor-pointer">
-  <div class="flex justify-between items-center">
-    <span class="text-[10px] font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">${title}</span>
-    <span class="text-[10px] text-slate-400 dark:text-slate-500">${sub||""}</span>
-  </div>
-  <div class="mt-1 text-xl font-bold text-slate-800 dark:text-slate-100 counter" data-value="${value}">0</div>
-  <div class="mt-2 h-1.5 w-full rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden">
-    <div class="h-1.5 rounded-full" style="background:linear-gradient(90deg,${color1},${color2});width:100%"></div>
-  </div>
-</div>
-`;
-
-  document.getElementById('kpis').innerHTML = `
-    ${tpl("Total", k.total, "", "#94a3b8", "#64748b")}
-    ${tpl("Open", k.open, "", "#60a5fa", "#3b82f6", "openKpi")}
-    ${tpl("In Progress", k.progress, "", "#fbbf24", "#f59e0b")}
-    ${tpl("Blocked", k.blocked, "", "#f87171", "#ef4444", "blockedKpi")}
-    ${tpl("Completed", k.completed, k.total? k.pct+"% of total" : "", "#34d399", "#10b981", "completedKpi")}
-  `;
-
-  // animate counters
-  document.querySelectorAll('.counter').forEach(el => {
-    const end = +el.dataset.value;
-    let cur = 0;
-    const step = Math.ceil(end / 20);
-    const update = () => {
-      cur += step;
-      if (cur >= end) {
-        el.textContent = end;
-      } else {
-        el.textContent = cur;
-        requestAnimationFrame(update);
-      }
-    };
-    update();
-  });
-
-  // 🔹 add click toggle for blocked filter
-  const blockedEl = document.getElementById("blockedKpi");
-  if (blockedEl) {
-    if (blockedFilterActive) {
-      blockedEl.classList.add("ring-2", "ring-red-400");
-    }
-    blockedEl.addEventListener("click", () => {
-      blockedFilterActive = !blockedFilterActive;
-      chartMode = blockedFilterActive ? "blocked" : "closed";
-      applyFilters(ALL_ROWS);
-    });
-  }
-  // 🔹 add click toggle for open filter
-const openEl = document.getElementById("openKpi");
-if (openEl) {
-  if (openFilterActive) {
-    openEl.classList.add("ring-2", "ring-blue-400");
-  }
-  openEl.addEventListener("click", () => {
-    openFilterActive = !openFilterActive;
-    chartMode = openFilterActive ? "open" : "closed";
-    showOpenChart = openFilterActive;   // 🔹 when open filter is active, show open chart
-    applyFilters(ALL_ROWS);
-  });
-}
-// 🔹 add click toggle for completed filter
-const completedEl = document.getElementById("completedKpi");
-if (completedEl) {
-  if (completedFilterActive) {
-    completedEl.classList.add("ring-2", "ring-green-400");
-  }
-  completedEl.addEventListener("click", () => {
-    completedFilterActive = !completedFilterActive;
-      if (completedFilterActive) {
-    chartMode = "completed";   // show counts instead of % when active
-    blockedFilterActive = false;
-    openFilterActive = false;
-  } else {
-    chartMode = "closed";      // default % mode
-  }
-
-  applyFilters(ALL_ROWS);
-  });
-}
-  
-}
-
-
-    // ---------- Action bar ----------
-    function updateActionBar() {
-      const count = SELECTED_IDS.size;
-      selectedCountEl.textContent = `${count} selected`;
-      actionBar.classList.toggle('hidden', count === 0);
-      // disable button if none
-      markClosedBtn.disabled = (count === 0);
-    }
-
-    // ---------- Table rendering with Gmail-style click selection ----------
-    function renderTable(rows) {
-    rowsTbody.innerHTML = "";
-
-    function getBlockingTasks(row, allRows) {
-      if (!row?.task_card) return [];
-
-      const myPri = parsePriorityFromTaskCard(row.task_card);
-      if (myPri === null) return [];
-      const base = baseKey(row.task_card);
-      return allRows
-      .filter(r => {
-      if (!r?.task_card) return false;
-      if (baseKey(r.task_card) !== base) return false;
-      const otherPri = parsePriorityFromTaskCard(r.task_card);
-      if (otherPri === null) return false;
-      return otherPri < myPri && bucket(r.status) !== "Completed";
-      })
-      .map(r =>
-      `Seq: ${r.seq || "—"} | Phase: ${r.phase || "—"} | Skill: ${r.skill || "(Unassigned)"}`
-      );
-    }
-    for (const r of rows) {
-  const b = bucket(r.status);
-  const blocked = isBlocked(r, ALL_ROWS);
-  const blockers = blocked ? getBlockingTasks(r, ALL_ROWS) : [];
-
-  const badgeClass =
-    b === "Completed" ? "badge-completed" :
-    b === "In Progress" ? "badge-progress" :
-    b === "Blocked" ? "badge-blocked" :
-    "badge-open";
-
-  const tr = document.createElement('tr');
-
-  // 🚫 Disable blocked OR completed rows
-  if ((blocked && b !== "Completed") || b === "Completed") {
-    tr.classList.add("opacity-60", "cursor-not-allowed");
-    if (blocked && b !== "Completed") {
-      tr.classList.add("bg-red-100", "dark:bg-red-900/40");
-      tr.title = `Blocked until:\n- ${blockers.join("\n- ")}`;
-    }
-  } else {
-    // ✅ Only non-completed & non-blocked rows are selectable
-    tr.classList.add("cursor-pointer", "hover:bg-slate-200", "dark:hover:bg-slate-600");
-    tr.addEventListener("click", () => {
-      if (SELECTED_IDS.has(r.id)) SELECTED_IDS.delete(r.id);
-      else SELECTED_IDS.add(r.id);
-      renderTable(rows);
-      updateActionBar();
-    });
-  }
-
-  if (SELECTED_IDS.has(r.id)) tr.classList.add("row-selected");
-
-  tr.innerHTML = `
-    <td class="px-3 py-2 font-medium">${r.task_card || ""}</td>
-    <td class="px-3 py-2">${r.task_card_description || ""}</td>
-    <td class="px-3 py-2">${r.phase || ""}</td>
-    <td class="px-3 py-2 whitespace-nowrap">${r.skill || "(Unassigned)"}</td>
-    <td class="px-3 py-2">
-      <span class="badge ${badgeClass}">
-        ${blocked && b !== "Completed" ? "🔒 " : ""}${b}
-      </span>
-    </td>
-    <td class="px-3 py-2">${r.seq ?? ""}</td>
-    <td class="px-3 py-2">${r.reference_task_card || ""}</td>
-  `;
-  rowsTbody.appendChild(tr);
-}
-
-    tableCountEl.textContent = `${rows.length} item${rows.length===1?"":"s"}`;
-    updateActionBar();
-  }
-
-   // ---------- Chart ----------
-function renderChartByStatusPhase(rows) {
-  chartTitleEl.textContent = "Closed Cards % per Phase";
-  const ctx = document.getElementById('statusChart').getContext('2d');
-  const strictPhaseOrder = ["PH", "P0", "P1", "P2", "P3", "P4", "P5", "P6"];
-
-  // collect phases in strict order
-  let phases = [...new Set(rows.map(r => r.phase || "(Unassigned)"))];
-  phases.sort((a,b) => {
-    const idxA = strictPhaseOrder.findIndex(p => a.startsWith(p));
-    const idxB = strictPhaseOrder.findIndex(p => b.startsWith(p));
-    return (idxA !== -1 ? idxA : 999) - (idxB !== -1 ? idxB : 999);
-  });
-
-  // compute closed % for each phase AND keep raw counts
-const phaseStats = phases.map(ph => {
-  const total = rows.filter(r => (r.phase || "(Unassigned)") === ph).length;
-  const closed = rows.filter(r => bucket(r.status) === "Completed" && (r.phase || "(Unassigned)") === ph).length;
-  return { phase: ph, closed, total, pct: total ? (closed / total * 100).toFixed(1) : 0 };
-});
-
-// chart dataset = % only
-const data = phaseStats.map(s => s.pct);
-
-
-  // gradient for "Completed"
-  const gradient = ctx.createLinearGradient(0, 0, 0, 400);
-  gradient.addColorStop(0, "#34d399");
-  gradient.addColorStop(1, "#10b981");
-
-  if (chart) chart.destroy();
-  chart = new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels: phases,
-      datasets: [{
-        label: "Closed (%)",
-        data: data,
-        backgroundColor: gradient,
-        borderRadius: 8,
-        borderSkipped: false
-      }]
-    },
-    options: {
-      responsive: true,
-      plugins: {
-        legend: { display: false },
-        datalabels: {
-          color: "#fff",
-          font: { weight: '600', size: 11 },
-          anchor: 'center',
-          align: 'center',
-          formatter: v => v == 0 ? "" : v + "%"
-        },
-tooltip: {
-  callbacks: {
-    label: ctx => {
-      const stat = phaseStats[ctx.dataIndex];
-      return `${stat.closed} of ${stat.total} closed`;
-    }
-  }
-}
-      },
-      scales: {
-        x: { grid: { drawTicks: false, borderDash: [4,4] } },
-        y: {
-          beginAtZero: true,
-          max: 100,
-          ticks: { callback: v => v + "%" },
-          grid: { drawTicks: false, borderDash: [4,4] }
-        }
-      },
-      animation: { duration: 1000, easing: 'easeOutQuart' }
-    },
-    plugins: [ChartDataLabels]
-  });
-
-  // theme handling
-  function applyTheme(chart) {
-    const isDark = document.documentElement.classList.contains("dark");
-    const textColor = isDark ? "#e5e7eb" : "#374151";
-    const gridColor = isDark ? "#374151" : "#f2efe7";
-    const tooltipBg = isDark ? "#1f2937" : "#f9fafb";
-
-    chart.options.plugins.tooltip.titleColor = textColor;
-    chart.options.plugins.tooltip.bodyColor = textColor;
-    chart.options.plugins.tooltip.backgroundColor = tooltipBg;
-    chart.options.scales.x.ticks.color = textColor;
-    chart.options.scales.y.ticks.color = textColor;
-    chart.options.scales.x.grid.color = gridColor;
-    chart.options.scales.y.grid.color = gridColor;
-    chart.update();
-  }
-  applyTheme(chart);
-
-  const observer = new MutationObserver(() => applyTheme(chart));
-  observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
-}
-function renderChartOpenByPhase(rows) {
-  chartTitleEl.textContent = "Open Cards per Phase";
-  const ctx = document.getElementById('statusChart').getContext('2d');
-  const strictPhaseOrder = ["PH","P0","P1","P2","P3","P4","P5","P6"];
-
-  let phases = [...new Set(rows.map(r => r.phase || "(Unassigned)"))];
-  phases.sort((a, b) => {
-    const idxA = strictPhaseOrder.findIndex(p => a.startsWith(p));
-    const idxB = strictPhaseOrder.findIndex(p => b.startsWith(p));
-    return (idxA !== -1 ? idxA : 999) - (idxB !== -1 ? idxB : 999);
-  });
-
-  // compute open counts
-  const data = phases.map(ph => {
-    return rows.filter(r => {
-      const b = bucket(r.status);
-      const depBlocked = isBlocked(r, ALL_ROWS);
-      return (r.phase || "(Unassigned)") === ph && b === "Open" && !depBlocked;
-    }).length;
-  });
-
-  if (chart) chart.destroy();
-  chart = new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels: phases,
-      datasets: [{
-        label: "Open Cards",
-        data: data,
-        backgroundColor: "#3b82f6",
-        borderRadius: 8,
-        borderSkipped: false
-      }]
-    },
-    options: {
-      responsive: true,
-      plugins: {
-        legend: { display: false },
-        datalabels: {
-          color: "#fff",
-          font: { weight: '600', size: 11 },
-          anchor: 'center',
-          align: 'center',
-          formatter: v => v == 0 ? "" : v
-        },
-        tooltip: {
-          callbacks: {
-            label: ctx => ctx.raw + " open"
-          }
-        }
-      },
-      scales: {
-        x: { grid: { drawTicks: false, borderDash: [4,4] } },
-        y: {
-          beginAtZero: true,
-          ticks: { precision:0 },
-          grid: { drawTicks: false, borderDash: [4,4] }
-        }
-      },
-      animation: { duration: 1000, easing: 'easeOutQuart' }
-    },
-    plugins: [ChartDataLabels]
-  });
-}
-function renderChartBlockedByPhase(rows) {
-   chartTitleEl.textContent = "Blocked Cards per Phase";
-  const ctx = document.getElementById('statusChart').getContext('2d');
-  const strictPhaseOrder = ["PH","P0","P1","P2","P3","P4","P5","P6"];
-
-  let phases = [...new Set(rows.map(r => r.phase || "(Unassigned)"))];
-  phases.sort((a, b) => {
-    const idxA = strictPhaseOrder.findIndex(p => a.startsWith(p));
-    const idxB = strictPhaseOrder.findIndex(p => b.startsWith(p));
-    return (idxA !== -1 ? idxA : 999) - (idxB !== -1 ? idxB : 999);
-  });
-
-  const data = phases.map(ph => {
-    return rows.filter(r => {
-      const depBlocked = isBlocked(r, ALL_ROWS);
-      return (r.phase || "(Unassigned)") === ph && depBlocked;
-    }).length;
-  });
-
-  if (chart) chart.destroy();
-  chart = new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels: phases,
-      datasets: [{
-        label: "Blocked Cards",
-        data: data,
-        backgroundColor: "#E67575",
-        borderRadius: 8,
-        borderSkipped: false
-      }]
-    },
-    options: {
-      responsive: true,
-      plugins: {
-        legend: { display: false },
-        datalabels: {
-          color: "#fff",
-          font: { weight: '600', size: 11 },
-          anchor: 'center',
-          align: 'center',
-          formatter: v => v == 0 ? "" : v
-        },
-        tooltip: {
-          callbacks: {
-            label: ctx => ctx.raw + " blocked"
-          }
-        }
-      },
-      scales: {
-        x: { grid: { drawTicks: false, borderDash: [4,4] } },
-        y: {
-          beginAtZero: true,
-          ticks: { precision:0 },
-          grid: { drawTicks: false, borderDash: [4,4] }
-        }
-      },
-      animation: { duration: 1000, easing: 'easeOutQuart' }
-    },
-    plugins: [ChartDataLabels]
-  });
-}
-function renderChartCompletedByPhase(rows) {
-  chartTitleEl.textContent = "Closed Cards per Phase";
-  const ctx = document.getElementById('statusChart').getContext('2d');
-  const strictPhaseOrder = ["PH","P0","P1","P2","P3","P4","P5","P6"];
-
-  let phases = [...new Set(rows.map(r => r.phase || "(Unassigned)"))];
-  phases.sort((a, b) => {
-    const idxA = strictPhaseOrder.findIndex(p => a.startsWith(p));
-    const idxB = strictPhaseOrder.findIndex(p => b.startsWith(p));
-    return (idxA !== -1 ? idxA : 999) - (idxB !== -1 ? idxB : 999);
-  });
-
-  const data = phases.map(ph => 
-    rows.filter(r => (r.phase || "(Unassigned)") === ph && bucket(r.status) === "Completed").length
-  );
-
-  if (chart) chart.destroy();
-  chart = new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels: phases,
-      datasets: [{
-        label: "Completed Cards",
-        data: data,
-        backgroundColor: "#34d399",
-        borderRadius: 8,
-        borderSkipped: false
-      }]
-    },
-    options: {
-      responsive: true,
-      plugins: {
-        legend: { display: false },
-        datalabels: {
-          color: "#fff",
-          font: { weight: '600', size: 11 },
-          anchor: 'center',
-          align: 'center',
-          formatter: v => v === 0 ? "" : v
-        },
-        tooltip: {
-          callbacks: {
-            label: ctx => ctx.raw + " completed"
-          }
-        }
-      },
-      scales: {
-        x: { grid: { drawTicks: false, borderDash: [4,4] } },
-        y: { beginAtZero: true, ticks: { precision:0 }, grid: { drawTicks: false, borderDash: [4,4] } }
-      },
-      animation: { duration: 1000, easing: 'easeOutQuart' }
-    },
-    plugins: [ChartDataLabels]
-  });
-
-  chartTitleEl.textContent = "Completed Cards per Phase";
-}
-
-let activePhaseFilters = new Set(); // multiple active phases
-
-function renderOpenPerPhase(rows) {
-  const strictPhaseOrder = ["PH", "P0", "P1", "P2", "P3", "P4", "P5", "P6"];
-  let phases = [...new Set(rows.map(r => r.phase || "(Unassigned)"))];
-
-  phases.sort((a, b) => {
-    const idxA = strictPhaseOrder.findIndex(p => a.startsWith(p));
-    const idxB = strictPhaseOrder.findIndex(p => b.startsWith(p));
-    return (idxA !== -1 ? idxA : 999) - (idxB !== -1 ? idxB : 999);
-  });
-
-  const listEl = document.getElementById("phaseOpenList");
-  listEl.innerHTML = "";
-
-  phases.forEach(ph => {
-    const phaseRows = rows.filter(r => (r.phase || "(Unassigned)") === ph);
-
-    const openCount = phaseRows.filter(r => {
-      const b = bucket(r.status);
-      const depBlocked = isBlocked(r, ALL_ROWS);
-      return b === "Open" && !depBlocked;
-    }).length;
-
-    const total = phaseRows.length;
-    const pct = total ? Math.round((openCount / total) * 100) : 0;
-
-    const li = document.createElement("li");
-    li.className =
-      "flex items-center justify-between rounded-lg border border-slate-200 dark:border-slate-700 bg-white/60 dark:bg-slate-800/60 px-2 py-1 text-xs gap-2 cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/30 transition";
-
-    // highlight if active
-    if (activePhaseFilters.has(ph)) {
-      li.classList.add("ring-2", "ring-blue-400", "bg-blue-50", "dark:bg-blue-900/40");
-    }
-
-    li.innerHTML = `
-      <span class="font-medium">${ph}</span>
-      <div class="flex-1 h-1 bg-slate-200 dark:bg-slate-700 mx-2 rounded-full overflow-hidden">
-        <div class="h-1 bg-blue-500 rounded-full transition-all" style="width:${pct}%"></div>
-      </div>
-      <span class="text-[10px]">${openCount}/${total}</span>
-    `;
-
-    li.addEventListener("click", () => {
-      if (activePhaseFilters.has(ph)) {
-        activePhaseFilters.delete(ph); // toggle off
-      } else {
-        activePhaseFilters.add(ph); // toggle on
-      }
-
-      // 🔹 instead of calling renderTable directly, reapply all filters
-      applyFilters(ALL_ROWS);
+    signInAnonymously(auth);
+
+    const clusterize = new Clusterize({
+      scrollId: 'scrollArea',
+      contentId: 'contentArea',
+      rows: []
     });
 
-    listEl.appendChild(li);
-  });
-}
+    const counterEl = document.getElementById("counter");
+    const woInput = document.getElementById("woInput");
+    const woSearchBtn = document.getElementById("woSearchBtn");
+    const overlay = document.getElementById("loadingOverlay");
 
+    let unsubscribe = null; 
+    let allDocs = []; // store all docs for filtering
 
-    // ---------- Filtering & sorting ----------
-    let ALL_ROWS = [];
-    function applyFilters(allRows) {
-     showLoading();
-  const skill = skillFilterEl.value;
-  const q = searchBoxEl.value.trim().toLowerCase();
-  const seqQ = seqSearchBoxEl.value.trim().toLowerCase();
-  let rows = allRows;
-  showLoading();
-  // --- skill filter
-  if (skill && skill !== "__ALL__") {
-    rows = rows.filter(r => {
-      const grp = skillGroupMap[r.skill] || r.skill || "(Unassigned)";
-      return grp === skill;
-    });
-  }
+    function showLoading() { overlay.style.display = "flex"; }
+    function hideLoading() { overlay.style.display = "none"; }
 
-  // --- search filters
-  if (q) rows = rows.filter(r =>
-    String(r.reference_task_card || "").toLowerCase().includes(q) ||
-    String(r.task_card_description || "").toLowerCase().includes(q)
-  );
-  if (seqQ) rows = rows.filter(r => String(r.seq || "").toLowerCase() === seqQ);
+    function renderRows(docs) {
+      let rows = docs.map(d => `
+        <tr id="row-${d.id}">
+          <td>${d.task_card || ''}</td>
+          <td>${d.reference_task_card || ''}</td>
+          <td>${d.task_card_description || ''}</td>
+          <td>${d.seq || ''}</td>
+          <td>${d.skill || ''}</td>
+          <td>${d.phase || ''}</td>
+          <td>${d.status || ''}</td>
+        </tr>
+      `);
+      clusterize.update(rows);
+    }
 
-  // --- phase filter
-  if (activePhaseFilters.size > 0) {
-    rows = rows.filter(r => activePhaseFilters.has(r.phase || "(Unassigned)"));
-  }
-    // --- blocked filter
-if (blockedFilterActive) {
-  rows = rows.filter(r => {
-    const b = bucket(r.status);
-    // ✅ only tasks that are actually Blocked AND not Completed
-    return b !== "Completed" && (isBlocked(r, ALL_ROWS) || b === "Blocked");
-  });
-}
-// --- open filter
-if (openFilterActive) {
-  rows = rows.filter(r => {
-    const b = bucket(r.status);
-    const depBlocked = isBlocked(r, ALL_ROWS);
-    return b === "Open" && !depBlocked;  // ✅ only true open tasks
-  });
-}
-// --- completed filter
-if (completedFilterActive) {
-  rows = rows.filter(r => bucket(r.status) === "Completed");
-}
-  // --- sorting ...
-  rows.sort((a,b) => {
-    const wStatus = weightStatus(a.status) - weightStatus(b.status);
-    if (wStatus !== 0) return wStatus;
-    return weightPhase(a.phase) - weightPhase(b.phase);
-  });
- 
-  renderKpis(kpisFor(rows));
-  renderTable(rows);
-  if (showOpenChart) {
-  renderChartOpenByPhase(rows);
-} else {
-if (chartMode === "open") {
-  renderChartOpenByPhase(rows);
-} else if (chartMode === "blocked") {
-  renderChartBlockedByPhase(rows);
-} else if (chartMode === "completed") {
-  renderChartCompletedByPhase(rows);
-} else {
-  renderChartByStatusPhase(rows); // default closed %
-}
-
-}
-
-  renderOpenPerPhase(rows);
-
-  chartCaptionEl.textContent = (skill === "__ALL__") ? "All skills" : `Skill: ${skill}`;
-        hideLoading();
-}
-    // ---------- Realtime subscription ----------
-    signInAnonymously(auth).then(() => {
-      showLoading();
-      statusEl.textContent = "Signed in (anonymous)";
-      const qTasks = query(collection(db, "tasks"), orderBy("sched_start_date"));
-      onSnapshot(qTasks, (snap) => {
-        // include document id so we can update easily
-        ALL_ROWS = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-        updateSkillDropdown(ALL_ROWS);
-        applyFilters(ALL_ROWS);
-         hideLoading();
-        lastUpdateEl.textContent = "Live • " + new Date().toLocaleString();
-        statusEl.textContent = `Realtime: ${ALL_ROWS.length} tasks`;
-
-        // prune SELECTED_IDS (remove ids that no longer exist)
-        const existingIds = new Set(ALL_ROWS.map(r => r.id));
-        for (const sel of Array.from(SELECTED_IDS)) {
-          if (!existingIds.has(sel)) SELECTED_IDS.delete(sel);
+    function applyFilters() {
+      const filters = {};
+      document.querySelectorAll(".filter").forEach(input => {
+        if (input.value.trim() !== "") {
+          filters[input.dataset.field] = input.value.toLowerCase();
         }
-        updateActionBar();
-      }, (err) => {
-        console.error("snapshot error", err);
-         hideLoading();
-        statusEl.textContent = "Realtime error";
       });
-    }).catch(err => {
-      console.error("auth error", err);
-      statusEl.textContent = "Auth failed";
-    });
 
-    seqSearchBoxEl.addEventListener('input', () => applyFilters(ALL_ROWS));
-    skillFilterEl.addEventListener('change', () => applyFilters(ALL_ROWS));
-    searchBoxEl.addEventListener('input', () => applyFilters(ALL_ROWS));
-    //logoutBtn.addEventListener('click', async () => { await signOut(auth); statusEl.textContent="Signed out"; });
+      let filtered = allDocs.filter(d => {
+        return Object.keys(filters).every(field => {
+          return (d[field] || "").toString().toLowerCase().includes(filters[field]);
+        });
+      });
 
-    // Theme toggle
-    const themeToggle = document.getElementById('themeToggle');
-    themeToggle.addEventListener('click', () => {
-      document.documentElement.classList.toggle('dark');
-      localStorage.setItem('theme', document.documentElement.classList.contains('dark') ? 'dark':'light');
-    });
-    if (localStorage.getItem('theme') === 'dark') document.documentElement.classList.add('dark');
-
-// ---------- Modal logic (define once, globally) ----------
-const confirmModal = document.getElementById('confirmModal');
-const modalCount = document.getElementById('modalCount');
-const modalCancel = document.getElementById('modalCancel');
-const modalConfirm = document.getElementById('modalConfirm');
-let isModalOpen = false;  // 🔹 Track modal state
-
-function showConfirmModal(count) {
-  modalCount.textContent = count;
-  confirmModal.classList.remove('hidden');
-  isModalOpen = true;
-
-  return new Promise((resolve) => {
-    const cancelHandler = () => { 
-      SELECTED_IDS.clear();
-      updateActionBar();
-      applyFilters(ALL_ROWS);
-      cleanup(); 
-      resolve(false); 
-    };
-
-    const confirmHandler = () => { 
-      cleanup(); 
-      resolve(true); 
-    };
-
-    const keyHandler = (e) => {
-      if (e.key === "Escape") {
-        cancelHandler();
-      } else if (e.key === "Enter") {
-        confirmHandler();
-      }
-    };
-
-    function cleanup() {
-      modalCancel.removeEventListener('click', cancelHandler);
-      modalConfirm.removeEventListener('click', confirmHandler);
-      document.removeEventListener('keydown', keyHandler);
-      confirmModal.classList.add('hidden');
-      isModalOpen = false;
+      renderRows(filtered);
+      counterEl.textContent = `Showing ${filtered.length} of ${allDocs.length} tasks`;
     }
 
-    modalCancel.addEventListener('click', cancelHandler);
-    modalConfirm.addEventListener('click', confirmHandler);
-    document.addEventListener('keydown', keyHandler);
-  });
-}
-// ---------- Shared bulk update logic ----------
-async function closeSelectedTasks() {
-    showLoading();
-  if (SELECTED_IDS.size === 0) return;
-
-  const ids = Array.from(SELECTED_IDS);
-  const blockedIds = ids.filter(id => {
-    const row = ALL_ROWS.find(r => r.id === id);
-    return row && isBlocked(row, ALL_ROWS);
-  });
-
-  if (blockedIds.length > 0) {
-    alert("⚠️ Some tasks are blocked by earlier phases. Please close earlier phases first.");
-    return;
-  }
-
-  statusEl.textContent = `Updating ${ids.length}…`;
-
-  try {
-    await Promise.all(ids.map(id =>
-      updateDoc(doc(db, "tasks", id), {
-        status: "Completed",
-        updated_at: new Date().toISOString()
-      })
-    ));
-    statusEl.textContent = `Updated ${ids.length} item(s).`;
-    SELECTED_IDS.clear();
-    updateActionBar();
-    applyFilters(ALL_ROWS);
-  } catch (err) {
-    console.error("update error", err);
-    statusEl.textContent = "Update failed";
-  }
-   hideLoading();
-}
-
-// ---------- Button click handler ----------
-markClosedBtn.addEventListener("click", async () => {
-  if (SELECTED_IDS.size === 0) return;
-  const confirmed = await showConfirmModal(SELECTED_IDS.size);
-  if (confirmed) await closeSelectedTasks();
-});
-
-// ---------- Global keyboard handler ----------
-document.addEventListener("keydown", (e) => {
-  if (SELECTED_IDS.size === 0 || isModalOpen) return;
-
-  if (e.key === "Escape") {
-    SELECTED_IDS.clear();
-    updateActionBar();
-    applyFilters(ALL_ROWS);
-  }
-
-  if (e.key === "Enter") {
-    showConfirmModal(SELECTED_IDS.size).then(async (confirmed) => {
-      if (confirmed) await closeSelectedTasks();
+    document.querySelectorAll(".filter").forEach(input => {
+      input.addEventListener("input", applyFilters);
     });
-  }
-});
+
+    function searchWorkorder(wo) {
+      if (!wo) return;
+      showLoading();
+      counterEl.textContent = "Loading tasks...";
+
+      localStorage.setItem("lastWorkorder", wo);
+      if (unsubscribe) unsubscribe();
+
+      let woValue = isNaN(wo) ? wo : Number(wo);
+
+      const q = query(collection(db, "tasks"), where("wo", "==", woValue));
+      unsubscribe = onSnapshot(q, (snapshot) => {
+        allDocs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        counterEl.textContent = `Total Tasks: ${snapshot.size}`;
+        renderRows(allDocs);
+        hideLoading();
+      });
+    }
+
+    woSearchBtn.addEventListener("click", () => {
+      const wo = woInput.value.trim();
+      if (wo) searchWorkorder(wo);
+    });
+
+    const lastWO = localStorage.getItem("lastWorkorder");
+    if (lastWO) {
+      woInput.value = lastWO;
+      searchWorkorder(lastWO);
+    }
   </script>
 </body>
 </html>
