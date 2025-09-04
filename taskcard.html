@@ -523,7 +523,10 @@
       if (scanModal.style.display !== "flex") openModal();
     }
 
-    closeScanBtn.addEventListener("click", () => closeModal());
+        closeScanBtn.addEventListener("click", () => {
+  closeModal();
+  setScanning(false);
+});
     clearScanBtn.addEventListener("click", () => { scannedSeqs = []; renderScannedList(); });
 
     // Submit: Update status CLOSED for matching (wo + seq) pairs
