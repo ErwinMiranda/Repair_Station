@@ -559,6 +559,11 @@
 
     // Initialize scanned list content
     renderScannedList();
+    // Hide loading if no auto-search on first load
+if (!lastWO) {
+  hideLoading();
+}
+
   </script>
 </body>
 </html>
