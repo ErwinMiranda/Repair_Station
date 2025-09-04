@@ -185,6 +185,11 @@
       <h3 id="scanModalTitle">Scanned Sequences</h3>
       <div style="font-size:12px;color:#555;">WO: <span id="activeWO" class="pill">—</span> • Count: <span id="scanCount" class="pill">0</span></div>
       <ul id="scannedList"></ul>
+                    <!-- Manual input for seq number -->
+        <div id="manualInputContainer" style="margin-top:10px;">
+        <input type="number" id="manualSeqInput" placeholder="Enter Seq Number manually">
+        <button id="manualAddBtn">Add</button>
+        </div>
       <div class="modal-actions">
         <button class="btn" id="submitScanBtn" title="Update matched tasks to CLOSED">Submit</button>
         <button class="btn" id="clearScanBtn" title="Clear list">Clear</button>
@@ -428,7 +433,17 @@
     ======================== */
     function openModal() { scanModal.style.display = "flex"; }
     function closeModal() { scanModal.style.display = "none"; }
+    const manualSeqInput = document.getElementById("manualSeqInput");
+    const manualAddBtn = document.getElementById("manualAddBtn");
 
+    // Manual Add handler
+    manualAddBtn.addEventListener("click", () => {
+    const value = manualSeqInput.value.trim();
+    if (value !== "") {
+    handleScannedValue(value);
+    manualSeqInput.value = "";
+    }
+    });
     function setScanning(active) {
       scanningActive = active;
       startScanBtn.classList.toggle("scanning", active);
