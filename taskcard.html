@@ -1,111 +1,207 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Mabilis Load</title>
-  <script src="auth.js"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>When Empty See</title>
+    <script src="auth.js"></script>
   <script>
   requireLogin();
  </script>
   <style>
-    body { font-family: sans-serif; margin: 20px; }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      table-layout: fixed;
+    body { font-family: sans-serif; margin: 20px; background: #fafafa; }
+    h2 { margin-bottom: 15px; }
+
+    /* Controls */
+    .controls {
+      display: flex; gap: 10px; align-items: center; margin-bottom: 10px;
+      flex-wrap: wrap;
     }
-    th, td { padding: 6px; border: 1px solid #ddd; font-size: 14px; text-align: left; }
-    thead th { background: #f5f5f5; position: sticky; top: 0; z-index: 2; }
-    thead input {
-      width: 95%;
-      padding: 2px;
-      font-size: 12px;
-      box-sizing: border-box;
+    .controls input {
+      flex: 1; min-width: 220px; padding: 6px; font-size: 14px;
     }
+    .btn {
+      padding: 6px 12px; font-size: 14px; border: none; color: #fff; border-radius: 4px; cursor: pointer;
+    }
+    #woSearchBtn { background: #0078d7; }
+    #woSearchBtn:hover { background: #005fa3; }
+    #startScanBtn { background: #28a745; }
+    #startScanBtn.scanning { background: #218838; box-shadow: 0 0 0 2px rgba(40,167,69,.2) inset; }
+    #stopScanBtn { background: #dc3545; }
+    #stopScanBtn:hover { background: #c82333; }
+
+    #counter { margin-bottom: 15px; font-weight: bold; }
+
+    /* Layout wrapper */
+    .layout { display: flex; gap: 20px; align-items: flex-start; }
+
+    /* Phase totals table */
+    #phaseTotalsContainer { flex: 0 0 auto; min-width: 250px; max-width: 350px; }
+    #phaseTotalsTable { border-collapse: collapse; width: 100%; font-size: 14px; background: #fff; }
+    #phaseTotalsTable th, #phaseTotalsTable td { border: 1px solid #ddd; padding: 6px; }
+    #phaseTotalsTable th { background: #f5f5f5; }
+
+    /* Main scrollable table */
     .clusterize-scroll {
-      height: 500px;
-      overflow-y: auto;
-      border: 1px solid #aaa;
+      flex: 1; height: 500px; overflow-y: auto; border: 1px solid #aaa; background: #fff;
     }
-    #counter { margin-bottom: 10px; font-weight: bold; margin-top: 10px; }
+    table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+    th, td { padding: 6px; border: 1px solid #ddd; font-size: 14px; text-align: left; overflow: hidden; }
+    thead th { background: #f5f5f5; position: sticky; top: 0; z-index: 2; }
+    thead input { width: 95%; padding: 4px; font-size: 12px; box-sizing: border-box; }
+
+    /* Responsive */
+    @media (max-width: 900px) {
+      .layout { flex-direction: column; }
+      #phaseTotalsContainer { max-width: 100%; width: 100%; }
+    }
 
     /* Loading overlay */
     #loadingOverlay {
-      position: fixed;
-      top: 0; left: 0;
-      width: 100%; height: 100%;
-      background: rgba(255,255,255,0.8);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      z-index: 9999;
-      font-size: 18px;
-      color: #333;
-      opacity: 1;
-      transition: opacity 0.5s ease;
+      position: fixed; inset: 0; background: rgba(255,255,255,0.8);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      z-index: 9999; font-size: 18px; color: #333; opacity: 1; transition: opacity .5s ease;
     }
-    #loadingOverlay.hidden {
-      opacity: 0;
-      pointer-events: none;
-    }
+    #loadingOverlay.hidden { opacity: 0; pointer-events: none; }
     #loadingOverlay .spinner {
-      border: 4px solid #ccc;
-      border-top: 4px solid #0078d7;
-      border-radius: 50%;
-      width: 40px; height: 40px;
-      animation: spin 1s linear infinite;
-      margin-bottom: 10px;
+      border: 4px solid #ccc; border-top: 4px solid #0078d7;
+      border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin-bottom: 10px;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Skill filters */
+    .skill-filters { margin: 10px 0 15px; display: flex; flex-wrap: wrap; gap: 8px; }
+    .skill-filters button {
+      padding: 6px 12px; font-size: 14px; background: #555; color: #fff; border: none; border-radius: 4px; cursor: pointer; transition: background .2s;
+    }
+    .skill-filters button:hover { background: #333; }
+    .skill-filters button.active { background: #0078d7; }
+
+    /* Scan Modal */
+    #scanModal {
+      display: none; position: fixed; inset: 0; background: rgba(0,0,0,.6);
+      align-items: center; justify-content: center; z-index: 10000;
+    }
+    #scanModal .modal-content {
+      background: #fff; padding: 16px; border-radius: 8px; width: 420px; max-width: calc(100% - 24px);
+      max-height: 80vh; overflow: auto; box-shadow: 0 10px 30px rgba(0,0,0,.35);
+    }
+    #scanModal h3 { margin: 0 0 8px; }
+    #scannedList { list-style: none; padding: 0; margin: 8px 0; }
+    #scannedList li {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 6px 8px; border: 1px solid #eee; border-radius: 6px; margin-bottom: 6px; background: #f9f9f9;
+      font-variant-numeric: tabular-nums;
+    }
+    .pill { font-size: 12px; padding: 2px 6px; background: #eee; border-radius: 10px; }
+    .li-actions button { border: none; background: #ef5350; color: #fff; padding: 4px 8px; border-radius: 4px; cursor: pointer; }
+    .li-actions button:hover { background: #d32f2f; }
+    .modal-actions { display: flex; gap: 8px; margin-top: 10px; justify-content: flex-end; }
+    #submitScanBtn { background: #28a745; }
+    #clearScanBtn { background: #6c757d; }
+    #closeScanBtn { background: #dc3545; }
+
+    /* Hidden barcode input */
+    #barcodeInput { position: absolute; left: -9999px; top: -9999px; }
   </style>
 </head>
 <body>
-  <h2>Wan MTC</h2>
-  <div>
-    <input type="text" id="woInput" placeholder="Enter Workorder ">
-    <button id="woSearchBtn">Search</button>
+  <h2>When Empty See</h2>
+
+  <div class="controls">
+    <input type="text" id="woInput" placeholder="Enter Workorder" />
+    <button class="btn" id="woSearchBtn">Search</button>
+
+    <button class="btn" id="startScanBtn" title="Activate barcode scanner">Scan Here!!!</button>
+    <button class="btn" id="stopScanBtn" title="Stop scanner" style="display:none;">Stop Scan</button>
+
+    <!-- Hidden input to capture scanner keystrokes -->
+    <input type="text" id="barcodeInput" autocomplete="off" />
   </div>
+
+  <div class="skill-filters">
+    <button data-skill="CLEAR" class="active">CLEAR</button>
+    <button data-skill="AVI">AVI</button>
+    <button data-skill="CRG/ENG">CRG/ENG</button>
+    <button data-skill="CAB">CAB</button>
+    <button data-skill="LDG/FLC">LDG/FLC</button>
+    <button data-skill="STR">STR</button>
+    <button data-skill="SHOP">SHOP</button>
+  </div>
+
   <div id="counter">Waiting for input...</div>
 
-  <div id="scrollArea" class="clusterize-scroll">
-    <table>
-      <thead>
-        <tr>
-          <th style="width:15%;">TaskCard</th>
-          <th style="width:15%;">Reference</th>
-          <th style="width:25%;">Description</th>
-          <th style="width:10%;">Seq.No</th>
-          <th style="width:10%;">Skill</th>
-          <th style="width:10%;">Phase</th>
-          <th style="width:15%;">Status</th>
-        </tr>
-        <tr>
-          <th><input type="text" class="filter" data-field="task_card" placeholder="Search TaskCard"></th>
-          <th><input type="text" class="filter" data-field="reference_task_card" placeholder="Search Reference"></th>
-          <th><input type="text" class="filter" data-field="task_card_description" placeholder="Search Description"></th>
-          <th><input type="text" class="filter" data-field="seq" placeholder="Search Seq"></th>
-          <th><input type="text" class="filter" data-field="skill" placeholder="Search Skill"></th>
-          <th><input type="text" class="filter" data-field="phase" placeholder="Search Phase"></th>
-          <th><input type="text" class="filter" data-field="status" placeholder="Search Status"></th>
-        </tr>
-      </thead>
-      <tbody id="contentArea" class="clusterize-content">
-        <tr class="clusterize-no-data"><td colspan="7">No data yet</td></tr>
-      </tbody>
-    </table>
+  <div class="layout">
+    <!-- Phase totals -->
+    <div id="phaseTotalsContainer">
+      <table id="phaseTotalsTable">
+        <thead>
+          <tr>
+            <th>Phase</th>
+            <th style="text-align:right;">Open Tasks</th>
+            <th style="text-align:right;">Closed Tasks</th>
+            <th style="text-align:right;">% Closed</th>
+          </tr>
+        </thead>
+        <tbody id="phaseTotalsBody">
+          <tr><td colspan="4" style="text-align:center;">No data</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Main table -->
+    <div id="scrollArea" class="clusterize-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:15%;">TaskCard</th>
+            <th style="width:15%;">Reference</th>
+            <th style="width:25%;">Description</th>
+            <th style="width:10%;">Seq.No</th>
+            <th style="width:10%;">Skill</th>
+            <th style="width:10%;">Phase</th>
+            <th style="width:15%;">Status</th>
+          </tr>
+          <tr>
+            <th><input type="text" class="filter" data-field="task_card" placeholder="Search TaskCard" /></th>
+            <th><input type="text" class="filter" data-field="reference_task_card" placeholder="Search Reference" /></th>
+            <th><input type="text" class="filter" data-field="task_card_description" placeholder="Search Description" /></th>
+            <th><input type="text" class="filter" data-field="seq" placeholder="Search Seq" /></th>
+            <th><input type="text" class="filter" data-field="skill" placeholder="Search Skill" /></th>
+            <th><input type="text" class="filter" data-field="phase" placeholder="Search Phase" /></th>
+            <th><input type="text" class="filter" data-field="status" placeholder="Search Status" /></th>
+          </tr>
+        </thead>
+        <tbody id="contentArea" class="clusterize-content">
+          <tr class="clusterize-no-data"><td colspan="7">No data yet</td></tr>
+        </tbody>
+      </table>
+    </div>
   </div>
 
-  <!-- Loading overlay -->
-  <div id="loadingOverlay" style="display:none;">
+  <!-- Scan Modal -->
+  <div id="scanModal" role="dialog" aria-modal="true" aria-labelledby="scanModalTitle">
+    <div class="modal-content">
+      <h3 id="scanModalTitle">Scanned Sequences</h3>
+      <div style="font-size:12px;color:#555;">WO: <span id="activeWO" class="pill">—</span> • Count: <span id="scanCount" class="pill">0</span></div>
+      <ul id="scannedList"></ul>
+      <div class="modal-actions">
+        <button class="btn" id="submitScanBtn" title="Update matched tasks to CLOSED">Submit</button>
+        <button class="btn" id="clearScanBtn" title="Clear list">Clear</button>
+        <button class="btn" id="closeScanBtn" title="Close modal">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Loading -->
+  <div id="loadingOverlay">
     <div class="spinner"></div>
-    Loading data...
+    <div>Loading, please wait...</div>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/clusterize.js@0.18.1/clusterize.min.js"></script>
   <script type="module">
-    const SESSION_KEY = "demo_session";
+        const SESSION_KEY = "demo_session";
     const savedSession = JSON.parse(localStorage.getItem(SESSION_KEY) || sessionStorage.getItem(SESSION_KEY));
 
     if (!savedSession) {
@@ -117,12 +213,17 @@
         location.href = "index.html"; // redirect if wrong user for this page
       }
       }
-    
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-    import { getFirestore, collection, onSnapshot, query, where } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+    import {
+      getFirestore, collection, onSnapshot, query, where,
+      doc, updateDoc, getDocs
+    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
     import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
-    const firebaseConfig = { 
+    /* =======================
+       Firebase Init
+    ======================== */
+    const firebaseConfig = {
       apiKey: "AIzaSyDCpHhUL8x4rs-fom1xyaNdWm5prSGf57U",
       authDomain: "onemtc-2222c.firebaseapp.com",
       projectId: "onemtc-2222c",
@@ -130,82 +231,187 @@
       messagingSenderId: "447271556426",
       appId: "1:447271556426:web:562ba4d72e40b754599db3"
     };
-
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
     const auth = getAuth(app);
-    signInAnonymously(auth);
+    signInAnonymously(auth).catch(console.error);
 
-    const clusterize = new Clusterize({
-      scrollId: 'scrollArea',
-      contentId: 'contentArea',
-      rows: []
-    });
-
+    /* =======================
+       UI refs
+    ======================== */
     const counterEl = document.getElementById("counter");
     const woInput = document.getElementById("woInput");
     const woSearchBtn = document.getElementById("woSearchBtn");
     const overlay = document.getElementById("loadingOverlay");
 
-    let unsubscribe = null; 
-    let allDocs = []; // store all docs for filtering
+    const startScanBtn = document.getElementById("startScanBtn");
+    const stopScanBtn = document.getElementById("stopScanBtn");
+    const barcodeInput = document.getElementById("barcodeInput");
 
-    function showLoading() { overlay.style.display = "flex"; }
-    function hideLoading() { overlay.style.display = "none"; }
+    const scanModal = document.getElementById("scanModal");
+    const scannedList = document.getElementById("scannedList");
+    const submitScanBtn = document.getElementById("submitScanBtn");
+    const clearScanBtn = document.getElementById("clearScanBtn");
+    const closeScanBtn = document.getElementById("closeScanBtn");
+    const activeWOEl = document.getElementById("activeWO");
+    const scanCountEl = document.getElementById("scanCount");
+
+    /* =======================
+       Clusterize Table
+    ======================== */
+    const clusterize = new Clusterize({ scrollId: 'scrollArea', contentId: 'contentArea', rows: [] });
+
+    /* =======================
+       State
+    ======================== */
+    let unsubscribe = null;
+    let allDocs = [];         // all docs for current WO
+    let activeSkill = "CLEAR";
+    let scanningActive = false;
+    let scannedSeqs = [];     // numbers only
+    let currentWO = null;     // string or number (as searched)
+
+    /* =======================
+       Helpers
+    ======================== */
+    const showLoading = () => { overlay.style.display = "flex"; };
+    const hideLoading = () => { overlay.style.display = "none"; };
 
     function renderRows(docs) {
-      let rows = docs.map(d => `
+      const rows = docs.map(d => `
         <tr id="row-${d.id}">
-          <td>${d.task_card || ''}</td>
-          <td>${d.reference_task_card || ''}</td>
-          <td>${d.task_card_description || ''}</td>
-          <td>${d.seq || ''}</td>
-          <td>${d.skill || ''}</td>
-          <td>${d.phase || ''}</td>
-          <td>${d.status || ''}</td>
+          <td>${d.task_card ?? ''}</td>
+          <td>${d.reference_task_card ?? ''}</td>
+          <td>${d.task_card_description ?? ''}</td>
+          <td>${d.seq ?? ''}</td>
+          <td>${d.skill ?? ''}</td>
+          <td>${d.phase ?? ''}</td>
+          <td>${d.status ?? ''}</td>
         </tr>
       `);
-      clusterize.update(rows);
+      clusterize.update(rows.length ? rows : [`<tr class="clusterize-no-data"><td colspan="7">No data</td></tr>`]);
+    }
+
+    function renderPhaseTotals(docs) {
+      const phaseTotals = {};
+      const phaseOpen = {};
+      const phaseClosed = {};
+
+      docs.forEach(d => {
+        const phase = d.phase || "No Phase";
+        phaseTotals[phase] = (phaseTotals[phase] || 0) + 1;
+
+        const st = (d.status || "").toLowerCase();
+        if (st === "open") phaseOpen[phase] = (phaseOpen[phase] || 0) + 1;
+        if (st === "closed" || st === "completed") phaseClosed[phase] = (phaseClosed[phase] || 0) + 1;
+      });
+
+      const body = document.getElementById("phaseTotalsBody");
+      body.innerHTML = "";
+      const phases = Object.keys(phaseTotals);
+      if (!phases.length) {
+        body.innerHTML = `<tr><td colspan="4" style="text-align:center;">No tasks by phase.</td></tr>`;
+        return;
+      }
+      phases.forEach(phase => {
+        const total = phaseTotals[phase] || 0;
+        const open = phaseOpen[phase] || 0;
+        const closed = phaseClosed[phase] || 0;
+        const pct = total ? ((closed / total) * 100).toFixed(1) : "0.0";
+        body.insertAdjacentHTML("beforeend", `
+          <tr>
+            <td>${phase}</td>
+            <td style="text-align:right;">${open}</td>
+            <td style="text-align:right;">${closed}</td>
+            <td style="text-align:right;">${pct}%</td>
+          </tr>
+        `);
+      });
+    }
+
+    const skillGroups = {
+      "CLEAR": [],
+      "AVI": ["AVI"],
+      "CRG/ENG": ["CRG", "ENG-E", "ENG-F"],
+      "CAB": ["CAB"],
+      "LDG/FLC": ["LDG", "FLC-W", "FLC-T"],
+      "STR": ["STR"],
+      "SHOP": [] // special handled
+    };
+
+    function getSkillFilteredDocs() {
+      if (activeSkill === "CLEAR") return allDocs;
+      if (activeSkill === "SHOP") {
+        // SHOP = anything not in any of the explicit groups
+        const excluded = new Set(Object.values(skillGroups).flat().filter(Boolean));
+        return allDocs.filter(d => !excluded.has(d.skill));
+      }
+      const skills = skillGroups[activeSkill] || [];
+      return allDocs.filter(d => skills.includes(d.skill));
     }
 
     function applyFilters() {
       const filters = {};
       document.querySelectorAll(".filter").forEach(input => {
-        if (input.value.trim() !== "") {
-          filters[input.dataset.field] = input.value.toLowerCase();
-        }
+        const v = input.value.trim();
+        if (v !== "") filters[input.dataset.field] = v.toLowerCase();
       });
 
-      let filtered = allDocs.filter(d => {
-        return Object.keys(filters).every(field => {
-          return (d[field] || "").toString().toLowerCase().includes(filters[field]);
-        });
-      });
+      let filtered = getSkillFilteredDocs();
+      filtered = filtered.filter(d =>
+        Object.keys(filters).every(field =>
+          String(d[field] ?? "").toLowerCase().includes(filters[field])
+        )
+      );
 
       renderRows(filtered);
       counterEl.textContent = `Showing ${filtered.length} of ${allDocs.length} tasks`;
+      renderPhaseTotals(filtered);
     }
 
-    document.querySelectorAll(".filter").forEach(input => {
-      input.addEventListener("input", applyFilters);
+    // Skill buttons
+    document.querySelectorAll(".skill-filters button").forEach(btn => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".skill-filters button").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        activeSkill = btn.dataset.skill;
+        applyFilters();
+      });
     });
 
+    // Text filters
+    document.querySelectorAll(".filter").forEach(input => input.addEventListener("input", applyFilters));
+
+    /* =======================
+       Firestore Query by WO
+    ======================== */
     function searchWorkorder(wo) {
       if (!wo) return;
       showLoading();
       counterEl.textContent = "Loading tasks...";
-
       localStorage.setItem("lastWorkorder", wo);
-      if (unsubscribe) unsubscribe();
+      if (unsubscribe) { unsubscribe(); unsubscribe = null; }
 
-      let woValue = isNaN(wo) ? wo : Number(wo);
+      // Keep original type if numeric
+      currentWO = isNaN(wo) ? wo : Number(wo);
+      activeWOEl.textContent = String(currentWO);
 
-      const q = query(collection(db, "tasks"), where("wo", "==", woValue));
-      unsubscribe = onSnapshot(q, (snapshot) => {
-        allDocs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      const qWO = query(collection(db, "tasks"), where("wo", "==", currentWO));
+      unsubscribe = onSnapshot(qWO, (snapshot) => {
+        allDocs = snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
         counterEl.textContent = `Total Tasks: ${snapshot.size}`;
+        // Reset skill filter to CLEAR
+        document.querySelectorAll(".skill-filters button").forEach(b => b.classList.remove("active"));
+        document.querySelector('.skill-filters button[data-skill="CLEAR"]').classList.add("active");
+        activeSkill = "CLEAR";
+
         renderRows(allDocs);
+        renderPhaseTotals(allDocs);
         hideLoading();
+      }, (err) => {
+        console.error(err);
+        hideLoading();
+        alert("Error loading tasks.");
       });
     }
 
@@ -215,10 +421,144 @@
     });
 
     const lastWO = localStorage.getItem("lastWorkorder");
-    if (lastWO) {
-      woInput.value = lastWO;
-      searchWorkorder(lastWO);
+    if (lastWO) { woInput.value = lastWO; searchWorkorder(lastWO); }
+
+    /* =======================
+       Scan Modal + Scanner
+    ======================== */
+    function openModal() { scanModal.style.display = "flex"; }
+    function closeModal() { scanModal.style.display = "none"; }
+
+    function setScanning(active) {
+      scanningActive = active;
+      startScanBtn.classList.toggle("scanning", active);
+      startScanBtn.disabled = active;
+      stopScanBtn.style.display = active ? "inline-block" : "none";
+      if (active) {
+        // Focus the hidden input to capture scanner keystrokes
+        barcodeInput.value = "";
+        barcodeInput.focus();
+      } else {
+        // Blur to avoid accidental typing
+        barcodeInput.blur();
+      }
     }
+
+    startScanBtn.addEventListener("click", () => {
+      if (!currentWO && !woInput.value.trim()) {
+        alert("Enter a Workorder first, then click Search.");
+        return;
+      }
+      if (!currentWO && woInput.value.trim()) {
+        searchWorkorder(woInput.value.trim());
+      }
+      setScanning(true);
+      openModal();
+    });
+
+    stopScanBtn.addEventListener("click", () => setScanning(false));
+
+    // Capture full barcode line when scanner sends Enter
+    barcodeInput.addEventListener("keydown", (e) => {
+      if (!scanningActive) return;
+      if (e.key === "Enter") {
+        const val = barcodeInput.value.trim();
+        barcodeInput.value = "";
+        if (val !== "") handleScannedValue(val);
+      }
+    });
+
+    // Add/remove + render
+    function renderScannedList() {
+      scannedList.innerHTML = "";
+      if (!scannedSeqs.length) {
+        scannedList.innerHTML = `<li style="justify-content:center;color:#777;">No scans yet</li>`;
+      } else {
+        scannedSeqs.forEach(seq => {
+          const li = document.createElement("li");
+          li.innerHTML = `<span>${seq}</span>
+            <span class="li-actions">
+              <button type="button" data-remove="${seq}">Remove</button>
+            </span>`;
+          scannedList.appendChild(li);
+        });
+      }
+      scanCountEl.textContent = String(scannedSeqs.length);
+    }
+
+    scannedList.addEventListener("click", (e) => {
+      const btn = e.target.closest("button[data-remove]");
+      if (!btn) return;
+      const seq = Number(btn.getAttribute("data-remove"));
+      scannedSeqs = scannedSeqs.filter(x => x !== seq);
+      renderScannedList();
+    });
+
+    function handleScannedValue(raw) {
+      // Convert to number because Firestore 'seq' is numeric
+      const num = Number(raw);
+      if (Number.isNaN(num)) {
+        alert(`Invalid sequence (not a number): "${raw}"`);
+        return;
+      }
+      if (!scannedSeqs.includes(num)) {
+        scannedSeqs.push(num);
+        renderScannedList();
+      }
+      if (scanModal.style.display !== "flex") openModal();
+    }
+
+    closeScanBtn.addEventListener("click", () => closeModal());
+    clearScanBtn.addEventListener("click", () => { scannedSeqs = []; renderScannedList(); });
+
+    // Submit: Update status CLOSED for matching (wo + seq) pairs
+    submitScanBtn.addEventListener("click", async () => {
+      if (!currentWO) { alert("Please search a Workorder first."); return; }
+      if (!scannedSeqs.length) { alert("No scanned sequences."); return; }
+
+      setScanning(false);
+      showLoading();
+
+      let updated = 0, missing = [];
+      try {
+        for (const seq of scannedSeqs) {
+          // Query with both wo and seq to be safe
+          const qSeq = query(collection(db, "tasks"),
+            where("wo", "==", currentWO),
+            where("seq", "==", seq)
+          );
+          const snap = await getDocs(qSeq);
+          if (snap.empty) {
+            missing.push(seq);
+            continue;
+          }
+          for (const docSnap of snap.docs) {
+            await updateDoc(doc(db, "tasks", docSnap.id), { status: "CLOSED" });
+            updated++;
+          }
+        }
+      } catch (err) {
+        console.error(err);
+        alert("Error while updating tasks. Please try again.");
+      } finally {
+        hideLoading();
+      }
+
+      // Reset scans and close modal
+      scannedSeqs = [];
+      renderScannedList();
+      closeModal();
+
+      // Feedback
+      const msg = [
+        `Updated to CLOSED: ${updated}`,
+        missing.length ? `Not found for WO ${currentWO}: ${missing.join(", ")}` : null
+      ].filter(Boolean).join("\n");
+      alert(msg || "No updates performed.");
+    });
+
+    // Initialize scanned list content
+    renderScannedList();
   </script>
 </body>
 </html>
