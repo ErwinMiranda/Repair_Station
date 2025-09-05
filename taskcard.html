@@ -325,6 +325,8 @@
     let scanningActive = false;
     let scannedSeqs = [];     // numbers only
     let currentWO = null;     // string or number (as searched)
+    let seqFilterValues = []; // listahan ng lahat ng in-enter na seq filters
+
 
     function getClosedPercentage(docs) {
   if (!docs.length) return 0;
@@ -414,37 +416,74 @@
       return allDocs.filter(d => skills.includes(d.skill));
     }
 
-    function applyFilters() {
-      const filters = {};
-      document.querySelectorAll(".filter").forEach(input => {
-        const v = input.value.trim();
-        if (v !== "") filters[input.dataset.field] = v.toLowerCase();
-      });
-
-      let filtered = getSkillFilteredDocs();
-      filtered = filtered.filter(d =>
-        Object.keys(filters).every(field =>
-          String(d[field] ?? "").toLowerCase().includes(filters[field])
-        )
-      );
-
-      renderRows(filtered);
-     const pctClosed = getClosedPercentage(filtered);
-    counterEl.innerHTML = `Showing ${filtered.length} of ${allDocs.length} tasks • <span class="highlight">${pctClosed}% Closed</span>`;
-
-
-      renderPhaseTotals(filtered);
+function applyFilters() {
+  const filters = {};
+  document.querySelectorAll(".filter").forEach(input => {
+    const v = input.value.trim();
+    if (v !== "" && input.dataset.field !== "seq") {
+      filters[input.dataset.field] = v.toLowerCase();
     }
+  });
+
+  let filtered = getSkillFilteredDocs();
+
+  // 🆕 Kung may scannedSeqs (barcode scans), iyon ang priority
+  if (scannedSeqs.length > 0) {
+    filtered = filtered.filter(d => scannedSeqs.includes(Number(d.seq)));
+  } 
+  // 🆕 Kung walang scannedSeqs, pero may seqFilterValues (manual filter sa header)
+  else if (seqFilterValues.length > 0) {
+    filtered = filtered.filter(d => seqFilterValues.includes(String(d.seq)));
+  }
+
+  // Other text filters
+  filtered = filtered.filter(d =>
+    Object.keys(filters).every(field =>
+      String(d[field] ?? "").toLowerCase().includes(filters[field])
+    )
+  );
+
+  renderRows(filtered);
+  const pctClosed = getClosedPercentage(filtered);
+  counterEl.innerHTML = `Showing ${filtered.length} of ${allDocs.length} tasks • <span class="highlight">${pctClosed}% Closed</span>`;
+
+  renderPhaseTotals(filtered);
+}
+
+const seqInput = document.querySelector('.filter[data-field="seq"]');
+
+seqInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") {
+    e.preventDefault();
+    const val = seqInput.value.trim();
+    if (val !== "" && !seqFilterValues.includes(val)) {
+      seqFilterValues.push(val);
+    }
+    seqInput.value = ""; // clear input for next add
+    applyFilters();
+  }
+});
+
+
 
     // Skill buttons
-    document.querySelectorAll(".skill-filters button").forEach(btn => {
-      btn.addEventListener("click", () => {
-        document.querySelectorAll(".skill-filters button").forEach(b => b.classList.remove("active"));
-        btn.classList.add("active");
-        activeSkill = btn.dataset.skill;
-        applyFilters();
-      });
-    });
+ document.querySelectorAll(".skill-filters button").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".skill-filters button").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    activeSkill = btn.dataset.skill;
+
+    // 🆕 Reset filters if ALL SKILL
+    if (activeSkill === "CLEAR") {
+      scannedSeqs = [];
+      seqFilterValues = [];
+      document.querySelectorAll(".filter").forEach(input => input.value = ""); // clear text inputs
+    }
+
+    applyFilters();
+  });
+});
+
 
     // Text filters
     document.querySelectorAll(".filter").forEach(input => input.addEventListener("input", applyFilters));
@@ -508,6 +547,14 @@
     manualSeqInput.value = "";
     }
     });
+    manualSeqInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") {
+    manualAddBtn.click();
+  }
+});
+
+
+
     function setScanning(active) {
       scanningActive = active;
       startScanBtn.classList.toggle("scanning", active);
@@ -573,19 +620,20 @@
       renderScannedList();
     });
 
-    function handleScannedValue(raw) {
-      // Convert to number because Firestore 'seq' is numeric
-      const num = Number(raw);
-      if (Number.isNaN(num)) {
-        alert(`Invalid sequence (not a number): "${raw}"`);
-        return;
-      }
-      if (!scannedSeqs.includes(num)) {
-        scannedSeqs.push(num);
-        renderScannedList();
-      }
-      if (scanModal.style.display !== "flex") openModal();
-    }
+function handleScannedValue(raw) {
+  const num = Number(raw);
+  if (Number.isNaN(num)) {
+    alert(`Invalid sequence (not a number): "${raw}"`);
+    return;
+  }
+  if (!scannedSeqs.includes(num)) {
+    scannedSeqs.push(num);
+    renderScannedList();
+    applyFilters();   // 🆕 refresh table filter automatically
+  }
+  if (scanModal.style.display !== "flex") openModal();
+}
+
 
         closeScanBtn.addEventListener("click", () => {
   closeModal();
