@@ -37,18 +37,65 @@
     #counter .highlight {
   color: #00d748;
 }
-    /* Layout wrapper */
-    .layout { display: flex; gap: 20px; align-items: flex-start; }
 
-    /* Phase totals table */
-    #phaseTotalsContainer { flex: 0 0 auto; min-width: 250px; max-width: 350px; }
-      #phaseTotalsTable { 
-    border-collapse: collapse; width: 100%; font-size: 14px; 
-    background: #fff; border-radius: 12px; overflow: hidden;
+    /* ver07 */
+/* Layout wrapper */
+.layout {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+/* Left column (phase + skill) */
+.left-column {
+  flex: 0 0 300px;  /* fixed width */
+  display: flex;
+  flex-direction: column;
+  gap: 20px; /* space between phase and skill tables */
+}
+
+/* Main table */
+#scrollArea {
+  flex: 1;
+  min-width: 400px;
+  height: 500px;
+  overflow-y: auto;
+  border: 1px solid #aaa;
+  background: #fff;
+  border-radius: 12px;
+}
+
+/* Skill + Phase tables */
+#phaseTotalsTable, #skillTotalsTable {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 14px;
+  background: #fff;
+  border-radius: 12px;
+  overflow: hidden;
+}
+#phaseTotalsTable th, #phaseTotalsTable td,
+#skillTotalsTable th, #skillTotalsTable td {
+  border: 1px solid #ddd;
+  padding: 6px;
+}
+#phaseTotalsTable th, #skillTotalsTable th {
+  background: #f5f5f5;
+}
+
+/* Mobile responsive */
+@media (max-width: 900px) {
+  .layout {
+    flex-direction: column;
   }
-    #phaseTotalsTable th, #phaseTotalsTable td { border: 1px solid #ddd; padding: 6px; }
-    #phaseTotalsTable th { background: #f5f5f5; }
+  .left-column, #scrollArea {
+    flex: 1 1 100%;
+    max-width: 100%;
+  }
+}
 
+ /*ver07*/
     /* Main scrollable table */
      .clusterize-scroll {
     flex: 1; height: 500px; overflow-y: auto; border: 1px solid #aaa; 
@@ -179,6 +226,10 @@
   <div id="counter">Waiting for input...</div>
 
   <div class="layout">
+  <!-- Phase totals -->
+  <div class="layout">
+  <!-- Left column: Phase + Skill -->
+  <div class="left-column">
     <!-- Phase totals -->
     <div id="phaseTotalsContainer">
       <table id="phaseTotalsTable">
@@ -196,35 +247,55 @@
       </table>
     </div>
 
-    <!-- Main table -->
-    <div id="scrollArea" class="clusterize-scroll">
-      <table>
+    <!-- Skill close summary -->
+    <div id="skillTotalsContainer">
+      <table id="skillTotalsTable">
         <thead>
           <tr>
-            <th style="width:15%;">TaskCard</th>
-            <th style="width:15%;">Reference</th>
-            <th style="width:25%;">Description</th>
-            <th style="width:10%;">Seq.No</th>
-            <th style="width:10%;">Skill</th>
-            <th style="width:10%;">Phase</th>
-            <th style="width:15%;">Status</th>
-          </tr>
-          <tr>
-            <th><input type="text" class="filter" data-field="task_card" placeholder="Search TaskCard" /></th>
-            <th><input type="text" class="filter" data-field="reference_task_card" placeholder="Search Reference" /></th>
-            <th><input type="text" class="filter" data-field="task_card_description" placeholder="Search Description" /></th>
-            <th><input type="text" class="filter" data-field="seq" placeholder="Search Seq" /></th>
-            <th><input type="text" class="filter" data-field="skill" placeholder="Search Skill" /></th>
-            <th><input type="text" class="filter" data-field="phase" placeholder="Search Phase" /></th>
-            <th><input type="text" class="filter" data-field="status" placeholder="Search Status" /></th>
+            <th>Current Skill</th>
+            <th>Next Skill</th>
+            <th style="text-align:right;">Closed Count</th>
           </tr>
         </thead>
-        <tbody id="contentArea" class="clusterize-content">
-          <tr class="clusterize-no-data"><td colspan="7">No data yet</td></tr>
+        <tbody id="skillTotalsBody">
+          <tr><td colspan="3" style="text-align:center;">No skills closed yet</td></tr>
         </tbody>
       </table>
     </div>
   </div>
+
+  <!-- Main table -->
+  <div id="scrollArea" class="clusterize-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th style="width:15%;">TaskCard</th>
+          <th style="width:15%;">Reference</th>
+          <th style="width:25%;">Description</th>
+          <th style="width:10%;">Seq.No</th>
+          <th style="width:10%;">Skill</th>
+          <th style="width:10%;">Phase</th>
+          <th style="width:15%;">Status</th>
+        </tr>
+        <tr>
+          <th><input type="text" class="filter" data-field="task_card" placeholder="Search TaskCard" /></th>
+          <th><input type="text" class="filter" data-field="reference_task_card" placeholder="Search Reference" /></th>
+          <th><input type="text" class="filter" data-field="task_card_description" placeholder="Search Description" /></th>
+          <th><input type="text" class="filter" data-field="seq" placeholder="Search Seq" /></th>
+          <th><input type="text" class="filter" data-field="skill" placeholder="Search Skill" /></th>
+          <th><input type="text" class="filter" data-field="phase" placeholder="Search Phase" /></th>
+          <th><input type="text" class="filter" data-field="status" placeholder="Search Status" /></th>
+        </tr>
+      </thead>
+      <tbody id="contentArea" class="clusterize-content">
+        <tr class="clusterize-no-data"><td colspan="7">No data yet</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+
+
 
   <!-- Scan Modal -->
   <div id="scanModal" role="dialog" aria-modal="true" aria-labelledby="scanModalTitle">
@@ -255,8 +326,7 @@
 
   <script src="https://cdn.jsdelivr.net/npm/clusterize.js@0.18.1/clusterize.min.js"></script>
   <script type="module">
-
-        const SESSION_KEY = "demo_session";
+            const SESSION_KEY = "demo_session";
     const savedSession = JSON.parse(localStorage.getItem(SESSION_KEY) || sessionStorage.getItem(SESSION_KEY));
      if (!savedSession) {
       location.href = "index.html"; // not logged in
@@ -267,6 +337,7 @@
         location.href = "index.html"; // redirect if wrong user for this page
       }
       }
+        
  
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
     import {
@@ -326,7 +397,20 @@
     let scannedSeqs = [];     // numbers only
     let currentWO = null;     // string or number (as searched)
     let seqFilterValues = []; // listahan ng lahat ng in-enter na seq filters
+    let skillCloseCounts = {};  // 🆕 para magamit sa lahat ng function
 
+    function seqKey(item) {
+  if (item == null || item.seq == null) return Number.POSITIVE_INFINITY;
+  const s = String(item.seq).trim();
+  // subukan kunin last hyphen segment bilang number
+  const parts = s.split('-');
+  const last = parts[parts.length - 1];
+  const n = Number(last);
+  if (!Number.isNaN(n)) return n;
+  // fallback: try whole string as number
+  const whole = Number(s);
+  return Number.isNaN(whole) ? s : whole;
+}
 
     function getClosedPercentage(docs) {
   if (!docs.length) return 0;
@@ -405,6 +489,118 @@
       "SHOP": [] // special handled
     };
 
+
+
+
+
+function getSuffixKey(tc) {
+  if (!tc.task_card) return "";
+  const parts = String(tc.task_card).split("-");
+  return parts.length >= 2 ? parts.slice(-2).join("-") : tc.task_card;
+}
+
+function isClosed(status) {
+  return ["closed", "completed"].includes((status || "").trim().toLowerCase());
+}
+
+function calculateSkillTransitionCounts(tasks) {
+  skillCloseCounts = {};
+
+  // Group by reference
+  const grouped = {};
+  tasks.forEach(t => {
+    const ref = t.reference_task_card || "NO_REF";
+    if (!grouped[ref]) grouped[ref] = [];
+    grouped[ref].push(t);
+  });
+
+  Object.entries(grouped).forEach(([ref, group]) => {
+    const sorted = [...group].sort((a, b) =>
+      getSuffixKey(a).localeCompare(getSuffixKey(b), undefined, { numeric: true })
+    );
+
+    for (let i = 0; i < sorted.length - 1; i++) {
+      const curr = sorted[i];
+      const next = sorted[i + 1];
+
+      const currSkill = curr.skill || "UNKNOWN";
+      const nextSkill = next.skill || "UNKNOWN";
+
+      if (isClosed(curr.status) && !isClosed(next.status)) {
+        if (currSkill !== nextSkill) {
+          if (!skillCloseCounts[currSkill]) {
+            skillCloseCounts[currSkill] = {};
+          }
+          if (!skillCloseCounts[currSkill][nextSkill]) {
+            skillCloseCounts[currSkill][nextSkill] = { count: 0, taskCards: [] };
+          }
+
+          skillCloseCounts[currSkill][nextSkill].count++;
+          skillCloseCounts[currSkill][nextSkill].taskCards.push(
+            `${curr.task_card} → ${next.task_card}`
+          );
+        }
+      }
+    }
+  });
+
+  renderSkillCounts();
+}
+
+function renderSkillCounts() {
+  const container = document.getElementById("skillTotalsBody");
+  if (!container) return;
+
+  const skills = Object.keys(skillCloseCounts).sort();
+  if (!skills.length) {
+    container.innerHTML = `<tr><td colspan="3" style="text-align:center;">No closed transitions yet</td></tr>`;
+    return;
+  }
+
+  let rows = "";
+  skills.forEach(currSkill => {
+    const nextSkills = Object.keys(skillCloseCounts[currSkill]).sort();
+    nextSkills.forEach(nextSkill => {
+      const entry = skillCloseCounts[currSkill][nextSkill];
+      const taskCardsId = `${currSkill}-${nextSkill}`.replace(/\s+/g, "-");
+
+      rows += `
+        <tr class="skill-row" data-target="${taskCardsId}">
+          <td>${currSkill}</td>
+          <td>${nextSkill}</td>
+          <td style="text-align:right;">
+            ${entry.count} <button class="toggle-btn" data-target="${taskCardsId}">Show</button>
+          </td>
+        </tr>
+        <tr id="${taskCardsId}" class="task-cards-row" style="display:none;">
+          <td colspan="3" style="padding-left:20px; font-size:0.9em; color:#444;">
+            ${entry.taskCards.join("<br>")}
+          </td>
+        </tr>
+      `;
+    });
+  });
+
+  container.innerHTML = rows;
+
+  // Attach toggle functionality
+  document.querySelectorAll(".toggle-btn").forEach(btn => {
+    btn.addEventListener("click", e => {
+      const targetId = btn.dataset.target;
+      const row = document.getElementById(targetId);
+      if (row.style.display === "none") {
+        row.style.display = "table-row";
+        btn.textContent = "Hide";
+      } else {
+        row.style.display = "none";
+        btn.textContent = "Show";
+      }
+    });
+  });
+}
+
+
+
     function getSkillFilteredDocs() {
       if (activeSkill === "CLEAR") return allDocs;
       if (activeSkill === "SHOP") {
@@ -415,6 +611,7 @@
       const skills = skillGroups[activeSkill] || [];
       return allDocs.filter(d => skills.includes(d.skill));
     }
+
 
 function applyFilters() {
   const filters = {};
@@ -463,7 +660,6 @@ seqInput.addEventListener("keydown", (e) => {
     applyFilters();
   }
 });
-
 
 
     // Skill buttons
@@ -515,6 +711,7 @@ seqInput.addEventListener("keydown", (e) => {
 
         renderRows(allDocs);
         renderPhaseTotals(allDocs);
+        calculateSkillTransitionCounts(allDocs); // <-- important
         hideLoading();
       }, (err) => {
         console.error(err);
@@ -668,57 +865,65 @@ function showToast(message, type = "info", duration = 4000) {
 
     // Submit: Update status CLOSED for matching (wo + seq) pairs
     submitScanBtn.addEventListener("click", async () => {
-      if (!currentWO) { alert("Please search a Workorder first."); return; }
-      if (!scannedSeqs.length) { alert("No scanned sequences."); return; }
+  if (!currentWO) { alert("Please search a Workorder first."); return; }
+  if (!scannedSeqs.length) { alert("No scanned sequences."); return; }
 
-        closeModal();
+  closeModal();
   setScanning(false);
   showLoading();
 
-      let updated = 0, missing = [];
-      try {
-        for (const seq of scannedSeqs) {
-          // Query with both wo and seq to be safe
-          const qSeq = query(collection(db, "tasks"),
-            where("wo", "==", currentWO),
-            where("seq", "==", seq)
-          );
-          const snap = await getDocs(qSeq);
-          if (snap.empty) {
-            missing.push(seq);
-            continue;
-          }
-          for (const docSnap of snap.docs) {
-            await updateDoc(doc(db, "tasks", docSnap.id), { status: "CLOSED" });
-            updated++;
-          }
-        }
-      } catch (err) {
-        console.error(err);
-        alert("Error while updating tasks. Please try again.");
-      } finally {
-        hideLoading();
+  let updated = 0, missing = [];
+  try {
+    for (const seq of scannedSeqs) {
+      const qSeq = query(collection(db, "tasks"),
+        where("wo", "==", currentWO),
+        where("seq", "==", seq)
+      );
+      const snap = await getDocs(qSeq);
+      if (snap.empty) {
+        missing.push(seq);
+        continue;
       }
+      for (const docSnap of snap.docs) {
+        await updateDoc(doc(db, "tasks", docSnap.id), { status: "CLOSED" });
+        updated++;
 
-      // Reset scans and close modal
-      scannedSeqs = [];
-      renderScannedList();
-      
+        // Immediately reflect change in local allDocs so UI updates right away
+        const idx = allDocs.findIndex(d => d.id === docSnap.id);
+        if (idx !== -1) {
+          allDocs[idx] = { ...allDocs[idx], status: "CLOSED" };
+        }
+      }
+    }
+  } catch (err) {
+    console.error(err);
+    alert("Error while updating tasks. Please try again.");
+  } finally {
+    // Recompute after all updates (uses local allDocs which we already updated)
+    calculateSkillTransitionCounts(allDocs);
+    renderRows(allDocs);        // refresh table view (optional)
+    renderPhaseTotals(allDocs); // refresh phase totals (optional)
 
-      // Feedback
-    // Feedback
-const msg = [
-  `Updated to CLOSED: ${updated}`,
-  missing.length ? `Not found for WO ${currentWO}: ${missing.join(", ")}` : null
-].filter(Boolean).join("\n");
+    hideLoading();
+  }
 
-if (msg) {
-  showToast(msg, updated ? "success" : "error");
-} else {
-  showToast("No updates performed.", "info");
-}
+  // Reset scans and close modal
+  scannedSeqs = [];
+  renderScannedList();
 
-    });
+  // Feedback
+  const msg = [
+    `Updated to CLOSED: ${updated}`,
+    missing.length ? `Not found for WO ${currentWO}: ${missing.join(", ")}` : null
+  ].filter(Boolean).join("\n");
+
+  if (msg) {
+    showToast(msg, updated ? "success" : "error");
+  } else {
+    showToast("No updates performed.", "info");
+  }
+});
+
 
     // Initialize scanned list content
     renderScannedList();
