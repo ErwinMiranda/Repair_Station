@@ -4,10 +4,11 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>When Empty See</title>
-    <script src="auth.js"></script>
+   <script src="auth.js"></script>
   <script>
   requireLogin();
  </script>
+ <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 
   <style>
     body { font-family: sans-serif; margin: 20px; background: #fafafa; }
@@ -74,6 +75,7 @@
   background: #fff;
   border-radius: 12px;
   overflow: hidden;
+  border: 2px;
 }
 #phaseTotalsTable th, #phaseTotalsTable td,
 #skillTotalsTable th, #skillTotalsTable td {
@@ -196,6 +198,18 @@
 .toast.success { background: #28a745; }
 .toast.error   { background: #dc3545; }
 .toast.info    { background: #0078d7; }
+.exportbtn{
+background: #28a745;
+    padding: 6px 12px;
+    font-size: 14px;
+    border: none;
+    color: #fff;
+    border-radius: 12px;
+    cursor: pointer;
+margin-bottom: 5px;
+
+
+}
 
   </style>
 </head>
@@ -250,6 +264,8 @@
 
     <!-- Skill close summary -->
     <div id="skillTotalsContainer">
+      <button class="exportbtn" id="exportExcelBtn">Export Excel</button>
+
       <table id="skillTotalsTable">
         <thead>
           <tr>
@@ -325,9 +341,10 @@
 <!-- Toast Notifications -->
 <div id="toastContainer"></div>
 
+
   <script src="https://cdn.jsdelivr.net/npm/clusterize.js@0.18.1/clusterize.min.js"></script>
   <script type="module">
-            const SESSION_KEY = "demo_session";
+          const SESSION_KEY = "demo_session";
     const savedSession = JSON.parse(localStorage.getItem(SESSION_KEY) || sessionStorage.getItem(SESSION_KEY));
      if (!savedSession) {
       location.href = "index.html"; // not logged in
@@ -339,7 +356,7 @@
       }
       }
         
- 
+    
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
     import {
       getFirestore, collection, onSnapshot, query, where,
@@ -482,12 +499,12 @@
 
     const skillGroups = {
       "CLEAR": [],
-      "GEN":["GEN"],
       "AVI": ["AVI"],
       "CRG/ENG": ["CRG", "ENG-E", "ENG-F"],
       "CAB": ["CAB"],
       "LDG/FLC": ["LDG", "FLC-W", "FLC-T"],
       "STR": ["STR"],
+      "GEN":["GEN"],
       "SHOP": [] // special handled
     };
 
@@ -504,6 +521,14 @@ function getSuffixKey(tc) {
 function isClosed(status) {
   return ["closed", "completed"].includes((status || "").trim().toLowerCase());
 }
+
+// Hardcoded excluded transitions
+const excludedPairs = [
+ ["ENG-E", "ENG-F"],
+  ["ENG-F", "ENG-E"],
+  ["FLC-T", "FLC-W"],
+  ["FLC-W", "FLC-T"]
+];
 
 function calculateSkillTransitionCounts(tasks) {
   skillCloseCounts = {};
@@ -530,6 +555,13 @@ function calculateSkillTransitionCounts(tasks) {
 
       if (isClosed(curr.status) && !isClosed(next.status)) {
         if (currSkill !== nextSkill) {
+          
+          // 🚫 Skip kung nasa excludedPairs
+          let isExcluded = excludedPairs.some(
+            ([exCurr, exNext]) => exCurr === currSkill && exNext === nextSkill
+          );
+          if (isExcluded) continue;
+
           if (!skillCloseCounts[currSkill]) {
             skillCloseCounts[currSkill] = {};
           }
@@ -539,7 +571,7 @@ function calculateSkillTransitionCounts(tasks) {
 
           skillCloseCounts[currSkill][nextSkill].count++;
           skillCloseCounts[currSkill][nextSkill].taskCards.push(
-            `${curr.task_card} → ${next.task_card}`
+              `${curr.task_card} (${curr.seq || "?"}) → ${next.task_card} (${next.seq || "?"})`
           );
         }
       }
@@ -548,6 +580,7 @@ function calculateSkillTransitionCounts(tasks) {
 
   renderSkillCounts();
 }
+
 
 function renderSkillCounts() {
   const container = document.getElementById("skillTotalsBody");
@@ -582,9 +615,7 @@ function renderSkillCounts() {
       `;
     });
   });
-
   container.innerHTML = rows;
-
   // Attach toggle functionality
   document.querySelectorAll(".toggle-btn").forEach(btn => {
     btn.addEventListener("click", e => {
@@ -615,42 +646,36 @@ function renderSkillCounts() {
     }
 
 
-function applyFilters() {
-  const filters = {};
-  document.querySelectorAll(".filter").forEach(input => {
-    const v = input.value.trim();
-    if (v !== "" && input.dataset.field !== "seq") {
-      filters[input.dataset.field] = v.toLowerCase();
+    function applyFilters() {
+        const filters = {};
+        document.querySelectorAll(".filter").forEach(input => {
+        const v = input.value.trim();
+            if (v !== "" && input.dataset.field !== "seq") {
+                filters[input.dataset.field] = v.toLowerCase();
+            }
+        });
+        let filtered = getSkillFilteredDocs();
+         // 🆕 Kung may scannedSeqs (barcode scans), iyon ang priority
+        if (scannedSeqs.length > 0) {
+            filtered = filtered.filter(d => scannedSeqs.includes(Number(d.seq)));
+        } 
+        // 🆕 Kung walang scannedSeqs, pero may seqFilterValues (manual filter sa header)
+        else if (seqFilterValues.length > 0) {
+            filtered = filtered.filter(d => seqFilterValues.includes(String(d.seq)));
+        }
+        // Other text filters
+        filtered = filtered.filter(d =>
+            Object.keys(filters).every(field =>
+                String(d[field] ?? "").toLowerCase().includes(filters[field])
+            )
+        );
+        renderRows(filtered);
+        const pctClosed = getClosedPercentage(filtered);
+        counterEl.innerHTML = `Showing ${filtered.length} of ${allDocs.length} tasks • <span class="highlight">${pctClosed}% Closed</span>`;
+        renderPhaseTotals(filtered);
     }
-  });
 
-  let filtered = getSkillFilteredDocs();
-
-  // 🆕 Kung may scannedSeqs (barcode scans), iyon ang priority
-  if (scannedSeqs.length > 0) {
-    filtered = filtered.filter(d => scannedSeqs.includes(Number(d.seq)));
-  } 
-  // 🆕 Kung walang scannedSeqs, pero may seqFilterValues (manual filter sa header)
-  else if (seqFilterValues.length > 0) {
-    filtered = filtered.filter(d => seqFilterValues.includes(String(d.seq)));
-  }
-
-  // Other text filters
-  filtered = filtered.filter(d =>
-    Object.keys(filters).every(field =>
-      String(d[field] ?? "").toLowerCase().includes(filters[field])
-    )
-  );
-
-  renderRows(filtered);
-  const pctClosed = getClosedPercentage(filtered);
-  counterEl.innerHTML = `Showing ${filtered.length} of ${allDocs.length} tasks • <span class="highlight">${pctClosed}% Closed</span>`;
-
-  renderPhaseTotals(filtered);
-}
-
-const seqInput = document.querySelector('.filter[data-field="seq"]');
-
+    const seqInput = document.querySelector('.filter[data-field="seq"]');
 seqInput.addEventListener("keydown", (e) => {
   if (e.key === "Enter") {
     e.preventDefault();
@@ -934,6 +959,42 @@ if (!lastWO) {
   hideLoading();
 }
 
+
+
+function exportSkillTransitionsExcel() {
+  let rows = [];
+
+  // Header row
+  rows.push(["Current Skill", "Next Skill", "Task Card From", "Seq From", "Task Card To", "Seq To"]);
+
+  const skills = Object.keys(skillCloseCounts).sort();
+  skills.forEach(currSkill => {
+    const nextSkills = Object.keys(skillCloseCounts[currSkill]).sort();
+    nextSkills.forEach(nextSkill => {
+      const entry = skillCloseCounts[currSkill][nextSkill];
+      entry.taskCards.forEach(taskCardTransition => {
+        // Parse format: "TC-100 (1) → TC-200 (2)"
+        let match = taskCardTransition.match(/(.+?) \((\d+|\?)\) → (.+?) \((\d+|\?)\)/);
+        if (match) {
+          const [, fromTask, fromSeq, toTask, toSeq] = match;
+          rows.push([currSkill, nextSkill, fromTask, fromSeq, toTask, toSeq]);
+        } else {
+          // fallback kung hindi match
+          rows.push([currSkill, nextSkill, taskCardTransition, "", "", ""]);
+        }
+      });
+    });
+  });
+
+  // Convert to worksheet
+  const worksheet = XLSX.utils.aoa_to_sheet(rows);
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, "Transitions");
+
+  // Export as Excel file
+  XLSX.writeFile(workbook, "task_transitions.xlsx");
+}
+document.getElementById("exportExcelBtn").addEventListener("click", exportSkillTransitionsExcel);
   </script>
 </body>
 </html>
