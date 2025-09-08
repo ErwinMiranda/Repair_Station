@@ -571,7 +571,7 @@ function calculateSkillTransitionCounts(tasks) {
 
           skillCloseCounts[currSkill][nextSkill].count++;
           skillCloseCounts[currSkill][nextSkill].taskCards.push(
-              `${curr.task_card} (${curr.seq || "?"}) → ${next.task_card} (${next.seq || "?"})`
+              `${curr.seq || "?"} → ${next.seq || "?"}`
           );
         }
       }
