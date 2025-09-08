@@ -42,6 +42,7 @@
     /* ver07 */
 /* Layout wrapper */
 .layout {
+  margin-top: 110px;
   display: flex;
   gap: 20px;
   align-items: flex-start;
@@ -249,9 +250,20 @@ margin-bottom: 5px;
      
      background: var(--accent); 
     }
+   .header1 {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  z-index: 9999;
+  background: #fafafa;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1); /* optional shadow para kita separation */
+}
+    
   </style>
 </head>
 <body>
+  <div Class="header1">
   <div class="plan-header">
   <div class="plan-heading" id="dynamicHeader">Loading…</div>
   <button onclick="logout()" class="logout-btn">Logout</button>
@@ -280,7 +292,7 @@ margin-bottom: 5px;
   </div>
 
   <div id="counter">Waiting for input...</div>
-
+</div>
   <div class="layout">
   <!-- Phase totals -->
   <div class="layout">
