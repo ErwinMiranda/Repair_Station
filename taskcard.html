@@ -570,9 +570,10 @@ function calculateSkillTransitionCounts(tasks) {
           }
 
           skillCloseCounts[currSkill][nextSkill].count++;
-          skillCloseCounts[currSkill][nextSkill].taskCards.push(
-              `${curr.seq || "?"} → ${next.seq || "?"}`
-          );
+          skillCloseCounts[currSkill][nextSkill].taskCards.push({
+  fromSeq: curr.seq || "?",
+  toSeq: next.seq || "?"
+});
         }
       }
     }
@@ -609,7 +610,8 @@ function renderSkillCounts() {
         </tr>
         <tr id="${taskCardsId}" class="task-cards-row" style="display:none;">
           <td colspan="3" style="padding-left:20px; font-size:0.9em; color:#444;">
-            ${entry.taskCards.join("<br>")}
+           ${entry.taskCards.map(tc => `${tc.fromSeq} → ${tc.toSeq}`).join("<br>")}
+
           </td>
         </tr>
       `;
@@ -965,23 +967,15 @@ function exportSkillTransitionsExcel() {
   let rows = [];
 
   // Header row
-rows.push(["Current Skill", "Next Skill", "Seq From", "Seq To"]);
+  rows.push(["Current Skill", "Next Skill", "Seq From", "Seq To"]);
 
   const skills = Object.keys(skillCloseCounts).sort();
   skills.forEach(currSkill => {
     const nextSkills = Object.keys(skillCloseCounts[currSkill]).sort();
     nextSkills.forEach(nextSkill => {
       const entry = skillCloseCounts[currSkill][nextSkill];
-      entry.taskCards.forEach(taskCardTransition => {
-        // Parse format: "TC-100 (1) → TC-200 (2)"
-        let match = taskCardTransition.match(/.+? \((\d+|\?)\) → .+? \((\d+|\?)\)/);
-        if (match) {
-          const [, fromSeq, toSeq] = match;
-          rows.push([currSkill, nextSkill, fromSeq, toSeq]);
-        } else {
-          // fallback kung hindi match
-          rows.push([currSkill, nextSkill, "", ""]);
-        }
+      entry.taskCards.forEach(tc => {
+        rows.push([currSkill, nextSkill, tc.fromSeq, tc.toSeq]);
       });
     });
   });
