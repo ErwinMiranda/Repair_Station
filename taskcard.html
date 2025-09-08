@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>When Empty See</title>
-   <script src="auth.js"></script>
+  <title>One MTC</title>
+  <script src="auth.js"></script>
   <script>
   requireLogin();
  </script>
@@ -27,7 +27,7 @@
     padding: 6px 12px; font-size: 14px; border: none; color: #fff; 
     border-radius: 12px; cursor: pointer;
   }
-  #woSearchBtn { background: #0078d7; }
+  #woSearchBtn { background: linear-gradient(to bottom, var(--bg-top), var(--bg-bottom)); }
   #woSearchBtn:hover { background: #005fa3; }
   #startScanBtn { background: #28a745; }
   #startScanBtn.scanning { background: #218838; box-shadow: 0 0 0 2px rgba(40,167,69,.2) inset; }
@@ -36,7 +36,7 @@
 
     #counter { margin-bottom: 15px; font-weight: bold; }
     #counter .highlight {
-  color: #00d748;
+  color: #28a745;
 }
 
     /* ver07 */
@@ -135,11 +135,11 @@
     /* Skill filters */
     .skill-filters { margin: 10px 0 15px; display: flex; flex-wrap: wrap; gap: 8px; }
      .skill-filters button {
-    padding: 6px 12px; font-size: 14px; background: #555; color: #fff; 
+    padding: 6px 12px; font-size: 14px; background: #b4b3b3; color: #fff; 
     border: none; border-radius: 12px; cursor: pointer; transition: background .2s;
   }
     .skill-filters button:hover { background: #333; }
-    .skill-filters button.active { background: #0078d7; }
+    .skill-filters button.active { background: linear-gradient(to bottom, var(--bg-top), var(--bg-bottom));}
 
     /* Scan Modal */
     #scanModal {
@@ -207,14 +207,55 @@ background: #28a745;
     border-radius: 12px;
     cursor: pointer;
 margin-bottom: 5px;
+}
+     :root {
+    --bg-top: #0f172a;
+    --bg-bottom: #1e3a8a;
+    --card: rgba(255,255,255,0.08);
+    --muted: #9ca3af;
+    --accent: #ffcc00; /* Lufthansa yellow */
+    --error: #ef4444;
+    --radius: 14px;
+  }
+.plan-header {
 
-
+  top: 0;
+  z-index: 100;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: linear-gradient(to bottom, var(--bg-top), var(--bg-bottom));
+  padding: 8px 12px;
+  border-radius: var(--radius);
+  margin-bottom: 20px;
 }
 
+.plan-heading {
+  font-size: 18px;
+  font-weight: 700;
+  color: #d0d0d0;
+}
+    .logout-btn {
+     background: linear-gradient(to bottom, var(--bg-top), var(--bg-bottom));   /* blue background */
+      color: rgb(244, 236, 236);          /* white text */
+      padding: 8px 16px;     /* spacing */
+      border:#f4f4f4;          /* no border */
+      border-radius: 8px;    /* rounded corners */
+      cursor: pointer;       /* pointer on hover */
+      font-size: 14px;
+
+    }
+        .logout-btn:hover {
+     
+     background: var(--accent); 
+    }
   </style>
 </head>
 <body>
-  <h2>When Empty See</h2>
+  <div class="plan-header">
+  <div class="plan-heading" id="dynamicHeader">Loading…</div>
+  <button onclick="logout()" class="logout-btn">Logout</button>
+</div>
 
   <div class="controls">
     <input type="text" id="woInput" placeholder="Enter Workorder" />
@@ -344,7 +385,7 @@ margin-bottom: 5px;
 
   <script src="https://cdn.jsdelivr.net/npm/clusterize.js@0.18.1/clusterize.min.js"></script>
   <script type="module">
-          const SESSION_KEY = "demo_session";
+      const SESSION_KEY = "demo_session";
     const savedSession = JSON.parse(localStorage.getItem(SESSION_KEY) || sessionStorage.getItem(SESSION_KEY));
      if (!savedSession) {
       location.href = "index.html"; // not logged in
@@ -387,11 +428,9 @@ margin-bottom: 5px;
     const woInput = document.getElementById("woInput");
     const woSearchBtn = document.getElementById("woSearchBtn");
     const overlay = document.getElementById("loadingOverlay");
-
     const startScanBtn = document.getElementById("startScanBtn");
     const stopScanBtn = document.getElementById("stopScanBtn");
     const barcodeInput = document.getElementById("barcodeInput");
-
     const scanModal = document.getElementById("scanModal");
     const scannedList = document.getElementById("scannedList");
     const submitScanBtn = document.getElementById("submitScanBtn");
@@ -399,7 +438,8 @@ margin-bottom: 5px;
     const closeScanBtn = document.getElementById("closeScanBtn");
     const activeWOEl = document.getElementById("activeWO");
     const scanCountEl = document.getElementById("scanCount");
-
+    const phaseOrder = ["PH", "P0", "P1", "P2", "P3", "P4", "P5", "P6"];
+    document.getElementById("exportExcelBtn").addEventListener("click", exportSkillTransitionsExcel);
     /* =======================
        Clusterize Table
     ======================== */
@@ -442,6 +482,20 @@ margin-bottom: 5px;
     /* =======================
        Helpers
     ======================== */
+    function calculateDayProgress(startDate, endDate) {
+      if (!startDate || !endDate) return "";
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      const today = new Date();
+      const totalDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
+      const currentDay = Math.min(
+        Math.max(Math.ceil((today - start) / (1000 * 60 * 60 * 24)) + 1, 1),
+        totalDays
+        );
+      return `Day ${currentDay} of ${totalDays}`;
+    }
+
+
     const showLoading = () => { overlay.style.display = "flex"; };
     const hideLoading = () => { overlay.style.display = "none"; };
 
@@ -476,22 +530,33 @@ margin-bottom: 5px;
 
       const body = document.getElementById("phaseTotalsBody");
       body.innerHTML = "";
-      const phases = Object.keys(phaseTotals);
-      if (!phases.length) {
-        body.innerHTML = `<tr><td colspan="4" style="text-align:center;">No tasks by phase.</td></tr>`;
-        return;
-      }
-      phases.forEach(phase => {
+
+       // 👉 Gamitin yung fixed order, tapos idagdag yung mga hindi kasama
+  const orderedPhases = [
+    ...phaseOrder.filter(p => phaseTotals[p]),
+    ...Object.keys(phaseTotals).filter(p => !phaseOrder.includes(p))
+  ];
+
+  if (!orderedPhases.length) {
+    body.innerHTML = `<tr><td colspan="4" style="text-align:center;">No tasks by phase.</td></tr>`;
+    return;
+  }
+      orderedPhases.forEach(phase => {
         const total = phaseTotals[phase] || 0;
         const open = phaseOpen[phase] || 0;
         const closed = phaseClosed[phase] || 0;
         const pct = total ? ((closed / total) * 100).toFixed(1) : "0.0";
+         // 👉 Dynamic color kung 100%
+        const pctStyle = (pct === "100.0") 
+        ? "color:#28a745; font-weight:bold;" 
+        : "color:inherit;";
+
         body.insertAdjacentHTML("beforeend", `
           <tr>
             <td>${phase}</td>
             <td style="text-align:right;">${open}</td>
             <td style="text-align:right;">${closed}</td>
-            <td style="text-align:right;">${pct}%</td>
+            <td style="text-align:right; ${pctStyle}">${pct}%</td>
           </tr>
         `);
       });
@@ -570,10 +635,9 @@ function calculateSkillTransitionCounts(tasks) {
           }
 
           skillCloseCounts[currSkill][nextSkill].count++;
-          skillCloseCounts[currSkill][nextSkill].taskCards.push({
-  fromSeq: curr.seq || "?",
-  toSeq: next.seq || "?"
-});
+          skillCloseCounts[currSkill][nextSkill].taskCards.push(
+              `${curr.task_card} (${curr.seq || "?"}) → ${next.task_card} (${next.seq || "?"})`
+          );
         }
       }
     }
@@ -610,8 +674,7 @@ function renderSkillCounts() {
         </tr>
         <tr id="${taskCardsId}" class="task-cards-row" style="display:none;">
           <td colspan="3" style="padding-left:20px; font-size:0.9em; color:#444;">
-           ${entry.taskCards.map(tc => `${tc.fromSeq} → ${tc.toSeq}`).join("<br>")}
-
+            ${entry.taskCards.join("<br>")}
           </td>
         </tr>
       `;
@@ -732,6 +795,17 @@ seqInput.addEventListener("keydown", (e) => {
         allDocs = snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
         const pctClosed = getClosedPercentage(allDocs);
        counterEl.innerHTML = `Total Tasks: ${snapshot.size} • <span class="highlight">${pctClosed}% Closed</span>`;
+         if (allDocs.length > 0) {
+          const ac = allDocs[0].ac || "Unknown AC";
+          const schedStart = allDocs[0].sched_start_date;
+          const schedEnd = allDocs[0].sched_end_date;
+
+          const dayProgress = calculateDayProgress(schedStart, schedEnd);
+
+            // 👉 Update header
+          document.getElementById("dynamicHeader").textContent =
+            `MTC Status for ${ac}    ${dayProgress}`;
+          }
 
         // Reset skill filter to CLEAR
         document.querySelectorAll(".skill-filters button").forEach(b => b.classList.remove("active"));
@@ -967,15 +1041,23 @@ function exportSkillTransitionsExcel() {
   let rows = [];
 
   // Header row
-  rows.push(["Current Skill", "Next Skill", "Seq From", "Seq To"]);
+  rows.push(["Current Skill", "Next Skill", "Task Card From", "Seq From", "Task Card To", "Seq To"]);
 
   const skills = Object.keys(skillCloseCounts).sort();
   skills.forEach(currSkill => {
     const nextSkills = Object.keys(skillCloseCounts[currSkill]).sort();
     nextSkills.forEach(nextSkill => {
       const entry = skillCloseCounts[currSkill][nextSkill];
-      entry.taskCards.forEach(tc => {
-        rows.push([currSkill, nextSkill, tc.fromSeq, tc.toSeq]);
+      entry.taskCards.forEach(taskCardTransition => {
+        // Parse format: "TC-100 (1) → TC-200 (2)"
+        let match = taskCardTransition.match(/(.+?) \((\d+|\?)\) → (.+?) \((\d+|\?)\)/);
+        if (match) {
+          const [, fromTask, fromSeq, toTask, toSeq] = match;
+          rows.push([currSkill, nextSkill, fromTask, fromSeq, toTask, toSeq]);
+        } else {
+          // fallback kung hindi match
+          rows.push([currSkill, nextSkill, taskCardTransition, "", "", ""]);
+        }
       });
     });
   });
@@ -986,15 +1068,16 @@ function exportSkillTransitionsExcel() {
   XLSX.utils.book_append_sheet(workbook, worksheet, "Transitions");
 
   // Export as Excel file
-         const now = new Date();
+        const now = new Date();
       const formattedDate = now.getFullYear() + "-" +
         String(now.getMonth() + 1).padStart(2, '0') + "-" +
         String(now.getDate()).padStart(2, '0') + "_" +
         String(now.getHours()).padStart(2, '0') + "-" +
         String(now.getMinutes()).padStart(2, '0');
   XLSX.writeFile(workbook, `Task_Transitions_${formattedDate}.xlsx`);
+
 }
-document.getElementById("exportExcelBtn").addEventListener("click", exportSkillTransitionsExcel);
+
   </script>
 </body>
-</html>
+</html> 
