@@ -965,7 +965,7 @@ function exportSkillTransitionsExcel() {
   let rows = [];
 
   // Header row
-  rows.push(["Current Skill", "Next Skill", "Task Card From", "Seq From", "Task Card To", "Seq To"]);
+rows.push(["Current Skill", "Next Skill", "Seq From", "Seq To"]);
 
   const skills = Object.keys(skillCloseCounts).sort();
   skills.forEach(currSkill => {
@@ -974,13 +974,13 @@ function exportSkillTransitionsExcel() {
       const entry = skillCloseCounts[currSkill][nextSkill];
       entry.taskCards.forEach(taskCardTransition => {
         // Parse format: "TC-100 (1) → TC-200 (2)"
-        let match = taskCardTransition.match(/(.+?) \((\d+|\?)\) → (.+?) \((\d+|\?)\)/);
+        let match = taskCardTransition.match(/.+? \((\d+|\?)\) → .+? \((\d+|\?)\)/);
         if (match) {
-          const [, fromTask, fromSeq, toTask, toSeq] = match;
-          rows.push([currSkill, nextSkill, fromTask, fromSeq, toTask, toSeq]);
+          const [, fromSeq, toSeq] = match;
+          rows.push([currSkill, nextSkill, fromSeq, toSeq]);
         } else {
           // fallback kung hindi match
-          rows.push([currSkill, nextSkill, taskCardTransition, "", "", ""]);
+          rows.push([currSkill, nextSkill, "", ""]);
         }
       });
     });
