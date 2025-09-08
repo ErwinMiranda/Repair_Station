@@ -247,8 +247,13 @@ margin-bottom: 5px;
 
     }
         .logout-btn:hover {
-     
      background: var(--accent); 
+    }
+       .liveUpdate {
+      font-size: 0.9rem;
+      color: #cbd5e1;
+      margin-left: auto;
+      padding-right: 10px;
     }
    .header1 {
   position: fixed;
@@ -266,6 +271,7 @@ margin-bottom: 5px;
   <div Class="header1">
   <div class="plan-header">
   <div class="plan-heading" id="dynamicHeader">Loading…</div>
+  <span id="lastUpdate" class="liveUpdate" >—</span>
   <button onclick="logout()" class="logout-btn">Logout</button>
 </div>
 
@@ -451,6 +457,7 @@ margin-bottom: 5px;
     const activeWOEl = document.getElementById("activeWO");
     const scanCountEl = document.getElementById("scanCount");
     const phaseOrder = ["PH", "P0", "P1", "P2", "P3", "P4", "P5", "P6"];
+    const lastUpdateEl = document.getElementById('lastUpdate');
     document.getElementById("exportExcelBtn").addEventListener("click", exportSkillTransitionsExcel);
     /* =======================
        Clusterize Table
@@ -818,7 +825,7 @@ seqInput.addEventListener("keydown", (e) => {
           document.getElementById("dynamicHeader").textContent =
             `MTC Status for ${ac}    ${dayProgress}`;
           }
-
+          lastUpdateEl.textContent = "Live • " + new Date().toLocaleString();
         // Reset skill filter to CLEAR
         document.querySelectorAll(".skill-filters button").forEach(b => b.classList.remove("active"));
         document.querySelector('.skill-filters button[data-skill="CLEAR"]').classList.add("active");
