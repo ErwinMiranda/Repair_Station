@@ -751,6 +751,7 @@
       let scannedSeqs = []; // numbers only
       let currentWO = null; // string or number (as searched)
       let seqFilterValues = []; // listahan ng lahat ng in-enter na seq filters
+      let activePhase = null; // currently selected phase filter
 
       function getClosedPercentage(docs) {
         if (!docs.length) return 0;
@@ -923,9 +924,7 @@
         docs.forEach((d) => {
           const phase = d.phase || "No Phase";
           if (!fixedPhases.includes(phase)) return; // ignore unknown phases
-
           phaseTotals[phase] = (phaseTotals[phase] || 0) + 1;
-
           const st = (d.status || "").toLowerCase();
           if (st === "open") phaseOpen[phase] = (phaseOpen[phase] || 0) + 1;
           if (st === "closed" || st === "completed")
@@ -935,7 +934,7 @@
           if (st === "hold") phaseHold[phase] = (phaseHold[phase] || 0) + 1;
         });
 
-        // Render table body
+        // Render table body (always fixed phases)
         const body = document.getElementById("phaseTotalsBody");
         body.innerHTML = "";
 
@@ -943,43 +942,61 @@
           const total = phaseTotals[phase] || 0;
 
           if (total === 0) {
-            // No tasks in this phase → use gray dashes
+            // Always show, but with dashes
             body.insertAdjacentHTML(
               "beforeend",
-              `
-      <tr>
-        <td>${phase}</td>
-        <td style="text-align:right; background:#f5f5f5;">-</td>
-        <td style="text-align:right; background:#f5f5f5;">-</td>
-        <td style="text-align:right; background:#f5f5f5;">-</td>
-        <td style="text-align:right; background:#f5f5f5;">-</td>
-        <td style="text-align:right; background:#f5f5f5;">-</td>
-      </tr>
-    `
+              `<tr>
+          <td class="phase-cell" data-phase="${phase}" style="cursor:pointer; color:gray;">
+            ${phase}
+          </td>
+          <td style="text-align:right; background:#f5f5f5;">-</td>
+          <td style="text-align:right; background:#f5f5f5;">-</td>
+          <td style="text-align:right; background:#f5f5f5;">-</td>
+          <td style="text-align:right; background:#f5f5f5;">-</td>
+          <td style="text-align:right; background:#f5f5f5;">-</td>
+        </tr>`
             );
           } else {
-            // Tasks exist → show counts and % closed
             const open = phaseOpen[phase] || 0;
             const closed = phaseClosed[phase] || 0;
-            const cancelled = phaseCancelled[phase] || 0;
+            const cancelledCount = phaseCancelled[phase] || 0; // ✅ FIXED
             const hold = phaseHold[phase] || 0;
             const pct = ((closed / total) * 100).toFixed(1);
 
             body.insertAdjacentHTML(
               "beforeend",
-              `
-      <tr>
-        <td>${phase}</td>
-        <td style="text-align:right;">${open}</td>
-        <td style="text-align:right;">${closed}</td>
-        <td style="text-align:right;">${cancelled}</td>
-        <td style="text-align:right;">${hold}</td>
-        <td style="text-align:right;">${pct}%</td>
-      </tr>
-    `
+              `<tr>
+          <td class="phase-cell" data-phase="${phase}" style="cursor:pointer; color:blue; text-decoration:underline;">
+            ${phase}
+          </td>
+          <td style="text-align:right;">${open}</td>
+          <td style="text-align:right;">${closed}</td>
+          <td style="text-align:right;">${cancelledCount}</td>
+          <td style="text-align:right;">${hold}</td>
+          <td style="text-align:right;">${pct}%</td>
+        </tr>`
             );
           }
         });
+
+        // Attach click listeners
+        document
+          .querySelectorAll("#phaseTotalsBody .phase-cell")
+          .forEach((cell) => {
+            cell.addEventListener("click", () => {
+              const phase = cell.dataset.phase;
+
+              // Toggle filter
+              if (activePhase === phase) {
+                activePhase = null;
+              } else {
+                activePhase = phase;
+              }
+
+              applyFilters();
+              // highlightActivePhase();
+            });
+          });
       }
 
       const skillGroups = {
@@ -1071,6 +1088,10 @@
           skillFiltered = skillFiltered.filter((d) =>
             seqFilterValues.includes(String(d.seq))
           );
+        }
+        // Step 2.5: apply phase filter
+        if (activePhase) {
+          skillFiltered = skillFiltered.filter((d) => d.phase === activePhase);
         }
 
         // Step 3: apply text filters
