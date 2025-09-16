@@ -1,1148 +1,1557 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>One MTC</title>
-<script src="auth.js"></script>
-  <script>
-  requireLogin();
- </script>
- <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>One MTC</title>
+    <script src="auth.js"></script>
+    <script>
+      requireLogin();
+    </script>
 
-  <style>
-    body {  
-  font-family: sans-serif; 
-  margin: 20px; 
-  background: #fafafa; 
-}
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 
-/* Controls */
-.controls {
-  display: flex; gap: 10px; align-items: center; margin-bottom: 10px;
-  flex-wrap: wrap;
-}
-.controls input {
-  flex: 1; min-width: 220px; padding: 6px; font-size: 14px;
-  border-radius: 12px; border: 1px solid #ccc;
-}
-.btn {
-  padding: 6px 12px; font-size: 14px; border: none; color: #fff; 
-  border-radius: 12px; cursor: pointer;
-}
-#woSearchBtn { background: linear-gradient(to bottom, var(--bg-top), var(--bg-bottom)); }
-#woSearchBtn:hover { background: #005fa3; }
-#startScanBtn { background: #28a745; }
-#startScanBtn.scanning { background: #218838; box-shadow: 0 0 0 2px rgba(40,167,69,.2) inset; }
-#stopScanBtn { background: #dc3545; border-radius: 12px; }
-#stopScanBtn:hover { background: #c82333; }
+    <style>
+      body {
+        font-family: sans-serif;
+        margin: 20px;
+        background: #fafafa;
+      }
+      h2 {
+        margin-bottom: 15px;
+      }
 
-#counter { margin-bottom: 15px; font-weight: bold; }
-#counter .highlight { color: #28a745; }
+      /* Controls */
+      .controls {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        margin-bottom: 10px;
+        flex-wrap: wrap;
+      }
+      .controls input {
+        flex: 1;
+        min-width: 220px;
+        padding: 6px;
+        font-size: 12px;
+        border-radius: 12px;
+        border: 1px solid #ccc;
+      }
+      .btn {
+        padding: 6px 12px;
+        font-size: 14px;
+        border: none;
+        color: #fff;
+        border-radius: 12px;
+        cursor: pointer;
+      }
+      #woSearchBtn {
+        background: #0078d7;
+      }
+      #woSearchBtn:hover {
+        background: #005fa3;
+      }
+      #startScanBtn {
+        background: #28a745;
+      }
+      #startScanBtn.scanning {
+        background: #218838;
+        box-shadow: 0 0 0 2px rgba(40, 167, 69, 0.2) inset;
+      }
+      #stopScanBtn {
+        background: #dc3545;
+        border-radius: 12px;
+      }
+      #stopScanBtn:hover {
+        background: #c82333;
+      }
 
-/* Layout wrapper */
-.layout {
-  margin-top: 110px;
-  display: flex;
-  gap: 20px;
-  align-items: flex-start;
-  flex-wrap: wrap;
-}
+      #counter {
+        margin-bottom: 15px;
+        font-weight: bold;
+      }
+      #counter .highlight {
+        color: #00d748;
+      }
 
-/* Left column (phase only now) */
-.left-column {
-  flex: 0 0 400px;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
+      /* ver07 */
+      /* Layout wrapper */
+      .layout {
+        display: flex;
+        gap: 20px;
+        align-items: flex-start;
+        flex-wrap: wrap;
+      }
 
-/* Main table */
-#scrollArea {
-  flex: 1;
-  min-width: 450px;
-  height: 650px;
-  overflow-y: auto;
-  border: 1px solid #aaa;
-  background: #fff;
-  border-radius: 12px;
-}
+      /* Left column (phase + skill) */
+      .left-column {
+        flex: 0 0 300px; /* fixed width */
+        display: flex;
+        flex-direction: column;
+        gap: 20px; /* space between phase and skill tables */
+      }
 
-/* Phase totals */
-#phaseTotalsTable {
-  border-collapse: collapse;
-  width: 100%;
-  font-size: 14px;
-  background: #fff;
-  border-radius: 12px;
-  overflow: hidden;
-}
-#phaseTotalsTable th, #phaseTotalsTable td {
-  border: 1px solid #ddd;
-  padding: 6px;
-}
-#phaseTotalsTable th {
-  background: #f5f5f5;
-}
+      /* Main table */
+      #scrollArea {
+        flex: 1;
+        min-width: 400px;
+        height: 500px;
+        overflow-y: auto;
+        border: 1px solid #aaa;
+        background: #fff;
+        border-radius: 12px;
+      }
 
-/* Mobile responsive */
-@media (max-width: 900px) {
-  .layout {
-    flex-direction: column;
-  }
-  .left-column, #scrollArea {
-    flex: 1 1 100%;
-    max-width: 100%;
-  }
-}
+      /* Skill + Phase tables */
+      #phaseTotalsTable,
+      #phaseTotalsTable th,
+      #phaseTotalsTable td {
+        border: 1px solid #ddd;
+        padding: 6px;
+      }
+      #phaseTotalsTable th {
+        background: #f5f5f5;
+      }
 
-/* Main scrollable table */
-.clusterize-scroll {
-  flex: 1; height: 500px; overflow-y: auto; border: 1px solid #aaa; 
-  background: #fff; border-radius: 12px;
-}
-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-th, td { 
-  padding: 6px; border: 1px solid #ddd; font-size: 14px; text-align: left; 
-  overflow: hidden; border-radius: 6px;
-}
-thead th { background: #f5f5f5; position: sticky; top: 0; z-index: 2; }
-thead input { width: 95%; padding: 4px; font-size: 12px; box-sizing: border-box; border-radius: 8px; }
+      /* Mobile responsive */
+      @media (max-width: 900px) {
+        .layout {
+          flex-direction: column;
+        }
+        .left-column,
+        #scrollArea {
+          flex: 1 1 100%;
+          max-width: 100%;
+        }
+        #phaseTotalsContainer {
+          max-width: 100%;
+          width: 100%;
+        }
+      }
 
-/* Responsive */
-@media (max-width: 900px) {
-  .layout { flex-direction: column; }
-  #phaseTotalsContainer { max-width: 100%; width: 100%; }
-}
+      /*ver07*/
+      /* Main scrollable table */
+      .clusterize-scroll {
+        flex: 1;
+        height: 500px;
+        overflow-y: auto;
+        border: 1px solid #aaa;
+        background: #fff;
+        border-radius: 12px;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        table-layout: fixed;
+      }
+      th,
+      td {
+        padding: 6px;
+        border: 1px solid #ddd;
+        font-size: 14px;
+        text-align: left;
+        overflow: hidden;
+        border-radius: 6px;
+      }
+      thead th {
+        background: #f5f5f5;
+        position: sticky;
+        top: 0;
+        z-index: 2;
+      }
+      thead input {
+        width: 95%;
+        padding: 4px;
+        font-size: 12px;
+        box-sizing: border-box;
+        border-radius: 8px;
+      }
 
-/* Loading overlay */
-#loadingOverlay {
-  position: fixed; inset: 0; background: rgba(255,255,255,0.8);
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  z-index: 9999; font-size: 18px; color: #333; opacity: 1; transition: opacity .5s ease;
-  border-radius: 0;
-}
-#loadingOverlay.hidden { opacity: 0; pointer-events: none; }
-#loadingOverlay .spinner {
-  border: 4px solid #ccc; border-top: 4px solid #0078d7;
-  border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin-bottom: 10px;
-}
-@keyframes spin { to { transform: rotate(360deg); } }
+      /* Loading overlay */
+      #loadingOverlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(255, 255, 255, 0.8);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+        font-size: 18px;
+        color: #333;
+        opacity: 1;
+        transition: opacity 0.5s ease;
+        border-radius: 0;
+      }
+      #loadingOverlay.hidden {
+        opacity: 0;
+        pointer-events: none;
+      }
+      #loadingOverlay .spinner {
+        border: 4px solid #ccc;
+        border-top: 4px solid #0078d7;
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        animation: spin 1s linear infinite;
+        margin-bottom: 10px;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
 
-/* Skill filters */
-.skill-filters { margin: 10px 0 15px; display: flex; flex-wrap: wrap; gap: 8px; }
-.skill-filters button {
-  padding: 6px 12px; font-size: 14px; background: #b4b3b3; color: #fff; 
-  border: none; border-radius: 12px; cursor: pointer; transition: background .2s;
-}
-.skill-filters button:hover { background: #333; }
-.skill-filters button.active { background: linear-gradient(to bottom, var(--bg-top), var(--bg-bottom));}
+      /* Skill filters */
+      .skill-filters {
+        margin: 10px 0 15px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      .skill-filters button {
+        padding: 6px 12px;
+        font-size: 14px;
+        background: #555;
+        color: #fff;
+        border: none;
+        border-radius: 12px;
+        cursor: pointer;
+        transition: background 0.2s;
+      }
+      .skill-filters button:hover {
+        background: #333;
+      }
+      .skill-filters button.active {
+        background: #0078d7;
+      }
 
-/* Scan Modal */
-#scanModal {
-  display: none; position: fixed; inset: 0; background: rgba(0,0,0,.6);
-  align-items: center; justify-content: center; z-index: 10000;
-}
-#scanModal .modal-content {
-  background: #fff; padding: 16px; border-radius: 8px; width: 420px; max-width: calc(100% - 24px);
-  max-height: 80vh; overflow: auto; box-shadow: 0 10px 30px rgba(0,0,0,.35);
-}
-#scanModal h3 { margin: 0 0 8px; }
-#scannedList { list-style: none; padding: 0; margin: 8px 0; }
-#scannedList li {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 6px 8px; border: 1px solid #eee; border-radius: 6px; margin-bottom: 6px; background: #f9f9f9;
-  font-variant-numeric: tabular-nums;
-}
-.pill { font-size: 12px; padding: 2px 6px; background: #eee; border-radius: 10px; }
-.li-actions button { border: none; background: #ef5350; color: #fff; padding: 4px 8px; border-radius: 4px; cursor: pointer; }
-.li-actions button:hover { background: #d32f2f; }
-.modal-actions { display: flex; gap: 8px; margin-top: 10px; justify-content: flex-end; }
-#submitScanBtn { background: #28a745; }
-#clearScanBtn { background: #6c757d; }
-#closeScanBtn { background: #dc3545; }
+      /* Scan Modal */
+      #scanModal {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.6);
+        align-items: center;
+        justify-content: center;
+        z-index: 10000;
+      }
+      #scanModal .modal-content {
+        background: #fff;
+        padding: 16px;
+        border-radius: 8px;
+        width: 420px;
+        max-width: calc(100% - 24px);
+        max-height: 80vh;
+        overflow: auto;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+      }
+      #scanModal h3 {
+        margin: 0 0 8px;
+      }
+      #scannedList {
+        list-style: none;
+        padding: 0;
+        margin: 8px 0;
+      }
+      #scannedList li {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 6px 8px;
+        border: 1px solid #eee;
+        border-radius: 6px;
+        margin-bottom: 6px;
+        background: #f9f9f9;
+        font-variant-numeric: tabular-nums;
+      }
+      .pill {
+        font-size: 12px;
+        padding: 2px 6px;
+        background: #eee;
+        border-radius: 10px;
+      }
+      .li-actions button {
+        border: none;
+        background: #ef5350;
+        color: #fff;
+        padding: 4px 8px;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+      .li-actions button:hover {
+        background: #d32f2f;
+      }
+      .modal-actions {
+        display: flex;
+        gap: 8px;
+        margin-top: 10px;
+        justify-content: flex-end;
+      }
+      #submitScanBtn {
+        background: #28a745;
+      }
+      #clearScanBtn {
+        background: #6c757d;
+      }
+      #closeScanBtn {
+        background: #dc3545;
+      }
 
-/* Hidden barcode input */
-#barcodeInput { position: absolute; left: -9999px; top: -9999px; }
+      /* Hidden barcode input */
+      #barcodeInput {
+        position: absolute;
+        left: -9999px;
+        top: -9999px;
+      }
+      /* Toast Notifications */
+      #toastContainer {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        z-index: 11000;
+      }
 
-/* Toast Notifications */
-#toastContainer {
-  position: fixed;
-  top: 20px;
-  right: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  z-index: 11000;
-}
-.toast {
-  background: #333;
-  color: #fff;
-  padding: 10px 16px;
-  border-radius: 6px;
-  font-size: 14px;
-  opacity: 0;
-  transform: translateX(100%);
-  transition: all 0.4s ease;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-}
-.toast.show {
-  opacity: 1;
-  transform: translateX(0);
-}
-.toast.success { background: #28a745; }
-.toast.error   { background: #dc3545; }
-.toast.info    { background: #0078d7; }
+      .toast {
+        background: #333;
+        color: #fff;
+        padding: 10px 16px;
+        border-radius: 6px;
+        font-size: 14px;
+        opacity: 0;
+        transform: translateX(100%);
+        transition: all 0.4s ease;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+      }
 
-:root {
-  --bg-top: #0f172a;
-  --bg-bottom: #1e3a8a;
-  --card: rgba(255,255,255,0.08);
-  --muted: #9ca3af;
-  --accent: #ffcc00; /* Lufthansa yellow */
-  --error: #ef4444;
-  --radius: 14px;
-}
+      .toast.show {
+        opacity: 1;
+        transform: translateX(0);
+      }
 
-.plan-header {
-  top: 0;
-  z-index: 100;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background: linear-gradient(to bottom, var(--bg-top), var(--bg-bottom));
-  padding: 8px 12px;
-  border-radius: var(--radius);
-  margin-bottom: 20px;
-}
-.plan-heading {
-  font-size: 18px;
-  font-weight: 700;
-  color: #d0d0d0;
-}
-.logout-btn {
-  background: linear-gradient(to bottom, var(--bg-top), var(--bg-bottom));
-  color: rgb(244, 236, 236);
-  padding: 8px 16px;
-  border:#f4f4f4;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 14px;
-}
-.logout-btn:hover { background: var(--accent); }
-.liveUpdate {
-  font-size: 0.9rem;
-  color: #cbd5e1;
-  margin-left: auto;
-  padding-right: 10px;
-}
+      .toast.success {
+        background: #28a745;
+      }
+      .toast.error {
+        background: #dc3545;
+      }
+      .toast.info {
+        background: #0078d7;
+      }
+      /* Phase Totals Table: smaller font */
+      #phaseTotalsTable th,
+      #phaseTotalsTable td {
+        font-size: 11px;
+        padding: 2px 4px; /* tighter padding */
+      }
+      #scrollArea th,
+      #scrollArea td {
+        font-size: 11px;
+        padding: 2px 4px; /* tighter padding */
+      }
+      /* Main table filter inputs compact */
+      #scrollArea thead input {
+        font-size: 11px;
+        padding: 2px 4px; /* smaller padding */
+        height: 18px; /* reduce input height */
+      }
+      .scan-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+        margin-top: 6px;
+      }
 
-.header1 {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  z-index: 9999;
-  background: #fafafa;
-  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-}
-.skill-open {
-  color: #dc3545;
-  font-weight: bold;
-}
+      .scan-table th,
+      .scan-table td {
+        border: 1px solid #ccc;
+        padding: 6px 8px;
+        text-align: center;
+      }
 
-.skill-closed {
-  color: #28a745;
-  font-weight: bold;
-}
-.skill-highlight {
- 
-  padding: 2px 4px;
-  border-radius: 4px;
-}
-.skill-faded {
-  opacity: 0.6;
-  font-weight: lighter;
-}
+      .scan-table th {
+        background: #f5f5f5;
+        font-weight: bold;
+      }
 
-  </style>
-</head>
-<body>
-<div Class="header1">
+      .scan-table td button {
+        padding: 3px 6px;
+        font-size: 12px;
+        cursor: pointer;
+      }
+      .plan-header {
+        top: 0;
+        z-index: 100;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: linear-gradient(to bottom, var(--bg-top), var(--bg-bottom));
+        padding: 8px 12px;
+        border-radius: var(--radius);
+        margin-bottom: 20px;
+      }
+      .plan-heading {
+        font-size: 18px;
+        font-weight: 700;
+        color: #d0d0d0;
+      }
+      :root {
+        --bg-top: #0f172a;
+        --bg-bottom: #1e3a8a;
+        --card: rgba(255, 255, 255, 0.08);
+        --muted: #9ca3af;
+        --accent: #ffcc00; /* Lufthansa yellow */
+        --error: #ef4444;
+      }
+      .liveUpdate {
+        font-size: 0.8rem;
+        color: #cbd5e1;
+        margin-left: auto;
+        padding-right: 10px;
+      }
+    </style>
+  </head>
+  <body>
     <div class="plan-header">
-    <div class="plan-heading" id="dynamicHeader">Loading…</div>
-    <span id="lastUpdate" class="liveUpdate" ></span>
-    <button onclick="logout()" class="logout-btn">Logout</button>
+      <div class="plan-heading" id="dynamicHeader">No Data</div>
+      <span id="lastUpdate" class="liveUpdate"></span>
+      <button onclick="logout()" class="logout-btn">Logout</button>
     </div>
 
     <div class="controls">
-    <input type="text" id="woInput" placeholder="Enter Workorder" />
-    <button class="btn" id="woSearchBtn">Search</button>
-    <button class="btn" id="startScanBtn" title="Activate barcode scanner">Scan Here!!!</button>
-    <button class="btn" id="stopScanBtn" title="Stop scanner" style="display:none;">Stop Scan</button>
-    <!-- Hidden input to capture scanner keystrokes -->
-    <input type="text" id="barcodeInput" autocomplete="off" />
-     </div>
+      <input type="text" id="woInput" placeholder="Enter Workorder" />
+      <button class="btn" id="woSearchBtn">Search</button>
+
+      <button class="btn" id="startScanBtn" title="Activate barcode scanner">
+        Scan Here!!!
+      </button>
+      <button
+        class="btn"
+        id="stopScanBtn"
+        title="Stop scanner"
+        style="display: none"
+      >
+        Stop Scan
+      </button>
+
+      <!-- Hidden input to capture scanner keystrokes -->
+      <label for="barcodeInput" style="display: none">Barcode Input</label>
+      <input
+        type="text"
+        id="barcodeInput"
+        name="barcodeInput"
+        autocomplete="off"
+        placeholder="Scan or enter barcode"
+        title="Scan or enter barcode here"
+      />
+    </div>
 
     <div class="skill-filters">
-    <button data-skill="CLEAR" class="active">ALL SKILL</button>
-    <button data-skill="GEN">GEN</button>
-    <button data-skill="AVI">AVI</button>
-    <button data-skill="CRG/ENG">CRG/ENG</button>
-    <button data-skill="CAB">CAB</button>
-    <button data-skill="LDG/FLC">LDG/FLC</button>
-    <button data-skill="STR">STR</button>
-    <button data-skill="SHOP">SHOP</button>
-    
-  </div>
-
-  <div id="counter">Waiting for input...</div>
-</div>
-  <div class="layout">
-  <!-- Phase totals -->
-  <div class="layout">
-  <!-- Left column: Phase + Skill -->
-  <div class="left-column">
-    <!-- Phase totals -->
-    <div id="phaseTotalsContainer">
-      <table id="phaseTotalsTable">
-        <thead>
-          <tr>
-            <th>Phase</th>
-            <th style="text-align:right;">Open Tasks</th>
-            <th style="text-align:right;">Closed Tasks</th>
-            <th style="text-align:right;">% Closed</th>
-          </tr>
-        </thead>
-        <tbody id="phaseTotalsBody">
-          <tr><td colspan="4" style="text-align:center;">No data</td></tr>
-        </tbody>
-      </table>
+      <button data-skill="CLEAR" class="active">ALL SKILL</button>
+      <button data-skill="GEN">GEN</button>
+      <button data-skill="AVI">AVI</button>
+      <button data-skill="CRG/ENG">CRG/ENG</button>
+      <button data-skill="CAB">CAB</button>
+      <button data-skill="LDG/FLC">LDG/FLC</button>
+      <button data-skill="STR">STR</button>
     </div>
-  </div>
 
-  <!-- Main table -->
-  <div id="scrollArea" class="clusterize-scroll">
-    <table>
-<thead>
-  <tr>
-    <th style="width:15%;">Reference</th>
-    <th style="width:25%;">Description</th>
-    <th style="width:10%;">Seq.No</th>
+    <div id="counter">Waiting for input...</div>
 
-  </tr>
-  <tr>
-    <th><input type="text" class="filter" data-field="reference_task_card" placeholder="Search Reference" /></th>
-    <th><input type="text" class="filter" data-field="task_card_description" placeholder="Search Description" /></th>
-    <th><input type="text" class="filter" data-field="seq" placeholder="Search Seq" /></th>
-                  <th>
- <select class="filter" data-field="mtcStatus" aria-label="Filter by MTC Status" title="Filter by MTC Status">
-  <option value="">All</option>
-  <option value="Closed">Closed</option>
-  <option value="Open">Open</option>
-</select>
-      </th>
-  </tr>
-</thead>
+    <div class="layout">
+      <!-- Phase totals: now full width above main table -->
+      <div id="phaseTotalsContainer">
+        <table id="phaseTotalsTable">
+          <thead>
+            <tr>
+              <th>Phase</th>
+              <th style="text-align: right">Open Tasks</th>
+              <th style="text-align: right">Closed Tasks</th>
+              <th style="text-align: right">Cancelled Tasks</th>
+              <th style="text-align: right">Hold Tasks</th>
+              <th style="text-align: right">% Closed</th>
+            </tr>
+          </thead>
+          <tbody id="phaseTotalsBody">
+            <tr>
+              <td colspan="6" style="text-align: center">No data</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
 
-      <tbody id="contentArea" class="clusterize-content">
-        <tr class="clusterize-no-data"><td colspan="7">No data yet</td></tr>
-      </tbody>
-    </table>
-  </div>
-</div>
-
-  <!-- Scan Modal -->
-  <div id="scanModal" role="dialog" aria-modal="true" aria-labelledby="scanModalTitle">
-    <div class="modal-content">
-      <h3 id="scanModalTitle">Scanned Sequences</h3>
-      <div style="font-size:12px;color:#555;">WO: <span id="activeWO" class="pill">—</span> • Count: <span id="scanCount" class="pill">0</span></div>
-      <ul id="scannedList"></ul>
-                    <!-- Manual input for seq number -->
-        <div id="manualInputContainer" style="margin-top:10px;">
-        <input type="number" id="manualSeqInput" placeholder="Enter Seq Number manually">
-        <button id="manualAddBtn">Add</button>
-        </div>
-      <div class="modal-actions">
-        <button class="btn" id="submitScanBtn" title="Update matched tasks to CLOSED">Submit</button>
-        <button class="btn" id="clearScanBtn" title="Clear list">Clear</button>
-        <button class="btn" id="closeScanBtn" title="Close modal">Close</button>
+      <!-- Main scrollable table -->
+      <div id="scrollArea" class="clusterize-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>TaskCard</th>
+              <th>Reference</th>
+              <th>Description</th>
+              <th>Seq.No</th>
+              <th>Status</th>
+              <th></th>
+              <th></th>
+              <th></th>
+              <th></th>
+              <th></th>
+              <th></th>
+              <th></th>
+            </tr>
+            <tr>
+              <th>
+                <input
+                  type="text"
+                  class="filter"
+                  data-field="task_card"
+                  placeholder="Search TaskCard"
+                />
+              </th>
+              <th>
+                <input
+                  type="text"
+                  class="filter"
+                  data-field="reference_task_card"
+                  placeholder="Search Reference"
+                />
+              </th>
+              <th>
+                <input
+                  type="text"
+                  class="filter"
+                  data-field="task_card_description"
+                  placeholder="Search Description"
+                />
+              </th>
+              <th>
+                <input
+                  type="text"
+                  class="filter"
+                  data-field="seq"
+                  placeholder="Search Seq"
+                />
+              </th>
+              <th>
+                <input
+                  type="text"
+                  class="filter"
+                  data-field="status"
+                  placeholder="Search Status"
+                />
+              </th>
+              <th>PH</th>
+              <th>P0</th>
+              <th>P1</th>
+              <th>P2</th>
+              <th>P3</th>
+              <th>P4</th>
+              <th>P6</th>
+            </tr>
+          </thead>
+          <tbody id="contentArea" class="clusterize-content">
+            <tr class="clusterize-no-data">
+              <td colspan="12">No data yet</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </div>
-  </div>
 
-  <!-- Loading -->
-  <div id="loadingOverlay">
-    <div class="spinner"></div>
-    <div>Loading, please wait...</div>
-  </div>
-<!-- Toast Notifications -->
-<div id="toastContainer"></div>
+    <!-- Scan Modal -->
+    <div
+      id="scanModal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="scanModalTitle"
+    >
+      <div class="modal-content">
+        <h3 id="scanModalTitle">Scanned Sequences</h3>
+        <div style="font-size: 12px; color: #555">
+          WO: <span id="activeWO" class="pill">—</span> • Count:
+          <span id="scanCount" class="pill">0</span>
+        </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/clusterize.js@0.18.1/clusterize.min.js"></script>
-  <script type="module">
-          const SESSION_KEY = "demo_session";
-    const savedSession = JSON.parse(localStorage.getItem(SESSION_KEY) || sessionStorage.getItem(SESSION_KEY));
-     if (!savedSession) {
-      location.href = "index.html"; // not logged in
-    } else {
+        <!-- Search results for scanned/typed seq -->
+        <div style="margin-top: 10px">
+          <h4 style="font-size: 13px; margin-bottom: 5px; color: #444">
+            Matching Tasks
+          </h4>
+          <table class="scan-table">
+            <thead>
+              <tr>
+                <th>Seq</th>
+                <th>Phase</th>
+                <th>Skill</th>
+                <th>Status</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="scanResultsList"></tbody>
+          </table>
+        </div>
+
+        <!-- Queue of tasks to close -->
+        <div style="margin-top: 15px">
+          <h4 style="font-size: 13px; margin-bottom: 5px; color: #444">
+            Queued Tasks
+          </h4>
+          <table class="scan-table">
+            <thead>
+              <tr>
+                <th>Seq</th>
+                <th>Phase</th>
+                <th>Skill</th>
+                <th>Status</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="scannedList"></tbody>
+          </table>
+        </div>
+
+        <!-- Manual input for seq number -->
+        <div id="manualInputContainer" style="margin-top: 10px">
+          <label
+            for="manualSeqInput"
+            style="
+              display: block;
+              font-size: 12px;
+              color: #444;
+              margin-bottom: 4px;
+            "
+          >
+            Manual Seq Number
+          </label>
+          <input
+            type="number"
+            id="manualSeqInput"
+            name="manualSeqInput"
+            placeholder="Enter Seq Number"
+            title="Enter sequence number manually"
+          />
+          <button id="manualAddBtn" title="Add entered sequence number">
+            Add
+          </button>
+        </div>
+
+        <div class="modal-actions">
+          <button
+            class="btn"
+            id="submitScanBtn"
+            title="Update queued tasks to CLOSED"
+          >
+            Submit
+          </button>
+          <button class="btn" id="clearScanBtn" title="Clear list">
+            Clear
+          </button>
+          <button class="btn" id="closeScanBtn" title="Close modal">
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Loading -->
+    <div id="loadingOverlay">
+      <div class="spinner"></div>
+      <div>Loading, please wait...</div>
+    </div>
+    <!-- Toast Notifications -->
+    <div id="toastContainer"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/clusterize.js@0.18.1/clusterize.min.js"></script>
+    <script type="module">
+      const SESSION_KEY = "demo_session";
+      const savedSession = JSON.parse(
+        localStorage.getItem(SESSION_KEY) || sessionStorage.getItem(SESSION_KEY)
+      );
+      if (!savedSession) {
+        location.href = "index.html"; // not logged in
+      } else {
         // Role-based access check
-      const page = location.pathname.split("/").pop(); // current file name
-      if (savedSession.page !== page) {
-        location.href = "index.html"; // redirect if wrong user for this page
-      }
-      }
-        
-    
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-    import {
-      getFirestore, collection, onSnapshot, query, where,
-      doc, updateDoc, getDocs
-    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-    import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-
-    /* =======================
-       Firebase Init
-    ======================== */
-    const firebaseConfig = {
-      apiKey: "AIzaSyDCpHhUL8x4rs-fom1xyaNdWm5prSGf57U",
-      authDomain: "onemtc-2222c.firebaseapp.com",
-      projectId: "onemtc-2222c",
-      storageBucket: "onemtc-2222c.firebasestorage.app",
-      messagingSenderId: "447271556426",
-      appId: "1:447271556426:web:562ba4d72e40b754599db3"
-    };
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
-    const auth = getAuth(app);
-    signInAnonymously(auth).catch(console.error);
-
-    /* =======================
-       UI refs
-    ======================== */
-    const counterEl = document.getElementById("counter");
-const woInput = document.getElementById("woInput");
-const woSearchBtn = document.getElementById("woSearchBtn");
-const overlay = document.getElementById("loadingOverlay");
-const startScanBtn = document.getElementById("startScanBtn");
-const stopScanBtn = document.getElementById("stopScanBtn");
-const barcodeInput = document.getElementById("barcodeInput");
-const scanModal = document.getElementById("scanModal");
-const scannedList = document.getElementById("scannedList");
-const submitScanBtn = document.getElementById("submitScanBtn");
-const clearScanBtn = document.getElementById("clearScanBtn");
-const closeScanBtn = document.getElementById("closeScanBtn");
-const activeWOEl = document.getElementById("activeWO");
-const scanCountEl = document.getElementById("scanCount");
-const lastUpdateEl = document.getElementById('lastUpdate');
-
-const clusterize = new Clusterize({ scrollId: 'scrollArea', contentId: 'contentArea', rows: [] });
-
-/* =======================
-   State
-======================== */
-let unsubscribe = null;
-let allDocs = [];
-let activeSkill = "CLEAR";
-let scanningActive = false;
-let scannedSeqs = [];
-let currentWO = null;
-let seqFilterValues = [];
-
-const phaseOrder = ["PH", "P0", "P1", "P2", "P3", "P4", "P5", "P6"];
-
-function seqKey(item) {
-  if (item == null || item.seq == null) return Number.POSITIVE_INFINITY;
-  const s = String(item.seq).trim();
-  const parts = s.split('-');
-  const last = parts[parts.length - 1];
-  const n = Number(last);
-  if (!Number.isNaN(n)) return n;
-  const whole = Number(s);
-  return Number.isNaN(whole) ? s : whole;
-}
-
-function getClosedPercentage(docs) {
-  if (!docs.length) return 0;
-  const closedCount = docs.filter(d => {
-    const st = (d.status || "").toLowerCase();
-    return st === "closed" || st === "completed";
-  }).length;
-  return ((closedCount / docs.length) * 100).toFixed(1);
-}
-
-/* =======================
-   Helpers
-======================== */
-function calculateDayProgress(startDate, endDate) {
-  if (!startDate || !endDate) return "";
-  const start = new Date(startDate);
-  const end = new Date(endDate);
-  const today = new Date();
-  const totalDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
-  const currentDay = Math.min(
-    Math.max(Math.ceil((today - start) / (1000 * 60 * 60 * 24)) + 1, 1),
-    totalDays
-  );
-  return `Day ${currentDay} of ${totalDays}`;
-}
-
-const showLoading = () => { overlay.style.display = "flex"; };
-const hideLoading = () => { overlay.style.display = "none"; };
-
-
-
-
-function getAvailablePhases(docs) {
-  const phaseSet = new Set();
-  docs.forEach(d => {
-    if (d.phase) phaseSet.add(d.phase);
-  });
-  return Array.from(phaseSet).sort((a, b) => {
-    // sort P1, P2, P3 numerically
-    const na = parseInt(a.replace("P", "")) || 0;
-    const nb = parseInt(b.replace("P", "")) || 0;
-    return na - nb;
-  });
-}
-
-function renderTableHeader(phases) {
-  const thead = document.querySelector("#scrollArea thead");
-
-  // --- 1) capture existing filter values + active input state ---
-  const existingFilters = {};
-  if (thead) {
-    thead.querySelectorAll(".filter").forEach(inp => {
-      const f = inp.dataset.field;
-      if (f) existingFilters[f] = inp.value;
-    });
-  }
-
-  // capture focused field + selection so we can restore after re-render
-  const activeEl = document.activeElement;
-  const activeInThead = activeEl && thead && thead.contains(activeEl);
-  const activeField = activeInThead ? activeEl.dataset?.field : null;
-  const selStart = activeInThead && typeof activeEl.selectionStart === "number" ? activeEl.selectionStart : null;
-  const selEnd = activeInThead && typeof activeEl.selectionEnd === "number" ? activeEl.selectionEnd : null;
-
-  // --- 2) build new header HTML ---
-  const headerRow = `
-    <tr>
-      <th style="width:15%;">Reference</th>
-      <th style="width:25%;">Description</th>
-      <th style="width:10%;">Seq.No</th>
-      <th style="width:10%;">MTCstatus</th>
-      ${phases.map(p => `<th style="width:8%;"></th>`).join("")}
-    </tr>
-  `;
-
-  const filterRow = `
-    <tr>
-      <th><input type="text" class="filter" data-field="reference_task_card" placeholder="Search Reference" /></th>
-      <th><input type="text" class="filter" data-field="task_card_description" placeholder="Search Description" /></th>
-      <th><input type="text" class="filter" data-field="seq" placeholder="Search Seq" /></th>
-              <th>
- <select class="filter" data-field="mtcStatus" aria-label="Filter by MTC Status" title="Filter by MTC Status">
-  <option value="">All</option>
-  <option value="Closed">Closed</option>
-  <option value="Open">Open</option>
-</select>
-      </th>
-      ${phases.map(p => `<th style="width:8%;">${p}</th>`).join("")}
-    </tr>
-  `;
-
-  // replace thead content
-  thead.innerHTML = headerRow + filterRow;
-
-  // --- 3) restore values & reattach listeners ---
-  thead.querySelectorAll(".filter").forEach(inp => {
-    const f = inp.dataset.field;
-    if (existingFilters[f] !== undefined) inp.value = existingFilters[f];
-
-    // attach main input handler
-    inp.addEventListener("input", applyFilters);
-
-    // special handling for seq input (Enter = push to seqFilterValues)
-    if (f === "seq") {
-      inp.addEventListener("keydown", (e) => {
-        if (e.key === "Enter") {
-          e.preventDefault();
-          const val = inp.value.trim();
-          if (val !== "" && !seqFilterValues.includes(val)) {
-            seqFilterValues.push(val);
-          }
-          inp.value = "";
-          applyFilters();
+        const page = location.pathname.split("/").pop(); // current file name
+        if (savedSession.page !== page) {
+          location.href = "index.html"; // redirect if wrong user for this page
         }
-      });
-    }
-  });
-
-  // --- 4) restore focus + caret if user was typing ---
-  if (activeField) {
-    const newActive = thead.querySelector(`.filter[data-field="${activeField}"]`);
-    if (newActive) {
-      newActive.focus();
-      if (selStart !== null && typeof newActive.setSelectionRange === "function") {
-        try { newActive.setSelectionRange(selStart, selEnd); } catch (err) { /* ignore */ }
       }
-    }
-  }
-}
 
-function buildSeqStatusMap(docs) {
-  const seqStatus = {};
-  docs.forEach(d => {
-    const seq = String(d.seq || "");
-    if (!seq) return;
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+      import {
+        getFirestore,
+        collection,
+        onSnapshot,
+        query,
+        where,
+        doc,
+        updateDoc,
+        getDocs,
+      } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+      import {
+        getAuth,
+        signInAnonymously,
+      } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
-    if (!seqStatus[seq]) {
-      seqStatus[seq] = { total: 0, closed: 0 };
-    }
-    seqStatus[seq].total++;
-    const st = (d.status || "").toLowerCase();
-    if (st === "closed" || st === "completed") {
-      seqStatus[seq].closed++;
-    }
-  });
-
-  const result = {};
-  Object.keys(seqStatus).forEach(seq => {
-    result[seq] =
-      seqStatus[seq].total === seqStatus[seq].closed ? "Closed" : "Open";
-  });
-  return result;
-}
-
-function renderRows(docs) {
-  const phases = getAvailablePhases(docs);
-  renderTableHeader(phases);
-
-  const grouped = {};
-  docs.forEach(d => {
-    const ref = d.reference_task_card || "Unknown";
-    if (!grouped[ref]) {
-      grouped[ref] = {
-        ref,
-        description: d.task_card_description ?? "",
-        seq: d.seq ?? "",
-        phases: {},
-        tasks: []
+      /* =======================
+   Firebase Init
+  ======================== */
+      const firebaseConfig = {
+        apiKey: "AIzaSyDCpHhUL8x4rs-fom1xyaNdWm5prSGf57U",
+        authDomain: "onemtc-2222c.firebaseapp.com",
+        projectId: "onemtc-2222c",
+        storageBucket: "onemtc-2222c.firebasestorage.app",
+        messagingSenderId: "447271556426",
+        appId: "1:447271556426:web:562ba4d72e40b754599db3",
       };
-    }
-    if (!grouped[ref].phases[d.phase]) {
-      grouped[ref].phases[d.phase] = [];
-    }
-    grouped[ref].phases[d.phase].push(d.skill || "");
-    grouped[ref].tasks.push(d);
-  });
+      const app = initializeApp(firebaseConfig);
+      const db = getFirestore(app);
+      const auth = getAuth(app);
+      signInAnonymously(auth).catch(console.error);
 
-  // ✅ Precompute seq → status map (O(N))
-  const seqStatusMap = buildSeqStatusMap(docs);
+      /* =======================
+   UI refs
+  ======================== */
+      const counterEl = document.getElementById("counter");
+      const woInput = document.getElementById("woInput");
+      const woSearchBtn = document.getElementById("woSearchBtn");
+      const overlay = document.getElementById("loadingOverlay");
 
-  const rows = Object.values(grouped).map(item => {
-    // ✅ Fast O(1) lookup instead of filtering all docs
-    let mtcStatus = "Open";
-    if (item.seq && seqStatusMap[item.seq]) {
-      mtcStatus = seqStatusMap[item.seq];
-    }
+      const startScanBtn = document.getElementById("startScanBtn");
+      const stopScanBtn = document.getElementById("stopScanBtn");
+      const barcodeInput = document.getElementById("barcodeInput");
 
-    const phaseCells = phases
-      .map(p => {
-        const skills = item.phases[p]
-          ? item.phases[p]
-              .map(s => {
-                const doc = docs.find(
-                  d =>
-                    d.reference_task_card === item.ref &&
-                    d.phase === p &&
-                    d.skill === s
-                );
-                const status = (doc?.status || "").toLowerCase();
-                const baseClass =
-                  status === "closed" || status === "completed"
-                    ? "skill-closed"
-                    : "skill-open";
+      const scanModal = document.getElementById("scanModal");
+      const scannedList = document.getElementById("scannedList");
+      const submitScanBtn = document.getElementById("submitScanBtn");
+      const clearScanBtn = document.getElementById("clearScanBtn");
+      const closeScanBtn = document.getElementById("closeScanBtn");
+      const activeWOEl = document.getElementById("activeWO");
+      const scanCountEl = document.getElementById("scanCount");
+      const fixedPhases = ["PH", "P0", "P1", "P2", "P3", "P4", "P6"];
+      const lastUpdateEl = document.getElementById("lastUpdate");
+      /* =======================
+   Clusterize Table
+  ======================== */
+      const clusterize = new Clusterize({
+        scrollId: "scrollArea",
+        contentId: "contentArea",
+        rows: [],
+      });
 
-                let extraClass = "";
-                if (activeSkill !== "CLEAR") {
-                  if (skillGroups[activeSkill]?.includes(s)) {
-                    extraClass = " skill-highlight";
-                  } else {
-                    extraClass = " skill-faded";
+      /* =======================
+   State
+  ======================== */
+      let unsubscribe = null;
+      let allDocs = []; // all docs for current WO
+      let activeSkill = "CLEAR";
+      let scanningActive = false;
+      let scannedSeqs = []; // numbers only
+      let currentWO = null; // string or number (as searched)
+      let seqFilterValues = []; // listahan ng lahat ng in-enter na seq filters
+
+      function getClosedPercentage(docs) {
+        if (!docs.length) return 0;
+        const closedCount = docs.filter((d) => {
+          const st = (d.status || "").toLowerCase();
+          return st === "closed" || st === "completed";
+        }).length;
+        return ((closedCount / docs.length) * 100).toFixed(1);
+      }
+
+      /* =======================
+   Helpers
+  ======================== */
+
+      function calculateDayProgress(startDate, endDate) {
+        if (!startDate || !endDate) return "";
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        const today = new Date();
+        const totalDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
+        const currentDay = Math.min(
+          Math.max(Math.ceil((today - start) / (1000 * 60 * 60 * 24)) + 1, 1),
+          totalDays
+        );
+        return `Day ${currentDay} of ${totalDays}`;
+      }
+      const showLoading = () => {
+        overlay.style.display = "flex";
+      };
+      const hideLoading = () => {
+        overlay.style.display = "none";
+      };
+
+      function renderRows(docs) {
+        // ✅ Precompute selected skills ONCE
+        let selectedSkills = [];
+        if (activeSkill !== "CLEAR") {
+          if (skillGroups[activeSkill]) {
+            selectedSkills = skillGroups[activeSkill]; // predefined group
+          } else {
+            selectedSkills = [activeSkill]; // dynamic skill
+          }
+        }
+
+        // Group by seq
+        const grouped = {};
+        docs.forEach((d) => {
+          const seq = d.seq ?? "Unknown";
+          if (!grouped[seq]) grouped[seq] = [];
+          grouped[seq].push(d);
+        });
+
+        // 🔹 Sort groups by earliest phase, then by phase count, then seq
+        const sortedGroups = Object.entries(grouped).sort(
+          ([seqA, tasksA], [seqB, tasksB]) => {
+            const uniquePhasesA = [
+              ...new Set(tasksA.map((t) => t.phase).filter(Boolean)),
+            ];
+            const uniquePhasesB = [
+              ...new Set(tasksB.map((t) => t.phase).filter(Boolean)),
+            ];
+
+            const idxA = Math.min(
+              ...uniquePhasesA
+                .map((p) => fixedPhases.indexOf(p))
+                .filter((i) => i >= 0),
+              Infinity
+            );
+            const idxB = Math.min(
+              ...uniquePhasesB
+                .map((p) => fixedPhases.indexOf(p))
+                .filter((i) => i >= 0),
+              Infinity
+            );
+
+            if (idxA !== idxB) return idxA - idxB; // 🔹 Sort by earliest phase
+            if (uniquePhasesA.length !== uniquePhasesB.length) {
+              return uniquePhasesA.length - uniquePhasesB.length; // 🔹 Then by phase count
+            }
+
+            // 🔹 Fallback to seq number or string
+            const numA = Number(seqA);
+            const numB = Number(seqB);
+            if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
+            return String(seqA).localeCompare(String(seqB));
+          }
+        );
+
+        // Build rows
+        const rows = sortedGroups.map(([seq, tasks]) => {
+          const first = tasks[0]; // use first for Ref & Desc
+
+          // TaskCards stacked
+          const taskCards = tasks.map((t) => t.task_card ?? "").join("<br>");
+
+          // Status rule: all closed → Closed, else → Open
+          const allClosed = tasks.every(
+            (t) => (t.status ?? "").toLowerCase() === "closed"
+          );
+          const finalStatus = allClosed ? "Closed" : "Open";
+
+          // Only first Reference & Description
+          const ref = first.reference_task_card ?? "";
+          const desc = first.task_card_description ?? "";
+
+          // Build phase cells
+          const phaseCells = fixedPhases
+            .map((phase) => {
+              const skills = tasks
+                .filter((t) => t.phase === phase)
+                .map((t) => {
+                  const status = (t.status ?? "").toLowerCase();
+                  const color = status === "closed" ? "green" : "red";
+
+                  // ✅ Fast highlight check
+                  let highlightStyle = "";
+                  if (
+                    selectedSkills.length > 0 &&
+                    selectedSkills.includes(t.skill)
+                  ) {
+                    highlightStyle =
+                      "background:yellow; border-radius:3px; padding:1px 3px;";
                   }
-                }
 
-                return `<span class="skill ${s.replace(
-                  /\W/g,
-                  "-"
-                )} ${baseClass}${extraClass}">${s}</span>`;
-              })
-              .join("<br>")
-          : "";
+                  return `<div style="color:${color}; font-weight:bold; ${highlightStyle}">
+              ${t.skill ?? ""}
+            </div>`;
+                })
+                .join("<br>");
 
-        return `<td style="text-align:center; white-space:pre-line;">${skills}</td>`;
-      })
-      .join("");
+              return `
+      <td style="text-align:center; vertical-align:middle;">
+        ${skills || ""}
+      </td>`;
+            })
+            .join("");
 
-    return `
+          return `
+    <tr id="row-seq-${seq}">
+      <td style="text-align:center; vertical-align:middle;">${taskCards}</td>
+      <td>${ref}</td>
+      <td>${desc}</td>
+      <td style="text-align:center; vertical-align:middle;">${seq}</td>
+      <td style="text-align:center; vertical-align:middle;">${finalStatus}</td>
+      ${phaseCells}
+    </tr>
+  `;
+        });
+
+        // Update table
+        clusterize.clear();
+        clusterize.update(
+          rows.length
+            ? rows
+            : [
+                `<tr class="clusterize-no-data"><td colspan="12">No data</td></tr>`,
+              ]
+        );
+      }
+
+      function renderPhaseTotals(docs) {
+        // Counters
+        const phaseTotals = {};
+        const phaseOpen = {};
+        const phaseClosed = {};
+        const phaseCancelled = {};
+        const phaseHold = {};
+
+        // Count tasks by phase
+        docs.forEach((d) => {
+          const phase = d.phase || "No Phase";
+          if (!fixedPhases.includes(phase)) return; // ignore unknown phases
+
+          phaseTotals[phase] = (phaseTotals[phase] || 0) + 1;
+
+          const st = (d.status || "").toLowerCase();
+          if (st === "open") phaseOpen[phase] = (phaseOpen[phase] || 0) + 1;
+          if (st === "closed" || st === "completed")
+            phaseClosed[phase] = (phaseClosed[phase] || 0) + 1;
+          if (st === "cancelled")
+            phaseCancelled[phase] = (phaseCancelled[phase] || 0) + 1;
+          if (st === "hold") phaseHold[phase] = (phaseHold[phase] || 0) + 1;
+        });
+
+        // Render table body
+        const body = document.getElementById("phaseTotalsBody");
+        body.innerHTML = "";
+
+        fixedPhases.forEach((phase) => {
+          const total = phaseTotals[phase] || 0;
+
+          if (total === 0) {
+            // No tasks in this phase → use gray dashes
+            body.insertAdjacentHTML(
+              "beforeend",
+              `
       <tr>
-        <td>${item.ref}</td>
-        <td>${item.description}</td>
-        <td>${item.seq}</td>
-        <td style="text-align:center; font-weight:bold; color:${
-          mtcStatus === "Closed" ? "#28a745" : "#dc3545"
-        };">
-          ${mtcStatus}
-        </td>
-        ${phaseCells}
+        <td>${phase}</td>
+        <td style="text-align:right; background:#f5f5f5;">-</td>
+        <td style="text-align:right; background:#f5f5f5;">-</td>
+        <td style="text-align:right; background:#f5f5f5;">-</td>
+        <td style="text-align:right; background:#f5f5f5;">-</td>
+        <td style="text-align:right; background:#f5f5f5;">-</td>
       </tr>
-    `;
-  });
+    `
+            );
+          } else {
+            // Tasks exist → show counts and % closed
+            const open = phaseOpen[phase] || 0;
+            const closed = phaseClosed[phase] || 0;
+            const cancelled = phaseCancelled[phase] || 0;
+            const hold = phaseHold[phase] || 0;
+            const pct = ((closed / total) * 100).toFixed(1);
 
-  clusterize.update(
-    rows.length
-      ? rows
-      : [
-          `<tr class="clusterize-no-data"><td colspan="${
-            4 + phases.length
-          }">No data</td></tr>`
-        ]
-  );
-}
-
-
-function renderPhaseTotals(docs) {
-  const container = document.getElementById("phaseTotalsContainer");
-  const body = document.getElementById("phaseTotalsBody");
-
-  body.innerHTML = "";
-
-  if (!docs.length) {
-    body.innerHTML = `<tr><td colspan="4" style="text-align:center;">No tasks by phase.</td></tr>`;
-    return;
-  }
-
-  // 🆕 Update heading dynamically
-  const skillLabel = activeSkill === "CLEAR" ? "All Skills" : activeSkill;
-  container.querySelector("thead tr th:first-child").textContent = `Phase Totals (${skillLabel})`;
-
-  // ✅ Single pass aggregation
-  const totals = {};
-  docs.forEach(d => {
-    const phase = d.phase || "No Phase";
-    if (!totals[phase]) totals[phase] = { total: 0, open: 0, closed: 0 };
-    totals[phase].total++;
-    const st = (d.status || "").toLowerCase();
-    if (st === "open") totals[phase].open++;
-    if (st === "closed" || st === "completed") totals[phase].closed++;
-  });
-
-  // ✅ Order phases
-  const orderedPhases = [
-    ...phaseOrder.filter(p => totals[p]),
-    ...Object.keys(totals).filter(p => !phaseOrder.includes(p))
-  ];
-
-  orderedPhases.forEach(phase => {
-    const { total, open, closed } = totals[phase];
-    const pct = total ? ((closed / total) * 100).toFixed(1) : "0.0";
-    const pctStyle = pct === "100.0" ? "color:#28a745; font-weight:bold;" : "color:inherit;";
-
-    body.insertAdjacentHTML("beforeend", `
+            body.insertAdjacentHTML(
+              "beforeend",
+              `
       <tr>
         <td>${phase}</td>
         <td style="text-align:right;">${open}</td>
         <td style="text-align:right;">${closed}</td>
-        <td style="text-align:right; ${pctStyle}">${pct}%</td>
+        <td style="text-align:right;">${cancelled}</td>
+        <td style="text-align:right;">${hold}</td>
+        <td style="text-align:right;">${pct}%</td>
       </tr>
-    `);
-  });
-}
-
-
-const skillGroups = {
-  "CLEAR": [],
-  "AVI": ["AVI"],
-  "CRG/ENG": ["CRG", "ENG-E", "ENG-F"],
-  "CAB": ["CAB"],
-  "LDG/FLC": ["LDG", "FLC-W", "FLC-T"],
-  "STR": ["STR"],
-  "GEN":["GEN"],
-  "SHOP": []
-};
-
-function getSkillFilteredDocs() {
-  if (activeSkill === "CLEAR") return allDocs;
-
-  if (activeSkill === "SHOP") {
-    const excluded = new Set(Object.values(skillGroups).flat().filter(Boolean));
-    return allDocs.filter(d => !excluded.has(d.skill));
-  }
-
-  const skills = skillGroups[activeSkill] || [];
-  // instead of filtering docs directly, just mark eligible references
-  const eligibleRefs = new Set(allDocs
-    .filter(d => skills.includes(d.skill))
-    .map(d => d.reference_task_card)
-  );
-
-  return allDocs.filter(d => eligibleRefs.has(d.reference_task_card));
-}
-// ✅ Use this for stats (phase totals, counter, % closed)
-function getSkillDocsForStats() {
-  if (activeSkill === "CLEAR") return allDocs;
-
-  if (activeSkill === "SHOP") {
-    const excluded = new Set(Object.values(skillGroups).flat().filter(Boolean));
-    return allDocs.filter(d => !excluded.has(d.skill));
-  }
-
-  const skills = skillGroups[activeSkill] || [];
-  return allDocs.filter(d => skills.includes(d.skill));
-}
-
-// ✅ Use this for table display (still shows all skills for a ref)
-function getSkillDocsForDisplay() {
-  if (activeSkill === "CLEAR") return allDocs;
-
-  if (activeSkill === "SHOP") {
-    const excluded = new Set(Object.values(skillGroups).flat().filter(Boolean));
-    return allDocs.filter(d => !excluded.has(d.skill));
-  }
-
-  const skills = skillGroups[activeSkill] || [];
-  const eligibleRefs = new Set(allDocs
-    .filter(d => skills.includes(d.skill))
-    .map(d => d.reference_task_card)
-  );
-
-  return allDocs.filter(d => eligibleRefs.has(d.reference_task_card));
-}
-
-
-function applyFilters() {
-  const filters = {};
-  document.querySelectorAll(".filter").forEach(input => {
-    const v = input.value.trim();
-    if (v !== "" && input.dataset.field !== "seq") {
-      filters[input.dataset.field] = v.toLowerCase();
-    }
-  });
-
-  // ✅ Step 1: get data for display & stats separately
-  let displayDocs = getSkillDocsForDisplay();
-  let statsDocs = getSkillDocsForStats();
-
-  // ✅ Step 2: apply text filters to both sets
-  const filterFn = d =>
-    Object.keys(filters).every(field =>
-      String(d[field] ?? "").toLowerCase().includes(filters[field])
-    );
-
-  displayDocs = displayDocs.filter(filterFn);
-  statsDocs = statsDocs.filter(filterFn);
-
-  // ✅ Step 3: seq filters
-  if (scannedSeqs.length > 0) {
-    displayDocs = displayDocs.filter(d => scannedSeqs.includes(Number(d.seq)));
-    statsDocs = statsDocs.filter(d => scannedSeqs.includes(Number(d.seq)));
-  } else if (seqFilterValues.length > 0) {
-    displayDocs = displayDocs.filter(d => seqFilterValues.includes(String(d.seq)));
-    statsDocs = statsDocs.filter(d => seqFilterValues.includes(String(d.seq)));
-  }
-
-  // ✅ Step 4: render table from display docs
-  renderRows(displayDocs);
-
-  // ✅ Step 5: compute stats from stats docs only
-  const pctClosed = getClosedPercentage(statsDocs);
-  counterEl.innerHTML = `Showing ${statsDocs.length} of ${allDocs.length} tasks • <span class="highlight">${pctClosed}% Closed</span>`;
-  renderPhaseTotals(statsDocs);
-}
-
-
-
-
-
-const seqInput = document.querySelector('.filter[data-field="seq"]');
-seqInput.addEventListener("keydown", (e) => {
-  if (e.key === "Enter") {
-    e.preventDefault();
-    const val = seqInput.value.trim();
-    if (val !== "" && !seqFilterValues.includes(val)) {
-      seqFilterValues.push(val);
-    }
-    seqInput.value = "";
-    applyFilters();
-  }
-});
-
-// Skill buttons
-document.querySelectorAll(".skill-filters button").forEach(btn => {
-  btn.addEventListener("click", () => {
-    document.querySelectorAll(".skill-filters button").forEach(b => b.classList.remove("active"));
-    btn.classList.add("active");
-    activeSkill = btn.dataset.skill;
-
-    if (activeSkill === "CLEAR") {
-      scannedSeqs = [];
-      seqFilterValues = [];
-      document.querySelectorAll(".filter").forEach(input => input.value = "");
-    }
-
-    applyFilters();
-  });
-});
-
-// Text filters
-document.querySelectorAll(".filter").forEach(input => input.addEventListener("input", applyFilters));
-
-/* =======================
-   Firestore Query by WO
-======================== */
-function searchWorkorder(wo) {
-  if (!wo) return;
-  showLoading();
-  counterEl.textContent = "Loading tasks...";
-  localStorage.setItem("lastWorkorder", wo);
-  if (unsubscribe) { unsubscribe(); unsubscribe = null; }
-
-  currentWO = isNaN(wo) ? wo : Number(wo);
-  activeWOEl.textContent = String(currentWO);
-
-  const qWO = query(collection(db, "tasks"), where("wo", "==", currentWO));
-  unsubscribe = onSnapshot(qWO, (snapshot) => {
-    allDocs = snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
-    const pctClosed = getClosedPercentage(allDocs);
-    counterEl.innerHTML = `Total Tasks: ${snapshot.size} • <span class="highlight">${pctClosed}% Closed</span>`;
-    if (allDocs.length > 0) {
-      const ac = allDocs[0].ac || "Unknown AC";
-      const schedStart = allDocs[0].sched_start_date;
-      const schedEnd = allDocs[0].sched_end_date;
-      const dayProgress = calculateDayProgress(schedStart, schedEnd);
-      document.getElementById("dynamicHeader").textContent =
-        `MTC Status for ${ac}    ${dayProgress}`;
-    }
-    lastUpdateEl.textContent = "Live • " + new Date().toLocaleString();
-    document.querySelectorAll(".skill-filters button").forEach(b => b.classList.remove("active"));
-    document.querySelector('.skill-filters button[data-skill="CLEAR"]').classList.add("active");
-    activeSkill = "CLEAR";
-    renderRows(allDocs);
-    renderPhaseTotals(allDocs);
-    hideLoading();
-  }, (err) => {
-    console.error(err);
-    hideLoading();
-    alert("Error loading tasks.");
-  });
-}
-
-woSearchBtn.addEventListener("click", () => {
-  const wo = woInput.value.trim();
-  if (wo) searchWorkorder(wo);
-});
-
-const lastWO = localStorage.getItem("lastWorkorder");
-if (lastWO) { woInput.value = lastWO; searchWorkorder(lastWO); }
-
-/* =======================
-   Scan Modal + Scanner
-======================== */
-function openModal() { scanModal.style.display = "flex"; }
-function closeModal() { scanModal.style.display = "none"; }
-const manualSeqInput = document.getElementById("manualSeqInput");
-const manualAddBtn = document.getElementById("manualAddBtn");
-
-manualAddBtn.addEventListener("click", () => {
-  const value = manualSeqInput.value.trim();
-  if (value !== "") {
-    handleScannedValue(value);
-    manualSeqInput.value = "";
-  }
-});
-manualSeqInput.addEventListener("keydown", (e) => {
-  if (e.key === "Enter") {
-    manualAddBtn.click();
-  }
-});
-
-function setScanning(active) {
-  scanningActive = active;
-  startScanBtn.classList.toggle("scanning", active);
-  startScanBtn.disabled = active;
-  stopScanBtn.style.display = active ? "inline-block" : "none";
-  if (active) {
-    barcodeInput.value = "";
-    barcodeInput.focus();
-  } else {
-    barcodeInput.blur();
-  }
-}
-
-startScanBtn.addEventListener("click", () => {
-  if (!currentWO && !woInput.value.trim()) {
-    alert("Enter a Workorder first, then click Search.");
-    return;
-  }
-  if (!currentWO && woInput.value.trim()) {
-    searchWorkorder(woInput.value.trim());
-  }
-  setScanning(true);
-  openModal();
-});
-
-stopScanBtn.addEventListener("click", () => setScanning(false));
-
-barcodeInput.addEventListener("keydown", (e) => {
-  if (!scanningActive) return;
-  if (e.key === "Enter") {
-    const val = barcodeInput.value.trim();
-    barcodeInput.value = "";
-    if (val !== "") handleScannedValue(val);
-  }
-});
-
-function renderScannedList() {
-  scannedList.innerHTML = "";
-  if (!scannedSeqs.length) {
-    scannedList.innerHTML = `<li style="justify-content:center;color:#777;">No scans yet</li>`;
-  } else {
-    scannedSeqs.forEach(seq => {
-      const li = document.createElement("li");
-      li.innerHTML = `<span>${seq}</span>
-        <span class="li-actions">
-          <button type="button" data-remove="${seq}">Remove</button>
-        </span>`;
-      scannedList.appendChild(li);
-    });
-  }
-  scanCountEl.textContent = String(scannedSeqs.length);
-}
-
-scannedList.addEventListener("click", (e) => {
-  const btn = e.target.closest("button[data-remove]");
-  if (!btn) return;
-  const seq = Number(btn.getAttribute("data-remove"));
-  scannedSeqs = scannedSeqs.filter(x => x !== seq);
-  renderScannedList();
-});
-
-function handleScannedValue(raw) {
-  const num = Number(raw);
-  if (Number.isNaN(num)) {
-    alert(`Invalid sequence (not a number): "${raw}"`);
-    return;
-  }
-  if (!scannedSeqs.includes(num)) {
-    scannedSeqs.push(num);
-    renderScannedList();
-    applyFilters();
-  }
-  if (scanModal.style.display !== "flex") openModal();
-}
-
-closeScanBtn.addEventListener("click", () => {
-  closeModal();
-  setScanning(false);
-});
-clearScanBtn.addEventListener("click", () => { scannedSeqs = []; renderScannedList(); });
-
-function showToast(message, type = "info", duration = 4000) {
-  const container = document.getElementById("toastContainer");
-  container.innerHTML = "";
-  const toast = document.createElement("div");
-  toast.className = `toast ${type}`;
-  toast.textContent = message;
-  container.appendChild(toast);
-  setTimeout(() => toast.classList.add("show"), 50);
-  setTimeout(() => {
-    toast.classList.remove("show");
-    setTimeout(() => toast.remove(), 400);
-  }, duration);
-}
-
-submitScanBtn.addEventListener("click", async () => {
-  if (!currentWO) { alert("Please search a Workorder first."); return; }
-  if (!scannedSeqs.length) { alert("No scanned sequences."); return; }
-
-  closeModal();
-  setScanning(false);
-  showLoading();
-
-  let updated = 0, missing = [];
-  try {
-    for (const seq of scannedSeqs) {
-      const qSeq = query(
-        collection(db, "tasks"),
-        where("wo", "==", currentWO),
-        where("seq", "==", seq)
-      );
-      const snap = await getDocs(qSeq);
-      if (snap.empty) {
-        missing.push(seq);
-        continue;
+    `
+            );
+          }
+        });
       }
 
-      // 🔥 sort if you have line_no field, otherwise natural order
-      const tasks = snap.docs
-        .map(d => ({ id: d.id, ...d.data() }))
-        .sort((a, b) => (a.line_no ?? 0) - (b.line_no ?? 0));
+      const skillGroups = {
+        CLEAR: [],
+        AVI: ["AVI"],
+        "CRG/ENG": ["CRG", "ENG-E", "ENG-F"],
+        CAB: ["CAB"],
+        "LDG/FLC": ["LDG", "FLC-W", "FLC-T"],
+        STR: ["STR"],
+        GEN: ["GEN"],
+      };
+      function populateDynamicSkillButtons() {
+        const container = document.querySelector(".skill-filters");
 
-      // ✅ find first open
-      const openTask = tasks.find(t => {
-        const st = (t.status || "").toLowerCase();
-        return st !== "closed" && st !== "completed";
-      });
+        const predefined = new Set(Object.values(skillGroups).flat());
+        const allSkills = new Set(allDocs.map((d) => d.skill).filter(Boolean));
+        const dynamicSkills = [...allSkills].filter((s) => !predefined.has(s));
 
-      if (openTask) {
-        await updateDoc(doc(db, "tasks", openTask.id), { status: "CLOSED" });
-        updated++;
+        // Remove old dynamic buttons
+        container
+          .querySelectorAll("button[data-dynamic='true']")
+          .forEach((btn) => btn.remove());
 
-        // also update local cache
-        const idx = allDocs.findIndex(d => d.id === openTask.id);
-        if (idx !== -1) {
-          allDocs[idx] = { ...allDocs[idx], status: "CLOSED" };
+        // Add new dynamic buttons
+        dynamicSkills.forEach((skill) => {
+          const btn = document.createElement("button");
+          btn.textContent = skill;
+          btn.dataset.skill = skill;
+          btn.dataset.dynamic = "true"; // so we can remove later
+          container.appendChild(btn);
+        });
+
+        // Re-attach listeners (for ALL buttons, static + dynamic)
+        attachSkillButtonListeners();
+      }
+      function attachSkillButtonListeners() {
+        document.querySelectorAll(".skill-filters button").forEach((btn) => {
+          btn.onclick = () => {
+            document
+              .querySelectorAll(".skill-filters button")
+              .forEach((b) => b.classList.remove("active"));
+            btn.classList.add("active");
+            activeSkill = btn.dataset.skill;
+
+            if (activeSkill === "CLEAR") {
+              scannedSeqs = [];
+              seqFilterValues = [];
+              document
+                .querySelectorAll(".filter")
+                .forEach((input) => (input.value = ""));
+            }
+
+            applyFilters();
+          };
+        });
+      }
+
+      function getSkillFilteredDocs() {
+        if (activeSkill === "CLEAR") return allDocs;
+
+        if (skillGroups[activeSkill]) {
+          // Predefined group (AVI, CRG/ENG, etc.)
+          const skills = skillGroups[activeSkill];
+          return allDocs.filter((d) => skills.includes(d.skill));
         }
 
-        console.log(`✅ Closed ${openTask.reference_task_card} (Seq ${seq})`);
-      } else {
-        console.log(`⚠️ No open tasks left for Seq ${seq}`);
+        // Dynamic skill (not in predefined groups)
+        return allDocs.filter((d) => d.skill === activeSkill);
       }
-    }
-  } catch (err) {
-    console.error(err);
-    alert("Error while updating tasks. Please try again.");
-  } finally {
-    renderRows(allDocs);
-    renderPhaseTotals(allDocs);
-    hideLoading();
-  }
 
-  scannedSeqs = [];
-  renderScannedList();
+      function applyFilters() {
+        const filters = {};
+        document.querySelectorAll(".filter").forEach((input) => {
+          const v = input.value.trim();
+          if (v !== "" && input.dataset.field !== "seq") {
+            filters[input.dataset.field] = v.toLowerCase();
+          }
+        });
 
-  const msg = [
-    `Updated to CLOSED: ${updated}`,
-    missing.length ? `Not found for WO ${currentWO}: ${missing.join(", ")}` : null
-  ].filter(Boolean).join("\n");
+        // Step 1: start with skill-filtered docs
+        let skillFiltered = getSkillFilteredDocs();
 
-  if (msg) {
-    showToast(msg, updated ? "success" : "error");
-  } else {
-    showToast("No updates performed.", "info");
-  }
-});
+        // Step 2: apply seq filters
+        if (scannedSeqs.length > 0) {
+          skillFiltered = skillFiltered.filter((d) =>
+            scannedSeqs.includes(Number(d.seq))
+          );
+        } else if (seqFilterValues.length > 0) {
+          skillFiltered = skillFiltered.filter((d) =>
+            seqFilterValues.includes(String(d.seq))
+          );
+        }
 
+        // Step 3: apply text filters
+        skillFiltered = skillFiltered.filter((d) =>
+          Object.keys(filters).every((field) =>
+            String(d[field] ?? "")
+              .toLowerCase()
+              .includes(filters[field])
+          )
+        );
 
-// Initialize scanned list content
-renderScannedList();
-if (!lastWO) {
-  hideLoading();
-}
+        // Step 4: get SEQs from filtered set
+        const filteredSeqs = new Set(skillFiltered.map((d) => String(d.seq)));
 
-   </script>
+        // Step 5: collect allDocs but only rows with those seqs
+        const rowsToRender = allDocs.filter((d) =>
+          filteredSeqs.has(String(d.seq))
+        );
+
+        // Render rows with full skill context
+        renderRows(rowsToRender);
+
+        // Counter + Phase totals (skill-specific only)
+        const pctClosed = getClosedPercentage(skillFiltered);
+        counterEl.innerHTML = `Showing ${skillFiltered.length} of ${allDocs.length} tasks • <span class="highlight">${pctClosed}% Closed</span>`;
+        renderPhaseTotals(skillFiltered);
+      }
+
+      const seqInput = document.querySelector('.filter[data-field="seq"]');
+      seqInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          const val = seqInput.value.trim();
+          if (val !== "" && !seqFilterValues.includes(val)) {
+            seqFilterValues.push(val);
+          }
+          seqInput.value = "";
+          applyFilters();
+        }
+      });
+
+      attachSkillButtonListeners();
+
+      document
+        .querySelectorAll(".filter")
+        .forEach((input) => input.addEventListener("input", applyFilters));
+
+      /* =======================
+   Firestore Query by WO
+  ======================== */
+      function searchWorkorder(wo) {
+        if (!wo) return;
+        showLoading();
+        counterEl.textContent = "Loading tasks...";
+        localStorage.setItem("lastWorkorder", wo);
+        if (unsubscribe) {
+          unsubscribe();
+          unsubscribe = null;
+        }
+
+        currentWO = isNaN(wo) ? wo : Number(wo);
+        activeWOEl.textContent = String(currentWO);
+
+        const qWO = query(
+          collection(db, "tasks"),
+          where("wo", "==", currentWO)
+        );
+        unsubscribe = onSnapshot(
+          qWO,
+          (snapshot) => {
+            allDocs = snapshot.docs.map((docSnap) => ({
+              id: docSnap.id,
+              ...docSnap.data(),
+            }));
+
+            const pctClosed = getClosedPercentage(allDocs);
+            counterEl.innerHTML = `Total Tasks: ${snapshot.size} • <span class="highlight">${pctClosed}% Closed</span>`;
+            //##################dynamic header
+            if (allDocs.length > 0) {
+              const ac = allDocs[0].ac || "Unknown AC";
+              const schedStart = allDocs[0].sched_start_date;
+              const schedEnd = allDocs[0].sched_end_date;
+
+              const dayProgress = calculateDayProgress(schedStart, schedEnd);
+
+              // 👉 Update header
+              document.getElementById(
+                "dynamicHeader"
+              ).textContent = `MTC Status for ${ac}    ${dayProgress}`;
+            }
+            lastUpdateEl.textContent = "Live • " + new Date().toLocaleString();
+            //################dynamic header
+            document
+              .querySelectorAll(".skill-filters button")
+              .forEach((b) => b.classList.remove("active"));
+            document.querySelector('.skill-filters button[data-skill="CLEAR"]');
+            //.classList.add("active");
+            // activeSkill = "CLEAR";
+
+            renderRows(allDocs);
+            renderPhaseTotals(allDocs);
+
+            // 🔹 Generate dynamic skill buttons
+            populateDynamicSkillButtons();
+
+            hideLoading();
+          },
+          (err) => {
+            console.error(err);
+            hideLoading();
+            alert("Error loading tasks.");
+          }
+        );
+      }
+
+      woSearchBtn.addEventListener("click", () => {
+        const wo = woInput.value.trim();
+        if (wo) searchWorkorder(wo);
+      });
+
+      const lastWO = localStorage.getItem("lastWorkorder");
+      if (lastWO) {
+        woInput.value = lastWO;
+        searchWorkorder(lastWO);
+      }
+
+      /* =======================
+   Scan Modal + Scanner
+  ======================== */
+
+      function showToast(message, type = "info", duration = 4000) {
+        const container = document.getElementById("toastContainer");
+        container.innerHTML = "";
+
+        const toast = document.createElement("div");
+        toast.className = `toast ${type}`;
+        toast.textContent = message;
+
+        container.appendChild(toast);
+
+        setTimeout(() => toast.classList.add("show"), 50);
+
+        setTimeout(() => {
+          toast.classList.remove("show");
+          setTimeout(() => toast.remove(), 400);
+        }, duration);
+      }
+
+      function openModal() {
+        scanModal.style.display = "flex";
+      }
+      function closeModal() {
+        scanModal.style.display = "none";
+      }
+
+      const manualSeqInput = document.getElementById("manualSeqInput");
+      const manualAddBtn = document.getElementById("manualAddBtn");
+
+      let scannedTasks = []; // [{ id, display }]
+      const scanResultsList = document.getElementById("scanResultsList");
+      //const scannedList = document.getElementById("scannedList");
+
+      manualAddBtn.addEventListener("click", () => {
+        const value = manualSeqInput.value.trim();
+        if (value !== "") {
+          handleScannedValue(value);
+          manualSeqInput.value = "";
+        }
+      });
+      manualSeqInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          manualAddBtn.click();
+        }
+      });
+
+      function setScanning(active) {
+        scanningActive = active;
+        startScanBtn.classList.toggle("scanning", active);
+        startScanBtn.disabled = active;
+        stopScanBtn.style.display = active ? "inline-block" : "none";
+        if (active) {
+          barcodeInput.value = "";
+          barcodeInput.focus();
+        } else {
+          barcodeInput.blur();
+        }
+      }
+
+      function renderScannedTasks() {
+        scannedList.innerHTML = "";
+
+        if (!scannedTasks.length) {
+          scannedList.innerHTML = `<li style="justify-content:center;color:#777;">No tasks queued</li>`;
+        } else {
+          scannedTasks.forEach((task) => {
+            const phase = task.phase || "P?";
+            const skill = task.skill || "GEN";
+            const status = task.status || "OPEN";
+
+            const li = document.createElement("li");
+            li.innerHTML = `
+        <span>Seq ${task.seq}-${phase}-${skill}-${status}</span>
+        <span class="li-actions">
+          <button type="button" data-remove="${task.id}">Remove</button>
+        </span>`;
+            scannedList.appendChild(li);
+          });
+        }
+
+        scanCountEl.textContent = String(scannedTasks.length);
+      }
+
+      startScanBtn.addEventListener("click", () => {
+        if (!currentWO && !woInput.value.trim()) {
+          alert("Enter a Workorder first, then click Search.");
+          return;
+        }
+        if (!currentWO && woInput.value.trim()) {
+          searchWorkorder(woInput.value.trim());
+        }
+        setScanning(true);
+        openModal();
+      });
+
+      stopScanBtn.addEventListener("click", () => setScanning(false));
+
+      barcodeInput.addEventListener("keydown", (e) => {
+        if (!scanningActive) return;
+        if (e.key === "Enter") {
+          const val = barcodeInput.value.trim();
+          barcodeInput.value = "";
+          if (val !== "") handleScannedValue(val);
+        }
+      });
+
+      // 🔍 Fetch tasks by sequence and show results
+      async function handleScannedValue(raw) {
+        const num = Number(raw);
+        if (Number.isNaN(num)) {
+          alert(`Invalid sequence (not a number): "${raw}"`);
+          return;
+        }
+
+        try {
+          const qSeq = query(
+            collection(db, "tasks"),
+            where("wo", "==", currentWO),
+            where("seq", "==", num)
+          );
+          const snap = await getDocs(qSeq);
+
+          scanResultsList.innerHTML = "";
+
+          if (snap.empty) {
+            scanResultsList.innerHTML = `
+        <tr>
+          <td colspan="5" style="text-align:center; color:#777;">
+            No tasks found for Seq ${num}
+          </td>
+        </tr>`;
+            return;
+          }
+
+          let shown = 0;
+
+          snap.docs.forEach((docSnap) => {
+            const task = { id: docSnap.id, ...docSnap.data() };
+
+            // 🚫 skip CLOSED tasks
+            if ((task.status ?? "").toUpperCase() === "CLOSED") return;
+
+            // ✅ filter by selected skill
+            if (activeSkill !== "CLEAR") {
+              if (skillGroups[activeSkill]) {
+                // predefined group
+                if (!skillGroups[activeSkill].includes(task.skill)) return;
+              } else {
+                // dynamic skill
+                if (task.skill !== activeSkill) return;
+              }
+            }
+
+            shown++;
+            scanResultsList.insertAdjacentHTML(
+              "beforeend",
+              `
+        <tr>
+          <td>${task.seq ?? ""}</td>
+          <td>${task.phase ?? "P?"}</td>
+          <td>${task.skill ?? "GEN"}</td>
+          <td>${task.status ?? "OPEN"}</td>
+          <td>
+            <button type="button" data-add="${task.id}">Add</button>
+          </td>
+        </tr>
+      `
+            );
+          });
+
+          if (shown === 0) {
+            scanResultsList.innerHTML = `
+        <tr>
+          <td colspan="5" style="text-align:center; color:#777;">
+            No OPEN tasks found for Seq ${num} under skill "${activeSkill}"
+          </td>
+        </tr>`;
+          }
+
+          if (scanModal.style.display !== "flex") openModal();
+        } catch (err) {
+          console.error(err);
+          alert("Error fetching tasks.");
+        }
+      }
+
+      // ➕ Add task to queue
+      scanResultsList.addEventListener("click", (e) => {
+        const btn = e.target.closest("button[data-add]");
+        if (!btn) return;
+
+        const taskId = btn.getAttribute("data-add");
+
+        // prevent duplicates
+        if (scannedTasks.some((t) => t.id === taskId)) {
+          showToast("Task already queued", "info");
+          return;
+        }
+
+        // get row cells (td values)
+        const row = btn.closest("tr");
+        const seq = row.children[0].textContent.trim();
+        const phase = row.children[1].textContent.trim();
+        const skill = row.children[2].textContent.trim();
+        const status = row.children[3].textContent.trim();
+
+        scannedTasks.push({
+          id: taskId,
+          seq,
+          phase,
+          skill,
+          status,
+          display: `Seq ${seq}-${phase}-${skill}-${status}`, // still keep for reuse
+        });
+
+        renderQueuedList();
+
+        // remove the row from results once added (optional)
+        row.remove();
+      });
+
+      // 📋 Render queued list
+      function renderQueuedList() {
+        scannedList.innerHTML = "";
+
+        if (!scannedTasks.length) {
+          scannedList.innerHTML = `
+      <tr>
+        <td colspan="5" style="text-align:center; color:#777;">No tasks queued</td>
+      </tr>`;
+        } else {
+          scannedTasks.forEach((task) => {
+            scannedList.insertAdjacentHTML(
+              "beforeend",
+              `
+        <tr>
+          <td>${task.seq}</td>
+          <td>${task.phase}</td>
+          <td>${task.skill}</td>
+          <td>${task.status}</td>
+          <td>
+            <button type="button" data-remove="${task.id}">Remove</button>
+          </td>
+        </tr>
+      `
+            );
+          });
+        }
+
+        scanCountEl.textContent = String(scannedTasks.length);
+      }
+
+      // ❌ Remove from queue (and send back to Matching list)
+      scannedList.addEventListener("click", (e) => {
+        const btn = e.target.closest("button[data-remove]");
+        if (!btn) return;
+
+        const id = btn.getAttribute("data-remove");
+
+        // find task before removing
+        const task = scannedTasks.find((t) => t.id === id);
+
+        // filter it out
+        scannedTasks = scannedTasks.filter((t) => t.id !== id);
+        renderQueuedList();
+
+        // if task exists → put it back into Matching list
+        if (task) {
+          scanResultsList.insertAdjacentHTML(
+            "beforeend",
+            `
+      <tr>
+        <td>${task.seq}</td>
+        <td>${task.phase}</td>
+        <td>${task.skill}</td>
+        <td>${task.status}</td>
+        <td>
+          <button type="button" data-add="${task.id}">Add</button>
+        </td>
+      </tr>
+    `
+          );
+        }
+      });
+
+      // ✅ Submit queued tasks
+      submitScanBtn.addEventListener("click", async () => {
+        if (!currentWO) {
+          alert("Please search a Workorder first.");
+          return;
+        }
+        if (!scannedTasks.length) {
+          alert("No tasks queued.");
+          return;
+        }
+
+        closeModal();
+        setScanning(false);
+        showLoading();
+
+        let updated = 0;
+        try {
+          for (const task of scannedTasks) {
+            await updateDoc(doc(db, "tasks", task.id), { status: "CLOSED" });
+            updated++;
+
+            const idx = allDocs.findIndex((d) => d.id === task.id);
+            if (idx !== -1) {
+              allDocs[idx] = { ...allDocs[idx], status: "CLOSED" };
+            }
+          }
+        } catch (err) {
+          console.error(err);
+          alert("Error while updating tasks. Please try again.");
+        } finally {
+          applyFilters(); // keep data filtered
+          hideLoading();
+
+          // Keep the active skill button visually active
+          document
+            .querySelectorAll(".skill-filters button")
+            .forEach((b) => b.classList.remove("active"));
+
+          const activeBtn = document.querySelector(
+            `.skill-filters button[data-skill="${activeSkill}"]`
+          );
+          if (activeBtn) activeBtn.classList.add("active");
+        }
+
+        scannedTasks = [];
+        renderScannedTasks();
+        scanResultsList.innerHTML = ""; // matching results
+        showToast(
+          `Updated to CLOSED: ${updated}`,
+          updated ? "success" : "info"
+        );
+      });
+
+      closeScanBtn.addEventListener("click", () => {
+        closeModal();
+        setScanning(false);
+      });
+      clearScanBtn.addEventListener("click", () => {
+        scannedTasks = []; // queue
+        renderScannedTasks();
+        scanResultsList.innerHTML = ""; // matching results
+      });
+
+      renderQueuedList();
+      if (!lastWO) {
+        hideLoading();
+      }
+    </script>
   </body>
 </html>
- 
