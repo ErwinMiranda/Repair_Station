@@ -1067,7 +1067,7 @@
         return allDocs.filter((d) => d.skill === activeSkill);
       }
 
-       function applyFilters() {
+        function applyFilters() {
         const filters = {};
         document.querySelectorAll(".filter").forEach((input) => {
           const v = input.value.trim();
@@ -1088,6 +1088,10 @@
           skillFiltered = skillFiltered.filter((d) =>
             seqFilterValues.includes(String(d.seq))
           );
+        }
+        // Step 2.5: apply phase filter
+        if (activePhase) {
+          skillFiltered = skillFiltered.filter((d) => d.phase === activePhase);
         }
 
         // Step 3: apply text filters
@@ -1112,7 +1116,39 @@
 
         // Counter + Phase totals (skill-specific only)
         const pctClosed = getClosedPercentage(skillFiltered);
-        counterEl.innerHTML = `Showing ${skillFiltered.length} of ${allDocs.length} tasks • <span class="highlight">${pctClosed}% Closed</span>`;
+
+        // If phase filter is active → compare against total tasks in that phase
+        let referenceTotal = allDocs.length;
+        if (activePhase) {
+          referenceTotal = allDocs.filter(
+            (d) => d.phase === activePhase
+          ).length;
+        }
+
+        let counterText = `Showing ${skillFiltered.length} of ${referenceTotal} tasks • <span class="highlight">${pctClosed}% Closed</span>`;
+
+        // If filtering by phase, add info + reset button
+        if (activePhase) {
+          counterText += ` • Filter: <span class="highlight">${activePhase}</span> 
+       <button id="clearPhaseBtn" 
+      style="margin-left:8px; padding:2px 8px; font-size:11px; 
+             background:#eee; border:1px solid #ccc; border-radius:12px; 
+             cursor:pointer; color:#333;">
+      Clear
+    </button>`;
+        }
+
+        counterEl.innerHTML = counterText;
+
+        // Attach event listener for Clear button
+        const clearBtn = document.getElementById("clearPhaseBtn");
+        if (clearBtn) {
+          clearBtn.addEventListener("click", () => {
+            activePhase = null;
+            applyFilters();
+          });
+        }
+
         renderPhaseTotals(skillFiltered);
       }
 
