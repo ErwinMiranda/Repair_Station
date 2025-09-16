@@ -1067,7 +1067,7 @@
         return allDocs.filter((d) => d.skill === activeSkill);
       }
 
-      function applyFilters() {
+       function applyFilters() {
         const filters = {};
         document.querySelectorAll(".filter").forEach((input) => {
           const v = input.value.trim();
@@ -1088,10 +1088,6 @@
           skillFiltered = skillFiltered.filter((d) =>
             seqFilterValues.includes(String(d.seq))
           );
-        }
-        // Step 2.5: apply phase filter
-        if (activePhase) {
-          skillFiltered = skillFiltered.filter((d) => d.phase === activePhase);
         }
 
         // Step 3: apply text filters
