@@ -412,6 +412,29 @@
         margin-left: auto;
         padding-right: 10px;
       }
+      .pill-btn {
+        display: inline-block;
+        margin-top: 8px;
+        margin-bottom: 12px;
+        padding: 6px 14px;
+        font-size: 13px;
+        font-weight: 500;
+        background: #f5f5f5;
+        border: 1px solid #ccc;
+        border-radius: 20px; /* pill shape */
+        cursor: pointer;
+        transition: all 0.2s ease;
+      }
+
+      .pill-btn:hover {
+        background: #eaeaea;
+      }
+
+      .pill-btn.active {
+        background: #007bff; /* blue highlight when active */
+        color: white;
+        border-color: #007bff;
+      }
     </style>
   </head>
   <body>
@@ -460,7 +483,7 @@
     </div>
 
     <div id="counter">Waiting for input...</div>
-
+<button id="multiSkillBtn" class="pill-btn">Multiskill MTC</button>
     <div class="layout">
       <!-- Phase totals: now full width above main table -->
       <div id="phaseTotalsContainer">
@@ -1053,7 +1076,18 @@
           };
         });
       }
+            document.getElementById("multiSkillBtn").addEventListener("click", () => {
+        multiSkillActive = !multiSkillActive; // toggle state
 
+        const btn = document.getElementById("multiSkillBtn");
+        if (multiSkillActive) {
+          btn.classList.add("active");
+        } else {
+          btn.classList.remove("active");
+        }
+
+        applyFilters();
+      });
       function getSkillFilteredDocs() {
         if (activeSkill === "CLEAR") return allDocs;
 
@@ -1093,7 +1127,24 @@
         if (activePhase) {
           skillFiltered = skillFiltered.filter((d) => d.phase === activePhase);
         }
+        // Step X: apply multiskill filter if active
+        if (multiSkillActive) {
+          // Find SEQs that have multiple unique skills
+          const seqSkillMap = {};
+          allDocs.forEach((d) => {
+            const seq = String(d.seq);
+            if (!seqSkillMap[seq]) seqSkillMap[seq] = new Set();
+            if (d.skill) seqSkillMap[seq].add(d.skill);
+          });
 
+          const multiSkillSeqs = new Set(
+            Object.keys(seqSkillMap).filter((seq) => seqSkillMap[seq].size > 1)
+          );
+
+          skillFiltered = skillFiltered.filter((d) =>
+            multiSkillSeqs.has(String(d.seq))
+          );
+        }
         // Step 3: apply text filters
         skillFiltered = skillFiltered.filter((d) =>
           Object.keys(filters).every((field) =>
