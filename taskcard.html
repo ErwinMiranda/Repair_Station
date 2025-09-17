@@ -775,7 +775,7 @@
       let currentWO = null; // string or number (as searched)
       let seqFilterValues = []; // listahan ng lahat ng in-enter na seq filters
       let activePhase = null; // currently selected phase filter
-
+      let multiSkillActive = false;
       function getClosedPercentage(docs) {
         if (!docs.length) return 0;
         const closedCount = docs.filter((d) => {
