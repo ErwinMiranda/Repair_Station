@@ -483,7 +483,8 @@
     </div>
 
     <div id="counter">Waiting for input...</div>
-<button id="multiSkillBtn" class="pill-btn">Multiskill MTC</button>
+    <button id="multiSkillBtn" class="pill-btn">Multiskill MTC</button>
+    <button id="singleSkillBtn" class="pill-btn">Single Skill MTC</button>
     <div class="layout">
       <!-- Phase totals: now full width above main table -->
       <div id="phaseTotalsContainer">
@@ -549,13 +550,32 @@
                   placeholder="Search Description"
                 />
               </th>
-              <th>
+              </th>
+              <th style="position: relative">
                 <input
                   type="text"
                   class="filter"
                   data-field="seq"
                   placeholder="Search Seq"
+                  style="padding-right: 10px"
                 />
+                <button
+                  id="clearSeqBtn"
+                  style="
+                    display: none;
+                    position: absolute;
+                    right: 10px;
+                    top: 50%;
+                    transform: translateY(-50%);
+                    border: none;
+                    background: transparent;
+                    cursor: pointer;
+                    font-size: 14px;
+                    color: #e40a0a;
+                  "
+                >
+                  x
+                </button>
               </th>
               <th>
                 <input
@@ -776,6 +796,7 @@
       let seqFilterValues = []; // listahan ng lahat ng in-enter na seq filters
       let activePhase = null; // currently selected phase filter
       let multiSkillActive = false;
+      let singleSkillActive = false;
       function getClosedPercentage(docs) {
         if (!docs.length) return 0;
         const closedCount = docs.filter((d) => {
@@ -1076,18 +1097,32 @@
           };
         });
       }
-            document.getElementById("multiSkillBtn").addEventListener("click", () => {
-        multiSkillActive = !multiSkillActive; // toggle state
+      document.getElementById("multiSkillBtn").addEventListener("click", () => {
+        multiSkillActive = !multiSkillActive;
+        singleSkillActive = false; // ensure mutual exclusivity
 
-        const btn = document.getElementById("multiSkillBtn");
-        if (multiSkillActive) {
-          btn.classList.add("active");
-        } else {
-          btn.classList.remove("active");
-        }
+        const multiBtn = document.getElementById("multiSkillBtn");
+        const singleBtn = document.getElementById("singleSkillBtn");
+
+        multiBtn.classList.toggle("active", multiSkillActive);
+        singleBtn.classList.remove("active"); // ✅ always clear highlight
 
         applyFilters();
       });
+            document
+        .getElementById("singleSkillBtn")
+        .addEventListener("click", () => {
+          singleSkillActive = !singleSkillActive;
+          multiSkillActive = false; // ensure mutual exclusivity
+
+          const multiBtn = document.getElementById("multiSkillBtn");
+          const singleBtn = document.getElementById("singleSkillBtn");
+
+          singleBtn.classList.toggle("active", singleSkillActive);
+          multiBtn.classList.remove("active"); // ✅ always clear highlight
+
+          applyFilters();
+        });
       function getSkillFilteredDocs() {
         if (activeSkill === "CLEAR") return allDocs;
 
@@ -1127,9 +1162,8 @@
         if (activePhase) {
           skillFiltered = skillFiltered.filter((d) => d.phase === activePhase);
         }
-        // Step X: apply multiskill filter if active
-        if (multiSkillActive) {
-          // Find SEQs that have multiple unique skills
+       // ✅ Apply multiskill or single skill filters
+        if (multiSkillActive || singleSkillActive) {
           const seqSkillMap = {};
           allDocs.forEach((d) => {
             const seq = String(d.seq);
@@ -1137,13 +1171,25 @@
             if (d.skill) seqSkillMap[seq].add(d.skill);
           });
 
-          const multiSkillSeqs = new Set(
-            Object.keys(seqSkillMap).filter((seq) => seqSkillMap[seq].size > 1)
-          );
-
-          skillFiltered = skillFiltered.filter((d) =>
-            multiSkillSeqs.has(String(d.seq))
-          );
+          if (multiSkillActive) {
+            const multiSkillSeqs = new Set(
+              Object.keys(seqSkillMap).filter(
+                (seq) => seqSkillMap[seq].size > 1
+              )
+            );
+            skillFiltered = skillFiltered.filter((d) =>
+              multiSkillSeqs.has(String(d.seq))
+            );
+          } else if (singleSkillActive) {
+            const singleSkillSeqs = new Set(
+              Object.keys(seqSkillMap).filter(
+                (seq) => seqSkillMap[seq].size === 1
+              )
+            );
+            skillFiltered = skillFiltered.filter((d) =>
+              singleSkillSeqs.has(String(d.seq))
+            );
+          }
         }
         // Step 3: apply text filters
         skillFiltered = skillFiltered.filter((d) =>
