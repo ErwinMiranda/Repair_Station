@@ -1136,7 +1136,7 @@
         return allDocs.filter((d) => d.skill === activeSkill);
       }
 
-        function applyFilters() {
+         function applyFilters() {
         const filters = {};
         document.querySelectorAll(".filter").forEach((input) => {
           const v = input.value.trim();
@@ -1162,7 +1162,9 @@
         if (activePhase) {
           skillFiltered = skillFiltered.filter((d) => d.phase === activePhase);
         }
-       // ✅ Apply multiskill or single skill filters
+
+        // Step X: apply multiskill filter if active
+        // ✅ Apply multiskill or single skill filters
         if (multiSkillActive || singleSkillActive) {
           const seqSkillMap = {};
           allDocs.forEach((d) => {
@@ -1191,6 +1193,7 @@
             );
           }
         }
+
         // Step 3: apply text filters
         skillFiltered = skillFiltered.filter((d) =>
           Object.keys(filters).every((field) =>
@@ -1247,6 +1250,24 @@
         }
 
         renderPhaseTotals(skillFiltered);
+        const clearSeqBtn = document.getElementById("clearSeqBtn");
+        if (seqFilterValues.length > 0 || scannedSeqs.length > 0) {
+          clearSeqBtn.style.display = "inline";
+        } else {
+          clearSeqBtn.style.display = "none";
+        }
+
+        if (clearSeqBtn) {
+          clearSeqBtn.onclick = () => {
+            scannedSeqs = [];
+            seqFilterValues = [];
+            const seqInput = document.querySelector(
+              '.filter[data-field="seq"]'
+            );
+            if (seqInput) seqInput.value = "";
+            applyFilters();
+          };
+        }
       }
 
       const seqInput = document.querySelector('.filter[data-field="seq"]');
