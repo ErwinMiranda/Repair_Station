@@ -550,7 +550,7 @@
                   placeholder="Search Description"
                 />
               </th>
-              </th>
+              
               <th style="position: relative">
                 <input
                   type="text"
@@ -933,16 +933,22 @@
             })
             .join("");
 
-          return `
-    <tr id="row-seq-${seq}">
-      <td style="text-align:center; vertical-align:middle;">${taskCards}</td>
-      <td>${ref}</td>
-      <td>${desc}</td>
-      <td style="text-align:center; vertical-align:middle;">${seq}</td>
-      <td style="text-align:center; vertical-align:middle;">${finalStatus}</td>
-      ${phaseCells}
-    </tr>
-  `;
+           return `
+<tr id="row-seq-${seq}">
+  <td style="text-align:center; vertical-align:middle;">${taskCards}</td>
+  <td>${ref}</td>
+  <td>${desc}</td>
+  <td style="text-align:center; vertical-align:middle;">
+    <a href="https://ltpsystems.sharepoint.com/sites/BaseMaintenance/Shared Documents/SECRETFILE/${currentWO}/${seq}.pdf" 
+       target="_blank" 
+       style="color:blue; text-decoration:underline; cursor:pointer;">
+      ${seq}
+    </a>
+  </td>
+  <td style="text-align:center; vertical-align:middle;">${finalStatus}</td>
+  ${phaseCells}
+</tr>
+`;
         });
 
         // Update table
