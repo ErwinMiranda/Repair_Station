@@ -1081,14 +1081,20 @@ index === 0
                 `<tr class="clusterize-no-data"><td colspan="12">No data</td></tr>`,
               ]
         );
-
-        // Attach PDF open events
+     // Attach PDF open events
+        document.querySelectorAll(".pdf-link").forEach((link) => {
+          link.addEventListener("click", (e) => {
+            e.preventDefault();
+            const wo = link.getAttribute("data-wo");
+            const seq = link.getAttribute("data-seq");
+            openPdf(wo, seq);
+          });
+        });
+      }
 function openPdf(wo, seq) {
   const url = `https://ltpsystems.sharepoint.com/sites/BaseMaintenance/Shared Documents/SECRETFILE/${wo}/${seq}.pdf`; // build static path
   window.open(url, "_blank");      // open in new tab
 }
-
-
 
       function renderPhaseTotals(docs) {
         // Counters
