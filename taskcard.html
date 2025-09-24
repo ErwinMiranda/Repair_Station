@@ -1055,13 +1055,11 @@ window.printFullTable = printFullTable;
   ${
     index === 0
       ? `<td rowspan="${tasks.length}" style="text-align:center; vertical-align:middle;">
-           <a href="#"
-              class="pdf-link"
-              data-wo="${currentWO}"
-              data-seq="${seq}"
-              style="color:blue; text-decoration:underline; cursor:pointer;">
-             ${seq}
-           </a>
+  <a href="#" 
+     onclick="handleSeqClick('${currentWO}', '${seq}'); return false;" 
+     style="color:blue; text-decoration:underline; cursor:pointer;">
+    ${seq}
+  </a>
          </td>
          <td rowspan="${tasks.length}" style="text-align:center; vertical-align:middle; font-weight:bold; color:${statusColor};">
            ${finalStatus}
@@ -1084,16 +1082,17 @@ window.printFullTable = printFullTable;
               ]
         );
 
-        // Attach PDF open events
-        document.querySelectorAll(".pdf-link").forEach((link) => {
-          link.addEventListener("click", (e) => {
-            e.preventDefault();
-            const wo = link.getAttribute("data-wo");
-            const seq = link.getAttribute("data-seq");
-            openPdf(wo, seq);
-          });
-        });
       }
+async function handleSeqClick(wo, seq) {
+  const url = `https://sharepointsite.site/${wo}/${seq}.pdf`;
+
+  const exists = await checkFileExists(url);
+  if (exists) {
+    window.open(url, "_blank"); // open PDF in new tab
+  } else {
+    alert(`No PDF found for WO ${wo}, Seq ${seq}`);
+  }
+}
 
 
       function renderPhaseTotals(docs) {
