@@ -435,6 +435,9 @@
         color: white;
         border-color: #007bff;
       }
+        .pill-btn:hover {
+        background: #eaeaea;
+      }
     </style>
   </head>
   <body>
@@ -602,7 +605,9 @@
         </table>
       </div>
     </div>
-
+    <button onclick="printFullTable()" class="printable">
+      🖨️ Print This Table
+    </button
     <!-- Scan Modal -->
     <div
       id="scanModal"
@@ -828,7 +833,146 @@
       const hideLoading = () => {
         overlay.style.display = "none";
       };
+function printFullTable() {
+        if (!allDocs || allDocs.length === 0) {
+          alert("No data to print ❗");
+          return;
+        }
 
+        let filteredDocs = [...allDocs];
+
+        // 🔹 Apply filters
+        if (activeSkill !== "CLEAR") {
+          if (skillGroups[activeSkill]) {
+            filteredDocs = filteredDocs.filter((d) =>
+              skillGroups[activeSkill].includes(d.skill)
+            );
+          } else {
+            filteredDocs = filteredDocs.filter((d) => d.skill === activeSkill);
+          }
+        }
+        if (seqFilterValues && seqFilterValues.length > 0) {
+          filteredDocs = filteredDocs.filter((d) =>
+            seqFilterValues.includes(String(d.seq))
+          );
+        }
+        if (activePhase) {
+          filteredDocs = filteredDocs.filter((d) => d.phase === activePhase);
+        }
+        document.querySelectorAll(".filter").forEach((input) => {
+          const field = input.dataset.field;
+          const value = input.value.trim().toLowerCase();
+          if (value) {
+            filteredDocs = filteredDocs.filter((d) =>
+              String(d[field] || "")
+                .toLowerCase()
+                .includes(value)
+            );
+          }
+        });
+
+        if (filteredDocs.length === 0) {
+          alert("No data to print ❗");
+          return;
+        }
+
+        // 🔹 Sort by Seq
+        filteredDocs.sort((a, b) => {
+          const seqA = String(a.seq ?? "");
+          const seqB = String(b.seq ?? "");
+          const numA = Number(seqA);
+          const numB = Number(seqB);
+          if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
+          return seqA.localeCompare(seqB);
+        });
+
+        // 🔹 Build rows
+        const rows = filteredDocs
+          .map(
+            (d) => `
+    <tr>
+      <td>${d.task_card ?? ""}</td>
+      <td>${d.reference_task_card ?? ""}</td>
+      <td>${d.task_card_description ?? ""}</td>
+      <td>${d.seq ?? ""}</td>
+      <td>${d.status ?? ""}</td>
+      <td>${d.phase === "PH" ? d.skill : ""}</td>
+      <td>${d.phase === "P0" ? d.skill : ""}</td>
+      <td>${d.phase === "P1" ? d.skill : ""}</td>
+      <td>${d.phase === "P2" ? d.skill : ""}</td>
+      <td>${d.phase === "P3" ? d.skill : ""}</td>
+      <td>${d.phase === "P4" ? d.skill : ""}</td>
+      <td>${d.phase === "P6" ? d.skill : ""}</td>
+    </tr>
+  `
+          )
+          .join("");
+
+        const tableHTML = `
+    <table>
+      <thead>
+        <tr>
+          <th>TaskCard</th>
+          <th>Reference</th>
+          <th>Description</th>
+          <th>Seq.No</th>
+          <th>Status</th>
+          <th>PH</th>
+          <th>P0</th>
+          <th>P1</th>
+          <th>P2</th>
+          <th>P3</th>
+          <th>P4</th>
+          <th>P6</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows}
+      </tbody>
+    </table>
+  `;
+
+        // 🔹 Open print window with landscape + scale + repeating headers
+        const printWindow = window.open("", "_blank");
+        printWindow.document.write(`
+    <html>
+      <head>
+        <title>Print Table</title>
+        <style>
+          @page { size: landscape; margin: 10mm; }
+          body { 
+            font-family: Arial, sans-serif; 
+            padding: 10px; 
+            font-size: 10px; 
+            
+            transform-origin: top left; 
+          }
+          table { 
+            border-collapse: collapse; 
+            font-size: 10px; 
+          } 
+          th, td { 
+            border: 1px solid #000; 
+            padding: 4px; 
+            text-align: center; 
+          }
+          th { 
+            background: #f2f2f2; 
+          }
+          thead { display: table-header-group; } /* ✅ repeat headers */
+          tfoot { display: table-footer-group; }
+        </style>
+      </head>
+      <body>
+        ${tableHTML}
+      </body>
+    </html>
+  `);
+        printWindow.document.close();
+        printWindow.print();
+      }
+
+      window.printFullTable = printFullTable;
       function renderRows(docs) {
         // ✅ Precompute selected skills ONCE
         let selectedSkills = [];
