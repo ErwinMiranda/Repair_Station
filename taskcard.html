@@ -1053,20 +1053,18 @@ window.printFullTable = printFullTable;
   <td>${t.task_card_description ?? ""}</td>
 
   ${
-    index === 0
-      ? `<td rowspan="${tasks.length}" style="text-align:center; vertical-align:middle;">
-           <a href="#"
-              class="pdf-link"
-              data-wo="${currentWO}"
-              data-seq="${seq}"
-              style="color:blue; text-decoration:underline; cursor:pointer;">
-             ${seq}
-           </a>
-         </td>
-         <td rowspan="${tasks.length}" style="text-align:center; vertical-align:middle; font-weight:bold; color:${statusColor};">
-           ${finalStatus}
-         </td>`
-      : ""
+index === 0
+  ? `<td rowspan="${tasks.length}" style="text-align:center; vertical-align:middle;">
+       <a href="#"
+          class="pdf-link"
+          data-wo="${currentWO}"
+          data-seq="${seq}"
+          style="color:blue; text-decoration:underline; cursor:pointer;">
+         ${seq}
+       </a>
+     </td>`
+  : ""
+
   }
 
   ${phaseCells}
@@ -1085,15 +1083,11 @@ window.printFullTable = printFullTable;
         );
 
         // Attach PDF open events
-        document.querySelectorAll(".pdf-link").forEach((link) => {
-          link.addEventListener("click", (e) => {
-            e.preventDefault();
-            const wo = link.getAttribute("data-wo");
-            const seq = link.getAttribute("data-seq");
-            openPdf(wo, seq);
-          });
-        });
-      }
+function openPdf(wo, seq) {
+  const url = `https://ltpsystems.sharepoint.com/sites/BaseMaintenance/Shared Documents/SECRETFILE/${wo}/${seq}.pdf`; // build static path
+  window.open(url, "_blank");      // open in new tab
+}
+
 
 
       function renderPhaseTotals(docs) {
