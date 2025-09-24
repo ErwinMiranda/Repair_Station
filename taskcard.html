@@ -515,11 +515,11 @@
         <table>
           <thead>
             <tr>
-              <th>TaskCard</th>
-              <th>Reference</th>
+              <th style="width: 160px">TaskCard</th>
+              <th style="width: 160px">Reference</th>
               <th>Description</th>
-              <th>Seq.No</th>
-              <th>Status</th>
+              <th style="width: 50px">Seq.No</th>
+              <th style="width: 70px">Status</th>
               <th style="width: 40px"></th>
                <th style="width: 40px"></th>
               <th style="width: 40px"></th>
@@ -996,107 +996,82 @@ window.printFullTable = printFullTable;
           grouped[seq].push(d);
         });
 
-        // 🔹 Sort groups by earliest phase, then by phase count, then seq
-        const sortedGroups = Object.entries(grouped).sort(
-          ([seqA, tasksA], [seqB, tasksB]) => {
-            const uniquePhasesA = [
-              ...new Set(tasksA.map((t) => t.phase).filter(Boolean)),
-            ];
-            const uniquePhasesB = [
-              ...new Set(tasksB.map((t) => t.phase).filter(Boolean)),
-            ];
-
-            const idxA = Math.min(
-              ...uniquePhasesA
-                .map((p) => fixedPhases.indexOf(p))
-                .filter((i) => i >= 0),
-              Infinity
-            );
-            const idxB = Math.min(
-              ...uniquePhasesB
-                .map((p) => fixedPhases.indexOf(p))
-                .filter((i) => i >= 0),
-              Infinity
-            );
-
-            if (idxA !== idxB) return idxA - idxB; // 🔹 Sort by earliest phase
-            if (uniquePhasesA.length !== uniquePhasesB.length) {
-              return uniquePhasesA.length - uniquePhasesB.length; // 🔹 Then by phase count
-            }
-
-            // 🔹 Fallback to seq number or string
-            const numA = Number(seqA);
-            const numB = Number(seqB);
-            if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
-            return String(seqA).localeCompare(String(seqB));
-          }
-        );
+        // 🔹 Sort groups by seq
+        const sortedGroups = Object.entries(grouped).sort(([seqA], [seqB]) => {
+          const numA = Number(seqA);
+          const numB = Number(seqB);
+          if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
+          return String(seqA).localeCompare(String(seqB));
+        });
 
         // Build rows
-        const rows = sortedGroups.map(([seq, tasks]) => {
-          const first = tasks[0]; // use first for Ref & Desc
-
-          // TaskCards stacked
-          const taskCards = tasks.map((t) => t.task_card ?? "").join("<br>");
-
-          // Status rule: all closed → Closed, else → Open
+        const rows = sortedGroups.flatMap(([seq, tasks]) => {
+          // ✅ Final status for the whole sequence
           const allClosed = tasks.every(
             (t) => (t.status ?? "").toLowerCase() === "closed"
           );
           const finalStatus = allClosed ? "Closed" : "Open";
+          const statusColor = allClosed ? "green" : "red";
 
-          // Only first Reference & Description
-          const ref = first.reference_task_card ?? "";
-          const desc = first.task_card_description ?? "";
+          return tasks.map((t, index) => {
+            // Build phase cells per task
+            const phaseCells = fixedPhases
+              .map((phase) => {
+                const skills = tasks
+                  .filter(
+                    (x) => x.phase === phase && x.task_card === t.task_card
+                  )
+                  .map((x) => {
+                    const status = (x.status ?? "").toLowerCase();
+                    const color = status === "closed" ? "green" : "red";
 
-          // Build phase cells
-          const phaseCells = fixedPhases
-            .map((phase) => {
-              const skills = tasks
-                .filter((t) => t.phase === phase)
-                .map((t) => {
-                  const status = (t.status ?? "").toLowerCase();
-                  const color = status === "closed" ? "green" : "red";
+                    let highlightStyle = "";
+                    if (
+                      selectedSkills.length > 0 &&
+                      selectedSkills.includes(x.skill)
+                    ) {
+                      highlightStyle =
+                        "background:yellow; border-radius:3px; padding:1px 3px;";
+                    }
 
-                  // ✅ Fast highlight check
-                  let highlightStyle = "";
-                  if (
-                    selectedSkills.length > 0 &&
-                    selectedSkills.includes(t.skill)
-                  ) {
-                    highlightStyle =
-                      "background:yellow; border-radius:3px; padding:1px 3px;";
-                  }
+                    return `<div style="color:${color}; font-weight:bold; ${highlightStyle}">
+                ${x.skill ?? ""}
+              </div>`;
+                  })
+                  .join("<br>");
 
-                  return `<div style="color:${color}; font-weight:bold; ${highlightStyle}">
-              ${t.skill ?? ""}
-            </div>`;
-                })
-                .join("<br>");
+                return `<td class="phase-cell">${skills || ""}</td>`;
+              })
+              .join("");
 
-              return `
-      <td style="text-align:center; vertical-align:middle;">
-        ${skills || ""}
-      </td>`;
-            })
-            .join("");
-
-           return `
+            return `
 <tr id="row-seq-${seq}">
-  <td style="text-align:center; vertical-align:middle;">${taskCards}</td>
-  <td>${ref}</td>
-  <td>${desc}</td>
-  <td style="text-align:center; vertical-align:middle;">
-    <a href="https://ltpsystems.sharepoint.com/sites/BaseMaintenance/Shared Documents/SECRETFILE/${currentWO}/${seq}.pdf" 
-       target="_blank" 
-       style="color:blue; text-decoration:underline; cursor:pointer;">
-      ${seq}
-    </a>
-  </td>
-  <td style="text-align:center; vertical-align:middle;">${finalStatus}</td>
+  <td style="text-align:center; vertical-align:middle;">${
+    t.task_card ?? ""
+  }</td>
+  <td>${t.reference_task_card ?? ""}</td>
+  <td>${t.task_card_description ?? ""}</td>
+
+  ${
+    index === 0
+      ? `<td rowspan="${tasks.length}" style="text-align:center; vertical-align:middle;">
+           <a href="#"
+              class="pdf-link"
+              data-wo="${currentWO}"
+              data-seq="${seq}"
+              style="color:blue; text-decoration:underline; cursor:pointer;">
+             ${seq}
+           </a>
+         </td>
+         <td rowspan="${tasks.length}" style="text-align:center; vertical-align:middle; font-weight:bold; color:${statusColor};">
+           ${finalStatus}
+         </td>`
+      : ""
+  }
+
   ${phaseCells}
-</tr>
-`;
+</tr>`;
+          });
         });
 
         // Update table
@@ -1108,7 +1083,18 @@ window.printFullTable = printFullTable;
                 `<tr class="clusterize-no-data"><td colspan="12">No data</td></tr>`,
               ]
         );
+
+        // Attach PDF open events
+        document.querySelectorAll(".pdf-link").forEach((link) => {
+          link.addEventListener("click", (e) => {
+            e.preventDefault();
+            const wo = link.getAttribute("data-wo");
+            const seq = link.getAttribute("data-seq");
+            openPdf(wo, seq);
+          });
+        });
       }
+
 
       function renderPhaseTotals(docs) {
         // Counters
