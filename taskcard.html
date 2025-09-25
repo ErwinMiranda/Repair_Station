@@ -1017,101 +1017,110 @@ function printFullTable() {
 
 window.printFullTable = printFullTable;
 
+function renderRows(docs) {
+        // ✅ Precompute selected skills ONCE
+        let selectedSkills = [];
+        if (activeSkill !== "CLEAR") {
+          if (skillGroups[activeSkill]) {
+            selectedSkills = skillGroups[activeSkill]; // predefined group
+          } else {
+            selectedSkills = [activeSkill]; // dynamic skill
+          }
+        }
 
-     function renderRows(docs) {
-  // ✅ Precompute selected skills ONCE
-  let selectedSkills = [];
-  if (activeSkill !== "CLEAR") {
-    if (skillGroups[activeSkill]) {
-      selectedSkills = skillGroups[activeSkill]; // predefined group
-    } else {
-      selectedSkills = [activeSkill]; // dynamic skill
-    }
-  }
+        // Group by seq
+        const grouped = {};
+        docs.forEach((d) => {
+          const seq = d.seq ?? "Unknown";
+          if (!grouped[seq]) grouped[seq] = [];
+          grouped[seq].push(d);
+        });
 
-  // Group by seq
-  const grouped = {};
-  docs.forEach((d) => {
-    const seq = d.seq ?? "Unknown";
-    if (!grouped[seq]) grouped[seq] = [];
-    grouped[seq].push(d);
-  });
+        // 🔹 Sort groups by seq
+        const sortedGroups = Object.entries(grouped).sort(([seqA], [seqB]) => {
+          const numA = Number(seqA);
+          const numB = Number(seqB);
+          if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
+          return String(seqA).localeCompare(String(seqB));
+        });
 
-  // 🔹 Sort groups by seq
-  const sortedGroups = Object.entries(grouped).sort(([seqA], [seqB]) => {
-    const numA = Number(seqA);
-    const numB = Number(seqB);
-    if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
-    return String(seqA).localeCompare(String(seqB));
-  });
+        // Build rows
+        const rows = sortedGroups.flatMap(([seq, tasks]) => {
+          // 🔹 Sort tasks inside each seq by task_card
+          tasks.sort((a, b) => {
+            const cardA = a.task_card ?? "";
+            const cardB = b.task_card ?? "";
+            return String(cardA).localeCompare(String(cardB), undefined, {
+              numeric: true,
+            });
+          });
 
-  // Build rows
-  const rows = sortedGroups.flatMap(([seq, tasks]) => {
-    // 🔹 Sort tasks inside each seq by task_card
-    tasks.sort((a, b) => {
-      const cardA = a.task_card ?? "";
-      const cardB = b.task_card ?? "";
-      return String(cardA).localeCompare(String(cardB), undefined, { numeric: true });
-    });
+          // ✅ Final status for the whole sequence
+          const allClosed = tasks.every(
+            (t) => (t.status ?? "").toLowerCase() === "closed"
+          );
+          const finalStatus = allClosed ? "Closed" : "Open";
+          const statusColor = allClosed ? "green" : "red";
 
-    // ✅ Final status for the whole sequence
-    const allClosed = tasks.every(
-      (t) => (t.status ?? "").toLowerCase() === "closed"
-    );
-    const finalStatus = allClosed ? "Closed" : "Open";
-    const statusColor = allClosed ? "green" : "red";
+          return tasks.map((t, index) => {
+            // 👉 Check if this task row contains any selected skill
+            const hasSelectedSkill = tasks.some(
+              (x) =>
+                selectedSkills.length > 0 && selectedSkills.includes(x.skill)
+            );
 
-    return tasks.map((t, index) => {
-      // 👉 Check if this task row contains any selected skill
-      const hasSelectedSkill = tasks.some(
-        (x) => selectedSkills.length > 0 && selectedSkills.includes(x.skill)
-      );
+            // 👉 Check if THIS task row has any of the selected skills
+            const rowHasSelectedSkill = tasks.some(
+              (x) =>
+                x.task_card === t.task_card && selectedSkills.includes(x.skill)
+            );
 
-      // 👉 Check if THIS task row has any of the selected skills
-      const rowHasSelectedSkill = tasks.some(
-        (x) => x.task_card === t.task_card && selectedSkills.includes(x.skill)
-      );
+            // 🔹 Gray base style ONLY if the row belongs to a group with selected skills
+            //     but THIS task row does not contain the selected skill
+            let baseCellStyle = "";
+            if (
+              selectedSkills.length > 0 &&
+              hasSelectedSkill &&
+              !rowHasSelectedSkill
+            ) {
+              baseCellStyle =
+                " color:#cfcfcf; border-radius:3px; padding:2px 4px;";
+            }
 
-      // 🔹 Gray base style ONLY if the row belongs to a group with selected skills
-      //     but THIS task row does not contain the selected skill
-      let baseCellStyle = "";
-      if (selectedSkills.length > 0 && hasSelectedSkill && !rowHasSelectedSkill) {
-        baseCellStyle =
-          " color:#cfcfcf; border-radius:3px; padding:2px 4px;";
-      }
+            // Build phase cells per task
+            const phaseCells = fixedPhases
+              .map((phase) => {
+                const skills = tasks
+                  .filter(
+                    (x) => x.phase === phase && x.task_card === t.task_card
+                  )
+                  .map((x) => {
+                    const status = (x.status ?? "").toLowerCase();
+                    const color = status === "closed" ? "green" : "red";
 
-      // Build phase cells per task
-      const phaseCells = fixedPhases
-        .map((phase) => {
-          const skills = tasks
-            .filter((x) => x.phase === phase && x.task_card === t.task_card)
-            .map((x) => {
-              const status = (x.status ?? "").toLowerCase();
-              const color = status === "closed" ? "green" : "red";
+                    let highlightStyle = "";
+                    if (
+                      selectedSkills.length > 0 &&
+                      selectedSkills.includes(x.skill)
+                    ) {
+                      highlightStyle =
+                        "background:yellow; border-radius:3px; padding:1px 3px;";
+                    } else if (hasSelectedSkill && !rowHasSelectedSkill) {
+                      highlightStyle =
+                        "opacity: 0.5; border-radius:3px; padding:1px 3px;";
+                    }
 
-              let highlightStyle = "";
-              if (
-                selectedSkills.length > 0 &&
-                selectedSkills.includes(x.skill)
-              ) {
-                highlightStyle =
-                  "background:yellow; border-radius:3px; padding:1px 3px;";
-              } else if (hasSelectedSkill && !rowHasSelectedSkill) {
-                highlightStyle =
-                  "opacity: 0.5; border-radius:3px; padding:1px 3px;";
-              }
-
-              return `<div style="color:${color}; font-weight:bold; ${highlightStyle}">
+                    return `<div style="color:${color}; font-weight:bold; ${highlightStyle}">
                 ${x.skill ?? ""}
               </div>`;
-            })
-            .join("<br>");
+                  })
+                  .join("<br>");
 
-          return `<td class="phase-cell">${skills || ""}</td>`;
-        })
-        .join("");
+                return `<td class="phase-cell">${skills || ""}</td>`;
+              })
+              .join("");
 
-      return `
+            return `
 <tr id="row-seq-${seq}">
   <td style="text-align:center; vertical-align:middle; ${baseCellStyle}">
     ${t.task_card ?? ""}
@@ -1136,19 +1145,28 @@ window.printFullTable = printFullTable;
 
   ${phaseCells}
 </tr>`;
-    });
-  });
+          });
+        });
 
-  // Update table
-  clusterize.clear();
-  clusterize.update(
-    rows.length
-      ? rows
-      : [`<tr class="clusterize-no-data"><td colspan="12">No data</td></tr>`]
-  );
-}
+        // Save scroll position
+        const scrollContainer = document.querySelector(".clusterize-scroll");
+        const prevScrollTop = scrollContainer ? scrollContainer.scrollTop : 0;
 
+        // Update table
+        clusterize.clear();
+        clusterize.update(
+          rows.length
+            ? rows
+            : [
+                `<tr class="clusterize-no-data"><td colspan="12">No data</td></tr>`,
+              ]
+        );
 
+        // Restore scroll position
+        if (scrollContainer) {
+          scrollContainer.scrollTop = prevScrollTop;
+        }
+      }
 
       function renderPhaseTotals(docs) {
         // Counters
@@ -1303,7 +1321,7 @@ window.printFullTable = printFullTable;
 
         applyFilters();
       });
-            document
+      document
         .getElementById("singleSkillBtn")
         .addEventListener("click", () => {
           singleSkillActive = !singleSkillActive;
@@ -1330,7 +1348,7 @@ window.printFullTable = printFullTable;
         return allDocs.filter((d) => d.skill === activeSkill);
       }
 
-         function applyFilters() {
+      function applyFilters() {
         const filters = {};
         document.querySelectorAll(".filter").forEach((input) => {
           const v = input.value.trim();
@@ -1513,7 +1531,8 @@ window.printFullTable = printFullTable;
 
             const pctClosed = getClosedPercentage(allDocs);
             counterEl.innerHTML = `Total Tasks: ${snapshot.size} • <span class="highlight">${pctClosed}% Closed</span>`;
-            //##################dynamic header
+
+            //################## Dynamic header
             if (allDocs.length > 0) {
               const ac = allDocs[0].ac || "Unknown AC";
               const schedStart = allDocs[0].sched_start_date;
@@ -1521,24 +1540,38 @@ window.printFullTable = printFullTable;
 
               const dayProgress = calculateDayProgress(schedStart, schedEnd);
 
-              // 👉 Update header
               document.getElementById(
                 "dynamicHeader"
               ).textContent = `MTC Status for ${ac}    ${dayProgress}`;
             }
             lastUpdateEl.textContent = "Live • " + new Date().toLocaleString();
-            //################dynamic header
+            //################## Dynamic header
+
+            // 🔹 Preserve filters if active
+            if (
+              activeSkill !== "CLEAR" ||
+              activePhase ||
+              scannedSeqs.length > 0 ||
+              seqFilterValues.length > 0 ||
+              multiSkillActive ||
+              singleSkillActive
+            ) {
+              applyFilters();
+            } else {
+              renderRows(allDocs);
+              renderPhaseTotals(allDocs);
+            }
+
+            // 🔹 Preserve skill button highlight
             document
               .querySelectorAll(".skill-filters button")
               .forEach((b) => b.classList.remove("active"));
-            document.querySelector('.skill-filters button[data-skill="CLEAR"]');
-            //.classList.add("active");
-            // activeSkill = "CLEAR";
+            const activeBtn = document.querySelector(
+              `.skill-filters button[data-skill="${activeSkill}"]`
+            );
+            if (activeBtn) activeBtn.classList.add("active");
 
-            renderRows(allDocs);
-            renderPhaseTotals(allDocs);
-
-            // 🔹 Generate dynamic skill buttons
+            // 🔹 Regenerate dynamic skill buttons
             populateDynamicSkillButtons();
 
             hideLoading();
