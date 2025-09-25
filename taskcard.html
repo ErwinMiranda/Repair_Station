@@ -864,9 +864,7 @@ function printFullTable() {
     const value = input.value.trim().toLowerCase();
     if (value) {
       filteredDocs = filteredDocs.filter((d) =>
-        String(d[field] || "")
-          .toLowerCase()
-          .includes(value)
+        String(d[field] || "").toLowerCase().includes(value)
       );
     }
   });
@@ -886,29 +884,71 @@ function printFullTable() {
     return seqA.localeCompare(seqB);
   });
 
-  // 🔹 Build rows with BG color for phase cells
-  const rows = filteredDocs
-    .map((d) => {
-      const status = (d.status ?? "").toLowerCase();
-      const bgColor =
-        status === "closed" ? "background-color: lightgreen;" : "background-color: salmon;";
+  // 🔹 Group by Seq
+  const grouped = {};
+  filteredDocs.forEach((d) => {
+    const seq = d.seq ?? "Unknown";
+    if (!grouped[seq]) grouped[seq] = [];
+    grouped[seq].push(d);
+  });
 
-      return `
-    <tr>
-      <td>${d.task_card ?? ""}</td>
-      <td>${d.reference_task_card ?? ""}</td>
-      <td>${d.task_card_description ?? ""}</td>
-      <td>${d.seq ?? ""}</td>
-      <td>${d.status ?? ""}</td>
-      <td style="${d.phase === "PH" ? bgColor : ""}">${d.phase === "PH" ? d.skill : ""}</td>
-      <td style="${d.phase === "P0" ? bgColor : ""}">${d.phase === "P0" ? d.skill : ""}</td>
-      <td style="${d.phase === "P1" ? bgColor : ""}">${d.phase === "P1" ? d.skill : ""}</td>
-      <td style="${d.phase === "P2" ? bgColor : ""}">${d.phase === "P2" ? d.skill : ""}</td>
-      <td style="${d.phase === "P3" ? bgColor : ""}">${d.phase === "P3" ? d.skill : ""}</td>
-      <td style="${d.phase === "P4" ? bgColor : ""}">${d.phase === "P4" ? d.skill : ""}</td>
-      <td style="${d.phase === "P6" ? bgColor : ""}">${d.phase === "P6" ? d.skill : ""}</td>
-    </tr>
-  `;
+  // 🔹 Build rows with merged seq and sorted task_card
+  const rows = Object.entries(grouped)
+    .map(([seq, tasks]) => {
+      // Sort tasks inside each seq by task_card
+      tasks.sort((a, b) => {
+        const cardA = a.task_card ?? "";
+        const cardB = b.task_card ?? "";
+        return String(cardA).localeCompare(String(cardB), undefined, {
+          numeric: true,
+          sensitivity: "base",
+        });
+      });
+
+      return tasks
+        .map((d, index) => {
+          const status = (d.status ?? "").toLowerCase();
+          const bgColor =
+            status === "closed"
+              ? "background-color: lightgreen;"
+              : "background-color: salmon;";
+
+          return `
+        <tr>
+          <td>${d.task_card ?? ""}</td>
+          <td>${d.reference_task_card ?? ""}</td>
+          <td>${d.task_card_description ?? ""}</td>
+          ${
+            index === 0
+              ? `<td rowspan="${tasks.length}">${seq}</td>`
+              : ""
+          }
+          <td>${d.status ?? ""}</td>
+          <td style="${d.phase === "PH" ? bgColor : ""}">${
+            d.phase === "PH" ? d.skill : ""
+          }</td>
+          <td style="${d.phase === "P0" ? bgColor : ""}">${
+            d.phase === "P0" ? d.skill : ""
+          }</td>
+          <td style="${d.phase === "P1" ? bgColor : ""}">${
+            d.phase === "P1" ? d.skill : ""
+          }</td>
+          <td style="${d.phase === "P2" ? bgColor : ""}">${
+            d.phase === "P2" ? d.skill : ""
+          }</td>
+          <td style="${d.phase === "P3" ? bgColor : ""}">${
+            d.phase === "P3" ? d.skill : ""
+          }</td>
+          <td style="${d.phase === "P4" ? bgColor : ""}">${
+            d.phase === "P4" ? d.skill : ""
+          }</td>
+          <td style="${d.phase === "P6" ? bgColor : ""}">${
+            d.phase === "P6" ? d.skill : ""
+          }</td>
+        </tr>
+      `;
+        })
+        .join("");
     })
     .join("");
 
@@ -976,6 +1016,7 @@ function printFullTable() {
 }
 
 window.printFullTable = printFullTable;
+
 
      function renderRows(docs) {
   // ✅ Precompute selected skills ONCE
