@@ -977,7 +977,7 @@ function printFullTable() {
 
 window.printFullTable = printFullTable;
 
-      function renderRows(docs) {
+     function renderRows(docs) {
   // ✅ Precompute selected skills ONCE
   let selectedSkills = [];
   if (activeSkill !== "CLEAR") {
@@ -1006,6 +1006,13 @@ window.printFullTable = printFullTable;
 
   // Build rows
   const rows = sortedGroups.flatMap(([seq, tasks]) => {
+    // 🔹 Sort tasks inside each seq by task_card
+    tasks.sort((a, b) => {
+      const cardA = a.task_card ?? "";
+      const cardB = b.task_card ?? "";
+      return String(cardA).localeCompare(String(cardB), undefined, { numeric: true });
+    });
+
     // ✅ Final status for the whole sequence
     const allClosed = tasks.every(
       (t) => (t.status ?? "").toLowerCase() === "closed"
@@ -1029,7 +1036,7 @@ window.printFullTable = printFullTable;
       let baseCellStyle = "";
       if (selectedSkills.length > 0 && hasSelectedSkill && !rowHasSelectedSkill) {
         baseCellStyle =
-          "color:#cfcfcf; border-radius:3px; padding:2px 4px;";
+          " color:#cfcfcf; border-radius:3px; padding:2px 4px;";
       }
 
       // Build phase cells per task
@@ -1050,7 +1057,7 @@ window.printFullTable = printFullTable;
                   "background:yellow; border-radius:3px; padding:1px 3px;";
               } else if (hasSelectedSkill && !rowHasSelectedSkill) {
                 highlightStyle =
-                  "opacity: 0.5;";
+                  "opacity: 0.5; border-radius:3px; padding:1px 3px;";
               }
 
               return `<div style="color:${color}; font-weight:bold; ${highlightStyle}">
