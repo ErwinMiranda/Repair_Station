@@ -620,6 +620,12 @@
         <div style="font-size: 12px; color: #555">
           WO: <span id="activeWO" class="pill">—</span> • Count:
           <span id="scanCount" class="pill">0</span>
+          <span style="padding-left: 130px">
+            <label style="font-size: 0.9em; color: #444; cursor: pointer">
+              <input type="checkbox" id="showClosedChk" />
+              Reopen Task Item(s)
+            </label>
+          </span>
         </div>
 
         <!-- Search results for scanned/typed seq -->
@@ -780,6 +786,7 @@
       const scanCountEl = document.getElementById("scanCount");
       const fixedPhases = ["PH", "P0", "P1", "P2", "P3", "P4", "P6"];
       const lastUpdateEl = document.getElementById("lastUpdate");
+      const showClosedChk = document.getElementById("showClosedChk");
       /* =======================
    Clusterize Table
   ======================== */
@@ -1598,6 +1605,23 @@ function renderRows(docs) {
       /* =======================
    Scan Modal + Scanner
   ======================== */
+async function updateTaskStatus(taskId, newStatus) {
+        try {
+          await updateDoc(doc(db, "tasks", taskId), { status: newStatus });
+
+          const idx = allDocs.findIndex((d) => d.id === taskId);
+          if (idx !== -1) {
+            allDocs[idx] = { ...allDocs[idx], status: newStatus };
+          }
+
+          applyFilters();
+          return true;
+        } catch (err) {
+          console.error(err);
+          showToast(`Failed to update task ${taskId}`, "error");
+          return false;
+        }
+      }
 
       function showToast(message, type = "info", duration = 4000) {
         const container = document.getElementById("toastContainer");
@@ -1705,6 +1729,7 @@ function renderRows(docs) {
       });
 
       // 🔍 Fetch tasks by sequence and show results
+
       async function handleScannedValue(raw) {
         const num = Number(raw);
         if (Number.isNaN(num)) {
@@ -1733,20 +1758,20 @@ function renderRows(docs) {
           }
 
           let shown = 0;
+          const showClosed = showClosedChk.checked; // ✅ check state
 
           snap.docs.forEach((docSnap) => {
             const task = { id: docSnap.id, ...docSnap.data() };
+            const isClosed = (task.status ?? "").toUpperCase() === "CLOSED";
 
-            // 🚫 skip CLOSED tasks
-            if ((task.status ?? "").toUpperCase() === "CLOSED") return;
+            // ✅ skip CLOSED unless checkbox is ticked
+            if (isClosed && !showClosed) return;
 
             // ✅ filter by selected skill
             if (activeSkill !== "CLEAR") {
               if (skillGroups[activeSkill]) {
-                // predefined group
                 if (!skillGroups[activeSkill].includes(task.skill)) return;
               } else {
-                // dynamic skill
                 if (task.skill !== activeSkill) return;
               }
             }
@@ -1761,7 +1786,11 @@ function renderRows(docs) {
           <td>${task.skill ?? "GEN"}</td>
           <td>${task.status ?? "OPEN"}</td>
           <td>
-            <button type="button" data-add="${task.id}">Add</button>
+            ${
+              isClosed
+                ? `<button type="button" data-reopen="${task.id}">Reopen</button>`
+                : `<button type="button" data-add="${task.id}">Add</button>`
+            }
           </td>
         </tr>
       `
@@ -1772,7 +1801,7 @@ function renderRows(docs) {
             scanResultsList.innerHTML = `
         <tr>
           <td colspan="5" style="text-align:center; color:#777;">
-            No OPEN tasks found for Seq ${num} under skill "${activeSkill}"
+            No OPEN tasks found for Seq ${num}
           </td>
         </tr>`;
           }
@@ -1817,6 +1846,21 @@ function renderRows(docs) {
 
         // remove the row from results once added (optional)
         row.remove();
+      });
+      scanResultsList.addEventListener("click", async (e) => {
+        const reopenBtn = e.target.closest("button[data-reopen]");
+        if (!reopenBtn) return;
+
+        const taskId = reopenBtn.getAttribute("data-reopen");
+
+        const ok = await updateTaskStatus(taskId, "OPEN");
+        if (!ok) return;
+
+        // update row
+        const row = reopenBtn.closest("tr");
+        row.children[3].textContent = "OPEN"; // update status cell
+        reopenBtn.outerHTML = `<button type="button" data-add="${taskId}">Add</button>`;
+        showToast("Task reopened ✅", "success");
       });
 
       // 📋 Render queued list
@@ -1901,13 +1945,8 @@ function renderRows(docs) {
         let updated = 0;
         try {
           for (const task of scannedTasks) {
-            await updateDoc(doc(db, "tasks", task.id), { status: "CLOSED" });
-            updated++;
-
-            const idx = allDocs.findIndex((d) => d.id === task.id);
-            if (idx !== -1) {
-              allDocs[idx] = { ...allDocs[idx], status: "CLOSED" };
-            }
+            const ok = await updateTaskStatus(task.id, "CLOSED");
+            if (ok) updated++;
           }
         } catch (err) {
           console.error(err);
@@ -1939,6 +1978,7 @@ function renderRows(docs) {
       closeScanBtn.addEventListener("click", () => {
         closeModal();
         setScanning(false);
+        showClosedChk.checked = false;
       });
       clearScanBtn.addEventListener("click", () => {
         scannedTasks = []; // queue
@@ -1953,3 +1993,4 @@ function renderRows(docs) {
     </script>
   </body>
 </html>
+      
