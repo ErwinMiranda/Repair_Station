@@ -1445,6 +1445,7 @@ function renderRows(docs) {
 
         // Step 1: start with skill-filtered docs
         let skillFiltered = getSkillFilteredDocs();
+        const skillBaseTotal = skillFiltered.length; // ✅ this is your baseline
 
         // Step 2: apply seq filters
         if (scannedSeqs.length > 0) {
@@ -1512,11 +1513,11 @@ function renderRows(docs) {
         // Render rows with full skill context
         renderRows(rowsToRender);
 
-        // Counter + Phase totals (skill-specific only)
+        // Counter + Phase totals
         const pctClosed = getClosedPercentage(skillFiltered);
 
-        // If phase filter is active → compare against total tasks in that phase
-        let referenceTotal = allDocs.length;
+        // ✅ Fix: baseline total should be after skill filter (not allDocs)
+        let referenceTotal = skillBaseTotal;
         if (activePhase) {
           referenceTotal = allDocs.filter(
             (d) => d.phase === activePhase
@@ -1540,7 +1541,7 @@ function renderRows(docs) {
         Object.keys(seqGroups).forEach((seq) => {
           totalMTC++;
           const statuses = seqGroups[seq];
-          const allClosed = statuses.every((s) => s === "closed"); // ✅ all taskcards closed?
+          const allClosed = statuses.every((s) => s === "closed");
           if (allClosed) {
             closedMTC++;
           } else {
