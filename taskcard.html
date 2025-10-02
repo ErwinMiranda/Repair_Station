@@ -568,30 +568,22 @@
       <!-- Main scrollable table -->
       <div id="scrollArea" class="clusterize-scroll">
         <table>
-          <thead>
+         <thead>
             <tr>
-              <th style="width: 160px">TaskCard</th>
               <th style="width: 160px">Reference</th>
               <th>Description</th>
               <th style="width: 50px">Seq.No</th>
               <th style="width: 70px">Status</th>
+              <th style="width: 160px">TaskCard</th>
               <th style="width: 40px"></th>
-               <th style="width: 40px"></th>
               <th style="width: 40px"></th>
-               <th style="width: 40px"></th>
               <th style="width: 40px"></th>
-             <th style="width: 40px"></th>
+              <th style="width: 40px"></th>
+              <th style="width: 40px"></th>
+              <th style="width: 40px"></th>
               <th style="width: 40px"></th>
             </tr>
             <tr>
-              <th>
-                <input
-                  type="text"
-                  class="filter"
-                  data-field="task_card"
-                  placeholder="Search TaskCard"
-                />
-              </th>
               <th>
                 <input
                   type="text"
@@ -608,7 +600,6 @@
                   placeholder="Search Description"
                 />
               </th>
-              
               <th>
                 <input
                   type="text"
@@ -632,7 +623,7 @@
                     color: #e40a0a;
                   "
                 >
-                   ✖
+                  ✖
                 </button>
               </th>
               <th>
@@ -641,6 +632,14 @@
                   class="filter"
                   data-field="status"
                   placeholder="Search Status"
+                />
+              </th>
+              <th>
+                <input
+                  type="text"
+                  class="filter"
+                  data-field="task_card"
+                  placeholder="Search TaskCard"
                 />
               </th>
               <th>PH</th>
@@ -1183,28 +1182,52 @@ function renderRows(docs) {
               })
               .join("");
 
-            return `
+   return `
 <tr id="row-seq-${seq}">
-  <td style="text-align:center; vertical-align:middle; ${baseCellStyle}">
-    ${t.task_card ?? ""}
-  </td>
-  <td style="${baseCellStyle}">${t.reference_task_card ?? ""}</td>
-  <td style="${baseCellStyle}">${t.task_card_description ?? ""}</td>
+  <!-- Reference (rowspanned, no baseCellStyle) -->
+  ${
+    index === 0
+      ? `<td rowspan="${tasks.length}">
+           ${t.reference_task_card ?? ""}
+         </td>`
+      : ""
+  }
 
+  <!-- Description (rowspanned, no baseCellStyle) -->
+  ${
+    index === 0
+      ? `<td rowspan="${tasks.length}">
+           ${t.task_card_description ?? ""}
+         </td>`
+      : ""
+  }
+
+  <!-- Seq.No (rowspanned) -->
   ${
     index === 0
       ? `<td rowspan="${tasks.length}" style="text-align:center; vertical-align:middle;">
-    <a href="https://ltpsystems.sharepoint.com/sites/BaseMaintenance/Shared Documents/SECRETFILE/${currentWO}/${seq}.pdf" 
-       target="_blank" 
-       style="color:blue; text-decoration:underline; cursor:pointer;">
-      ${seq}
-    </a>
-         </td>
-         <td rowspan="${tasks.length}" style="text-align:center; vertical-align:middle; font-weight:bold; color:${statusColor};">
+           <a href="https://ltpsystems.sharepoint.com/sites/BaseMaintenance/Shared Documents/SECRETFILE/${currentWO}/${seq}.pdf" 
+              target="_blank" 
+              style="color:blue; text-decoration:underline; cursor:pointer;">
+             ${seq}
+           </a>
+         </td>`
+      : ""
+  }
+
+  <!-- Status (rowspanned) -->
+  ${
+    index === 0
+      ? `<td rowspan="${tasks.length}" style="text-align:center; vertical-align:middle; font-weight:bold; color:${statusColor};">
            ${finalStatus}
          </td>`
       : ""
   }
+
+  <!-- TaskCard (per row, still affected by baseCellStyle) -->
+  <td style="text-align:center; vertical-align:middle; ${baseCellStyle}">
+    ${t.task_card ?? ""}
+  </td>
 
   ${phaseCells}
 </tr>`;
