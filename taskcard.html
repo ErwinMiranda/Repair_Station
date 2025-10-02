@@ -1434,7 +1434,7 @@ function renderRows(docs) {
         return allDocs.filter((d) => d.skill === activeSkill);
       }
 
-      function applyFilters() {
+     function applyFilters() {
         const filters = {};
         document.querySelectorAll(".filter").forEach((input) => {
           const v = input.value.trim();
@@ -1456,13 +1456,13 @@ function renderRows(docs) {
             seqFilterValues.includes(String(d.seq))
           );
         }
+
         // Step 2.5: apply phase filter
         if (activePhase) {
           skillFiltered = skillFiltered.filter((d) => d.phase === activePhase);
         }
 
         // Step X: apply multiskill filter if active
-        // ✅ Apply multiskill or single skill filters
         if (multiSkillActive || singleSkillActive) {
           const seqSkillMap = {};
           allDocs.forEach((d) => {
@@ -1523,12 +1523,45 @@ function renderRows(docs) {
           ).length;
         }
 
-        let counterText = `Showing ${skillFiltered.length} of ${referenceTotal} tasks • <span class="highlight">${pctClosed}% Closed</span>`;
+        // ------------------------------
+        // ✅ New MTC Counts
+        // ------------------------------
+        const seqGroups = {};
+        skillFiltered.forEach((d) => {
+          const seq = String(d.seq);
+          if (!seqGroups[seq]) seqGroups[seq] = [];
+          seqGroups[seq].push(d.status?.toLowerCase());
+        });
+
+        let totalMTC = 0;
+        let closedMTC = 0;
+        let openMTC = 0;
+
+        Object.keys(seqGroups).forEach((seq) => {
+          totalMTC++;
+          const statuses = seqGroups[seq];
+          const allClosed = statuses.every((s) => s === "closed"); // ✅ all taskcards closed?
+          if (allClosed) {
+            closedMTC++;
+          } else {
+            openMTC++;
+          }
+        });
+
+        // ------------------------------
+        // Build Counter Text with Colors
+        // ------------------------------
+        let counterText = `Showing ${skillFiltered.length} of ${referenceTotal} tasks • 
+    <span class="highlight">${pctClosed}% Closed</span>
+    &nbsp;&nbsp;&nbsp; 
+    Total MTC ${totalMTC} • 
+    <span style="color:red; font-weight:bold;">Open MTC ${openMTC}</span> • 
+    <span style="color:green; font-weight:bold;">Closed MTC ${closedMTC}</span>`;
 
         // If filtering by phase, add info + reset button
         if (activePhase) {
           counterText += ` • Filter: <span class="highlight">${activePhase}</span> 
-       <button id="clearPhaseBtn" 
+     <button id="clearPhaseBtn" 
       style="margin-left:8px; padding:2px 8px; font-size:11px; 
              background:#eee; border:1px solid #ccc; border-radius:12px; 
              cursor:pointer; color:#333;">
@@ -1548,6 +1581,8 @@ function renderRows(docs) {
         }
 
         renderPhaseTotals(skillFiltered);
+
+        // Seq clear button
         const clearSeqBtn = document.getElementById("clearSeqBtn");
         if (seqFilterValues.length > 0 || scannedSeqs.length > 0) {
           clearSeqBtn.style.display = "inline";
