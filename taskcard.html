@@ -896,151 +896,161 @@
         overlay.style.display = "none";
       };
 function printFullTable() {
-  if (!allDocs || allDocs.length === 0) {
-    alert("No data to print ❗");
-    return;
-  }
+        if (!allDocs || allDocs.length === 0) {
+          alert("No data to print ❗");
+          return;
+        }
 
-  let filteredDocs = [...allDocs];
+        let filteredDocs = [...allDocs];
 
-  // 🔹 Apply filters
-  if (activeSkill !== "CLEAR") {
-    if (skillGroups[activeSkill]) {
-      filteredDocs = filteredDocs.filter((d) =>
-        skillGroups[activeSkill].includes(d.skill)
-      );
-    } else {
-      filteredDocs = filteredDocs.filter((d) => d.skill === activeSkill);
-    }
-  }
-  if (seqFilterValues && seqFilterValues.length > 0) {
-    filteredDocs = filteredDocs.filter((d) =>
-      seqFilterValues.includes(String(d.seq))
-    );
-  }
-  if (activePhase) {
-    filteredDocs = filteredDocs.filter((d) => d.phase === activePhase);
-  }
-  document.querySelectorAll(".filter").forEach((input) => {
-    const field = input.dataset.field;
-    const value = input.value.trim().toLowerCase();
-    if (value) {
-      filteredDocs = filteredDocs.filter((d) =>
-        String(d[field] || "").toLowerCase().includes(value)
-      );
-    }
-  });
-
-  if (filteredDocs.length === 0) {
-    alert("No data to print ❗");
-    return;
-  }
-
-  // 🔹 Sort by Seq
-  filteredDocs.sort((a, b) => {
-    const seqA = String(a.seq ?? "");
-    const seqB = String(b.seq ?? "");
-    const numA = Number(seqA);
-    const numB = Number(seqB);
-    if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
-    return seqA.localeCompare(seqB);
-  });
-
-  // 🔹 Group by Seq
-  const grouped = {};
-  filteredDocs.forEach((d) => {
-    const seq = d.seq ?? "Unknown";
-    if (!grouped[seq]) grouped[seq] = [];
-    grouped[seq].push(d);
-  });
-
-  // 🔹 Build rows with merged seq and sorted task_card
-  const rows = Object.entries(grouped)
-    .map(([seq, tasks]) => {
-      // Sort tasks inside each seq by task_card
-      tasks.sort((a, b) => {
-        const cardA = a.task_card ?? "";
-        const cardB = b.task_card ?? "";
-        return String(cardA).localeCompare(String(cardB), undefined, {
-          numeric: true,
-          sensitivity: "base",
+        // 🔹 Apply filters
+        if (activeSkill !== "CLEAR") {
+          if (skillGroups[activeSkill]) {
+            filteredDocs = filteredDocs.filter((d) =>
+              skillGroups[activeSkill].includes(d.skill)
+            );
+          } else {
+            filteredDocs = filteredDocs.filter((d) => d.skill === activeSkill);
+          }
+        }
+        if (seqFilterValues && seqFilterValues.length > 0) {
+          filteredDocs = filteredDocs.filter((d) =>
+            seqFilterValues.includes(String(d.seq))
+          );
+        }
+        if (activePhase) {
+          filteredDocs = filteredDocs.filter((d) => d.phase === activePhase);
+        }
+        document.querySelectorAll(".filter").forEach((input) => {
+          const field = input.dataset.field;
+          const value = input.value.trim().toLowerCase();
+          if (value) {
+            filteredDocs = filteredDocs.filter((d) =>
+              String(d[field] || "")
+                .toLowerCase()
+                .includes(value)
+            );
+          }
         });
-      });
 
-      return tasks
-        .map((d, index) => {
-          const status = (d.status ?? "").toLowerCase();
-          const bgColor =
-            status === "closed"
-              ? "background-color: lightgreen;"
-              : "background-color: salmon;";
+        if (filteredDocs.length === 0) {
+          alert("No data to print ❗");
+          return;
+        }
 
-          return `
+        // 🔹 Sort by Seq
+        filteredDocs.sort((a, b) => {
+          const seqA = String(a.seq ?? "");
+          const seqB = String(b.seq ?? "");
+          const numA = Number(seqA);
+          const numB = Number(seqB);
+          if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
+          return seqA.localeCompare(seqB);
+        });
+
+        // 🔹 Group by Seq
+        const grouped = {};
+        filteredDocs.forEach((d) => {
+          const seq = d.seq ?? "Unknown";
+          if (!grouped[seq]) grouped[seq] = [];
+          grouped[seq].push(d);
+        });
+
+        // 🔹 Build rows with merged seq, reference, and description
+        const rows = Object.entries(grouped)
+          .map(([seq, tasks]) => {
+            // Sort tasks inside each seq by task_card
+            tasks.sort((a, b) => {
+              const cardA = a.task_card ?? "";
+              const cardB = b.task_card ?? "";
+              return String(cardA).localeCompare(String(cardB), undefined, {
+                numeric: true,
+                sensitivity: "base",
+              });
+            });
+
+            return tasks
+              .map((d, index) => {
+                const status = (d.status ?? "").toLowerCase();
+                const bgColor =
+                  status === "closed"
+                    ? "background-color: lightgreen;"
+                    : "background-color: salmon;";
+
+                return `
         <tr>
-          <td>${d.task_card ?? ""}</td>
-          <td>${d.reference_task_card ?? ""}</td>
-          <td>${d.task_card_description ?? ""}</td>
           ${
             index === 0
-              ? `<td rowspan="${tasks.length}">${seq}</td>`
+              ? `<td rowspan="${tasks.length}">${
+                  d.reference_task_card ?? ""
+                }</td>`
               : ""
           }
+          ${
+            index === 0
+              ? `<td rowspan="${tasks.length}">${
+                  d.task_card_description ?? ""
+                }</td>`
+              : ""
+          }
+          ${index === 0 ? `<td rowspan="${tasks.length}">${seq}</td>` : ""}
+          <td>${d.task_card ?? ""}</td>
           <td>${d.status ?? ""}</td>
           <td style="${d.phase === "PH" ? bgColor : ""}">${
-            d.phase === "PH" ? d.skill : ""
-          }</td>
+                  d.phase === "PH" ? d.skill : ""
+                }</td>
           <td style="${d.phase === "P0" ? bgColor : ""}">${
-            d.phase === "P0" ? d.skill : ""
-          }</td>
+                  d.phase === "P0" ? d.skill : ""
+                }</td>
           <td style="${d.phase === "P1" ? bgColor : ""}">${
-            d.phase === "P1" ? d.skill : ""
-          }</td>
+                  d.phase === "P1" ? d.skill : ""
+                }</td>
           <td style="${d.phase === "P2" ? bgColor : ""}">${
-            d.phase === "P2" ? d.skill : ""
-          }</td>
+                  d.phase === "P2" ? d.skill : ""
+                }</td>
           <td style="${d.phase === "P3" ? bgColor : ""}">${
-            d.phase === "P3" ? d.skill : ""
-          }</td>
+                  d.phase === "P3" ? d.skill : ""
+                }</td>
           <td style="${d.phase === "P4" ? bgColor : ""}">${
-            d.phase === "P4" ? d.skill : ""
-          }</td>
+                  d.phase === "P4" ? d.skill : ""
+                }</td>
           <td style="${d.phase === "P6" ? bgColor : ""}">${
-            d.phase === "P6" ? d.skill : ""
-          }</td>
+                  d.phase === "P6" ? d.skill : ""
+                }</td>
         </tr>
       `;
-        })
-        .join("");
-    })
-    .join("");
+              })
+              .join("");
+          })
+          .join("");
 
-  const tableHTML = `
-    <table>
-      <thead>
-        <tr>
-          <th>TaskCard</th>
-          <th>Reference</th>
-          <th>Description</th>
-          <th>Seq.No</th>
-          <th>Status</th>
-          <th>PH</th>
-          <th>P0</th>
-          <th>P1</th>
-          <th>P2</th>
-          <th>P3</th>
-          <th>P4</th>
-          <th>P6</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${rows}
-      </tbody>
-    </table>
-  `;
+        const tableHTML = `
+  <table>
+    <thead>
+      <tr>
+        <th>Reference</th>
+        <th>Description</th>
+        <th>Seq.No</th>
+        <th>TaskCard</th>
+        <th>Status</th>
+        <th>PH</th>
+        <th>P0</th>
+        <th>P1</th>
+        <th>P2</th>
+        <th>P3</th>
+        <th>P4</th>
+        <th>P6</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${rows}
+    </tbody>
+  </table>
+`;
 
-  // 🔹 Open print window with landscape + scale + repeating headers
-  const printWindow = window.open("", "_blank");
-  printWindow.document.write(`
+        // 🔹 Open print window with landscape + scale + repeating headers
+        const printWindow = window.open("", "_blank");
+        printWindow.document.write(`
     <html>
       <head>
         <title>Print Table</title>
@@ -1073,9 +1083,8 @@ function printFullTable() {
       </body>
     </html>
   `);
-  printWindow.document.close();
-  //printWindow.print();
-}
+        printWindow.document.close();
+      }
 
 window.printFullTable = printFullTable;
 
