@@ -4,12 +4,11 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>One MTC</title>
-    <link rel="icon" type="image/png" href="78.png">
+    <link rel="icon" type="image/png" href="78.png" />
     <script src="auth.js"></script>
     <script>
       requireLogin();
     </script>
-
     <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 
     <style>
@@ -436,7 +435,7 @@
         color: white;
         border-color: #007bff;
       }
-        .printable {
+      .printable {
         margin-top: 10px;
       }
       .switch {
@@ -492,278 +491,367 @@
       .slider.round {
         border-radius: 10px;
       }
-      
+      /* ==== Added for main wrapper + history panel ==== */
+      .main-wrapper {
+        display: flex;
+        gap: 20px;
+        align-items: flex-start;
+      }
+
+      /* Left side: your main content */
+      .main-content {
+        flex: 3; /* 75% width */
+        min-width: 0; /* prevent overflow in flex layout */
+      }
+
+      /* Right side: History panel (25%) */
+      .history {
+        flex: 1; /* 25% width */
+        background: #ffffff;
+        border: 1px solid #ccc;
+        border-radius: 12px;
+        padding: 16px;
+        min-width: 250px;
+        max-width: 350px;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+        overflow-y: auto;
+      }
+      .history-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        max-height: 80vh;
+        overflow-y: auto;
+        font-family: monospace;
+        font-size: 13px;
+      }
+
+      .history-list li {
+        border-bottom: 1px solid #eee;
+        padding: 6px 8px;
+        line-height: 1.4;
+      }
+
+      .history-list li span.time {
+        color: #999;
+        font-size: 12px;
+      }
+
+      .history-list li span.status {
+        font-weight: bold;
+        color: #007bff;
+      }
+
+      .history-list li span.closed {
+        color: green;
+      }
+
+      .history-list li span.open {
+        color: red;
+      }
+
+      .history-list li span.modified {
+        color: #555;
+      }
+
+      /* Responsive: stack vertically on small screens */
+      @media (max-width: 900px) {
+        .main-wrapper {
+          flex-direction: column;
+        }
+        .history {
+          width: 100%;
+          max-width: none;
+          border: 1px solid #ddd;
+        }
+      }
     </style>
   </head>
   <body>
-    <div class="plan-header">
-      <div class="plan-heading" id="dynamicHeader">No Data</div>
-      <span id="lastUpdate" class="liveUpdate"></span>
-      <button onclick="logout()" class="logout-btn">Logout</button>
-    </div>
-
-    <div class="controls">
-      <input type="text" id="woInput" placeholder="Enter Workorder" />
-      <button class="btn" id="woSearchBtn">Search</button>
-
-      <button class="btn" id="startScanBtn" title="Activate barcode scanner">
-        Scan Here!!!
-      </button>
-      <button
-        class="btn"
-        id="stopScanBtn"
-        title="Stop scanner"
-        style="display: none"
-      >
-        Stop Scan
-      </button>
-
-      <!-- Hidden input to capture scanner keystrokes -->
-      <label for="barcodeInput" style="display: none">Barcode Input</label>
-      <input
-        type="text"
-        id="barcodeInput"
-        name="barcodeInput"
-        autocomplete="off"
-        placeholder="Scan or enter barcode"
-        title="Scan or enter barcode here"
-      />
-    </div>
-
-    <div class="skill-filters">
-      <button data-skill="CLEAR" class="active">ALL SKILL</button>
-      <button data-skill="GEN">GEN</button>
-      <button data-skill="AVI">AVI</button>
-      <button data-skill="CRG/ENG">CRG/ENG</button>
-      <button data-skill="CAB">CAB</button>
-      <button data-skill="LDG/FLC">LDG/FLC</button>
-      <button data-skill="STR">STR</button>
-    </div>
-
-    <div id="counter">Waiting for input...</div>
-    <button id="multiSkillBtn" class="pill-btn">Multiskill MTC</button>
-    <button id="singleSkillBtn" class="pill-btn">Single Skill MTC</button>
-    <div class="layout">
-      <!-- Phase totals: now full width above main table -->
-      <div id="phaseTotalsContainer">
-        <table id="phaseTotalsTable">
-          <thead>
-            <tr>
-              <th>Phase</th>
-              <th style="text-align: right">Open Tasks</th>
-              <th style="text-align: right">Closed Tasks</th>
-              <th style="text-align: right">Cancelled Tasks</th>
-              <th style="text-align: right">Hold Tasks</th>
-              <th style="text-align: right">% Closed</th>
-            </tr>
-          </thead>
-          <tbody id="phaseTotalsBody">
-            <tr>
-              <td colspan="6" style="text-align: center">No data</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <!-- Main scrollable table -->
-      <div id="scrollArea" class="clusterize-scroll">
-        <table>
-         <thead>
-            <tr>
-              <th style="width: 160px">Reference</th>
-              <th>Description</th>
-              <th style="width: 50px">Seq.No</th>
-              <th style="width: 70px">Status</th>
-              <th style="width: 160px">TaskCard</th>
-              <th style="width: 40px"></th>
-              <th style="width: 40px"></th>
-              <th style="width: 40px"></th>
-              <th style="width: 40px"></th>
-              <th style="width: 40px"></th>
-              <th style="width: 40px"></th>
-              <th style="width: 40px"></th>
-            </tr>
-            <tr>
-              <th>
-                <input
-                  type="text"
-                  class="filter"
-                  data-field="reference_task_card"
-                  placeholder="Search Reference"
-                />
-              </th>
-              <th>
-                <input
-                  type="text"
-                  class="filter"
-                  data-field="task_card_description"
-                  placeholder="Search Description"
-                />
-              </th>
-              <th>
-                <input
-                  type="text"
-                  class="filter"
-                  data-field="seq"
-                  placeholder="Search Seq"
-                  style="padding-right: 10px"
-                />
-                <button
-                  id="clearSeqBtn"
-                  style="
-                    display: none;
-                    position: absolute;
-                    right: 10px;
-                    top: 50%;
-                    transform: translateY(-50%);
-                    border: none;
-                    background: transparent;
-                    cursor: pointer;
-                    font-size: 14px;
-                    color: #e40a0a;
-                  "
-                >
-                  ✖
-                </button>
-              </th>
-              <th>
-                <input
-                  type="text"
-                  class="filter"
-                  data-field="status"
-                  placeholder="Search Status"
-                />
-              </th>
-              <th>
-                <input
-                  type="text"
-                  class="filter"
-                  data-field="task_card"
-                  placeholder="Search TaskCard"
-                />
-              </th>
-              <th>PH</th>
-              <th>P0</th>
-              <th>P1</th>
-              <th>P2</th>
-              <th>P3</th>
-              <th>P4</th>
-              <th>P6</th>
-            </tr>
-          </thead>
-          <tbody id="contentArea" class="clusterize-content">
-            <tr class="clusterize-no-data">
-              <td colspan="12">No data yet</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-    <button onclick="printFullTable()" class="printable">
-      🖨️ Print This Table
-    </button>
-    <!-- Scan Modal -->
-    <div
-      id="scanModal"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="scanModalTitle"
-    >
-      <div class="modal-content">
-        <h3 id="scanModalTitle">Scanned Sequences</h3>
-        <div style="font-size: 12px; color: #555">
-          WO: <span id="activeWO" class="pill">—</span> • Count:
-          <span id="scanCount" class="pill">0</span>
-          <span style="padding-left: 90px">
-            <label class="switch">
-              <input type="checkbox" id="showClosedChk" />
-              <span class="slider round"></span>
-            </label>
-            <span style="margin-left: 8px"> Re-open Task Item(s)</span>
-          </span>
+    <div class="main-wrapper">
+      <!-- Left side main content -->
+      <div class="main-content">
+        <div class="plan-header">
+          <div class="plan-heading" id="dynamicHeader">No Data</div>
+          <span id="lastUpdate" class="liveUpdate"></span>
+          <button onclick="logout()" class="logout-btn">Logout</button>
         </div>
 
-        <!-- Search results for scanned/typed seq -->
-        <div style="margin-top: 10px">
-          <h4 style="font-size: 13px; margin-bottom: 5px; color: #444">
-            Matching Tasks
-          </h4>
-          <table class="scan-table">
-            <thead>
-              <tr>
-                <th>Seq</th>
-                <th>Phase</th>
-                <th>Skill</th>
-                <th>Status</th>
-                <th>Action</th>
-              </tr>
-            </thead>
-            <tbody id="scanResultsList"></tbody>
-          </table>
-        </div>
+        <div class="controls">
+          <input type="text" id="woInput" placeholder="Enter Workorder" />
+          <button class="btn" id="woSearchBtn">Search</button>
 
-        <!-- Queue of tasks to close -->
-        <div style="margin-top: 15px">
-          <h4 style="font-size: 13px; margin-bottom: 5px; color: #444">
-            Queued Tasks
-          </h4>
-          <table class="scan-table">
-            <thead>
-              <tr>
-                <th>Seq</th>
-                <th>Phase</th>
-                <th>Skill</th>
-                <th>Status</th>
-                <th>Action</th>
-              </tr>
-            </thead>
-            <tbody id="scannedList"></tbody>
-          </table>
-        </div>
-
-        <!-- Manual input for seq number -->
-        <div id="manualInputContainer" style="margin-top: 10px">
-          <label
-            for="manualSeqInput"
-            style="
-              display: block;
-              font-size: 12px;
-              color: #444;
-              margin-bottom: 4px;
-            "
-          >
-            Manual Seq Number
-          </label>
-          <input
-            type="number"
-            id="manualSeqInput"
-            name="manualSeqInput"
-            placeholder="Enter Seq Number"
-            title="Enter sequence number manually"
-          />
-          <button id="manualAddBtn" title="Add entered sequence number">
-            Add
-          </button>
-        </div>
-
-        <div class="modal-actions">
           <button
             class="btn"
-            id="submitScanBtn"
-            title="Update queued tasks to CLOSED"
+            id="startScanBtn"
+            title="Activate barcode scanner"
           >
-            Submit
+            Scan Here!!!
           </button>
-          <button class="btn" id="clearScanBtn" title="Clear list">
-            Clear
+          <button
+            class="btn"
+            id="stopScanBtn"
+            title="Stop scanner"
+            style="display: none"
+          >
+            Stop Scan
           </button>
-          <button class="btn" id="closeScanBtn" title="Close modal">
-            Close
-          </button>
+
+          <!-- Hidden input to capture scanner keystrokes -->
+          <label for="barcodeInput" style="display: none">Barcode Input</label>
+          <input
+            type="text"
+            id="barcodeInput"
+            name="barcodeInput"
+            autocomplete="off"
+            placeholder="Scan or enter barcode"
+            title="Scan or enter barcode here"
+          />
+        </div>
+
+        <div class="skill-filters">
+          <button data-skill="CLEAR" class="active">ALL SKILL</button>
+          <button data-skill="GEN">GEN</button>
+          <button data-skill="AVI">AVI</button>
+          <button data-skill="CRG/ENG">CRG/ENG</button>
+          <button data-skill="CAB">CAB</button>
+          <button data-skill="LDG/FLC">LDG/FLC</button>
+          <button data-skill="STR">STR</button>
+        </div>
+
+        <div id="counter">Waiting for input...</div>
+        <button id="multiSkillBtn" class="pill-btn">Multiskill MTC</button>
+        <button id="singleSkillBtn" class="pill-btn">Single Skill MTC</button>
+        <div class="layout">
+          <!-- Phase totals: now full width above main table -->
+          <div id="phaseTotalsContainer">
+            <table id="phaseTotalsTable">
+              <thead>
+                <tr>
+                  <th>Phase</th>
+                  <th style="text-align: right">Open Tasks</th>
+                  <th style="text-align: right">Closed Tasks</th>
+                  <th style="text-align: right">Cancelled Tasks</th>
+                  <th style="text-align: right">Hold Tasks</th>
+                  <th style="text-align: right">% Closed</th>
+                </tr>
+              </thead>
+              <tbody id="phaseTotalsBody">
+                <tr>
+                  <td colspan="6" style="text-align: center">No data</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Main scrollable table -->
+          <div id="scrollArea" class="clusterize-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th style="width: 160px">Reference</th>
+                  <th>Description</th>
+                  <th style="width: 50px">Seq.No</th>
+                  <th style="width: 70px">Status</th>
+                  <th style="width: 160px">TaskCard</th>
+                  <th style="width: 40px"></th>
+                  <th style="width: 40px"></th>
+                  <th style="width: 40px"></th>
+                  <th style="width: 40px"></th>
+                  <th style="width: 40px"></th>
+                  <th style="width: 40px"></th>
+                  <th style="width: 40px"></th>
+                </tr>
+                <tr>
+                  <th>
+                    <input
+                      type="text"
+                      class="filter"
+                      data-field="reference_task_card"
+                      placeholder="Search Reference"
+                    />
+                  </th>
+                  <th>
+                    <input
+                      type="text"
+                      class="filter"
+                      data-field="task_card_description"
+                      placeholder="Search Description"
+                    />
+                  </th>
+                  <th>
+                    <input
+                      type="text"
+                      class="filter"
+                      data-field="seq"
+                      placeholder="Search Seq"
+                      style="padding-right: 10px"
+                    />
+                    <button
+                      id="clearSeqBtn"
+                      style="
+                        display: none;
+                        position: absolute;
+                        right: 10px;
+                        top: 50%;
+                        transform: translateY(-50%);
+                        border: none;
+                        background: transparent;
+                        cursor: pointer;
+                        font-size: 14px;
+                        color: #e40a0a;
+                      "
+                    >
+                      ✖
+                    </button>
+                  </th>
+                  <th>
+                    <input
+                      type="text"
+                      class="filter"
+                      data-field="status"
+                      placeholder="Search Status"
+                    />
+                  </th>
+                  <th>
+                    <input
+                      type="text"
+                      class="filter"
+                      data-field="task_card"
+                      placeholder="Search TaskCard"
+                    />
+                  </th>
+                  <th>PH</th>
+                  <th>P0</th>
+                  <th>P1</th>
+                  <th>P2</th>
+                  <th>P3</th>
+                  <th>P4</th>
+                  <th>P6</th>
+                </tr>
+              </thead>
+              <tbody id="contentArea" class="clusterize-content">
+                <tr class="clusterize-no-data">
+                  <td colspan="12">No data yet</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <button onclick="printFullTable()" class="printable">
+          🖨️ Print This Table
+        </button>
+        <!-- Scan Modal -->
+        <div
+          id="scanModal"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="scanModalTitle"
+        >
+          <div class="modal-content">
+            <h3 id="scanModalTitle">Scanned Sequences</h3>
+            <div style="font-size: 12px; color: #555">
+              WO: <span id="activeWO" class="pill">—</span> • Count:
+              <span id="scanCount" class="pill">0</span>
+              <span style="padding-left: 90px">
+                <label class="switch">
+                  <input type="checkbox" id="showClosedChk" />
+                  <span class="slider round"></span>
+                </label>
+                <span style="margin-left: 8px"> Re-open Task Item(s)</span>
+              </span>
+            </div>
+
+            <!-- Search results for scanned/typed seq -->
+            <div style="margin-top: 10px">
+              <h4 style="font-size: 13px; margin-bottom: 5px; color: #444">
+                Matching Tasks
+              </h4>
+              <table class="scan-table">
+                <thead>
+                  <tr>
+                    <th>Seq</th>
+                    <th>Phase</th>
+                    <th>Skill</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody id="scanResultsList"></tbody>
+              </table>
+            </div>
+
+            <!-- Queue of tasks to close -->
+            <div style="margin-top: 15px">
+              <h4 style="font-size: 13px; margin-bottom: 5px; color: #444">
+                Queued Tasks
+              </h4>
+              <table class="scan-table">
+                <thead>
+                  <tr>
+                    <th>Seq</th>
+                    <th>Phase</th>
+                    <th>Skill</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody id="scannedList"></tbody>
+              </table>
+            </div>
+
+            <!-- Manual input for seq number -->
+            <div id="manualInputContainer" style="margin-top: 10px">
+              <label
+                for="manualSeqInput"
+                style="
+                  display: block;
+                  font-size: 12px;
+                  color: #444;
+                  margin-bottom: 4px;
+                "
+              >
+                Manual Seq Number
+              </label>
+              <input
+                type="number"
+                id="manualSeqInput"
+                name="manualSeqInput"
+                placeholder="Enter Seq Number"
+                title="Enter sequence number manually"
+              />
+              <button id="manualAddBtn" title="Add entered sequence number">
+                Add
+              </button>
+            </div>
+
+            <div class="modal-actions">
+              <button
+                class="btn"
+                id="submitScanBtn"
+                title="Update queued tasks to CLOSED"
+              >
+                Submit
+              </button>
+              <button class="btn" id="clearScanBtn" title="Clear list">
+                Clear
+              </button>
+              <button class="btn" id="closeScanBtn" title="Close modal">
+                Close
+              </button>
+            </div>
+          </div>
         </div>
       </div>
-    </div>
 
+      <!-- Right side history panel -->
+      <div class="history">
+        <h2>Updates</h2>
+        <ul id="historyList" class="history-list">
+          <li>Waiting for updates...</li>
+        </ul>
+      </div>
+    </div>
     <!-- Loading -->
     <div id="loadingOverlay">
       <div class="spinner"></div>
@@ -798,6 +886,10 @@
         doc,
         updateDoc,
         getDocs,
+        orderBy,
+        limit,
+        addDoc,
+        serverTimestamp,
       } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
       import {
         getAuth,
@@ -842,6 +934,7 @@
       const fixedPhases = ["PH", "P0", "P1", "P2", "P3", "P4", "P6"];
       const lastUpdateEl = document.getElementById("lastUpdate");
       const showClosedChk = document.getElementById("showClosedChk");
+      const historyListEl = document.getElementById("historyList");
       /* =======================
    Clusterize Table
   ======================== */
@@ -874,6 +967,134 @@
       }
 
       /* =======================
+   History Realtime Listener
+======================= */
+      window.addEventListener("load", () => {
+        const lastWO = localStorage.getItem("lastWorkorder");
+        if (lastWO) {
+          console.log("🔄 Restoring last WO:", lastWO);
+          document.getElementById("woInput").value = lastWO;
+
+          // 🔹 Load tasks
+          searchWorkorder(lastWO);
+
+          // 🔹 Load matching history
+          listenToHistoryForWO(lastWO);
+        } else {
+          console.log("ℹ️ No previous Work Order found");
+        }
+      });
+
+      let unsubscribeHistory = null; // store listener cleanup reference
+      function listenToHistoryForWO(workorder) {
+        // 🧹 Stop previous listener if active
+        if (unsubscribeHistory) {
+          unsubscribeHistory();
+          unsubscribeHistory = null;
+        }
+
+        historyListEl.innerHTML = `<li>Loading history for ${workorder}...</li>`;
+
+        // 🕵️‍♂️ Watch history entries only for this WO
+        const qHistory = query(
+          collection(db, "history"),
+          where("wo", "==", workorder),
+          orderBy("timestamp", "desc"),
+          limit(50)
+        );
+
+        unsubscribeHistory = onSnapshot(
+          qHistory,
+          (snapshot) => {
+            historyListEl.innerHTML = ""; // clear old list
+            if (snapshot.empty) {
+              historyListEl.innerHTML = `<li>Waiting for updates for ${workorder}</li>`;
+              return;
+            }
+
+            snapshot.docs.forEach((docSnap) => {
+              const data = docSnap.data();
+              const li = renderHistoryItem(data);
+              historyListEl.appendChild(li);
+            });
+          },
+          (error) => {
+            console.error("❌ History listener error:", error);
+            historyListEl.innerHTML = `<li>Error loading history</li>`;
+          }
+        );
+      }
+      document.getElementById("woSearchBtn").addEventListener("click", () => {
+        const wo = document.getElementById("woInput").value.trim();
+        if (!wo) {
+          showToast("Please enter a Work Order", "error");
+          return;
+        }
+
+        // Load tasks for this WO (your existing function)
+        searchWorkorder(wo);
+
+        // Start listening to history for this WO
+        listenToHistoryForWO(wo);
+      });
+
+      function renderHistoryItem(data) {
+        const time = data.timestamp?.toDate
+          ? data.timestamp.toDate().toLocaleString()
+          : "No time";
+        const seq = data.seq ?? "N/A";
+        const skill = data.skill ?? "N/A";
+        const phase = data.phase ?? "N/A";
+        const task = data.task_card ?? "Unknown";
+        const status = (data.status ?? "N/A").toUpperCase();
+        const modifiedBy = data.modified_by ?? "Unknown";
+
+        const li = document.createElement("li");
+        li.innerHTML = `
+    <span class="time">${time}</span><br>
+    <strong>Seq ${seq}</strong> — ${task}<br>
+    <span class="tag skill">Skill: ${skill}</span> • 
+    <span class="tag phase">Phase: ${phase}</span><br>
+    <span class="status ${status === "CLOSED" ? "closed" : "open"}">
+      ${status}
+    </span> <small>by ${modifiedBy}</small>
+  `;
+        return li;
+      }
+
+      // Watch "history" collection, newest first, limit 50
+      const qHistory = query(
+        collection(db, "history"),
+        orderBy("timestamp", "desc"),
+        limit(50)
+      );
+
+      onSnapshot(qHistory, (snapshot) => {
+        historyListEl.innerHTML = ""; // clear
+        snapshot.docs.forEach((docSnap) => {
+          const data = docSnap.data();
+          const li = renderHistoryItem(data);
+          historyListEl.appendChild(li);
+        });
+      });
+      async function logHistoryEntry(task, newStatus) {
+        try {
+          await addDoc(collection(db, "history"), {
+            wo: task.wo || "N/A",
+            seq: task.seq || "N/A",
+            skill: task.skill || "N/A",
+            phase: task.phase || "N/A",
+            task_card: task.task_card || "N/A",
+            status: newStatus,
+            modified_by: localStorage.getItem("username") || "Unknown",
+            timestamp: serverTimestamp(),
+          });
+          console.log("✅ History logged:", task.task_card, newStatus);
+        } catch (err) {
+          console.error("❌ Error logging history:", err);
+        }
+      }
+      /* =======================
    Helpers
   ======================== */
 
@@ -895,7 +1116,7 @@
       const hideLoading = () => {
         overlay.style.display = "none";
       };
-function printFullTable() {
+      function printFullTable() {
         if (!allDocs || allDocs.length === 0) {
           alert("No data to print ❗");
           return;
@@ -1086,9 +1307,9 @@ function printFullTable() {
         printWindow.document.close();
       }
 
-window.printFullTable = printFullTable;
+      window.printFullTable = printFullTable;
 
-function renderRows(docs) {
+      function renderRows(docs) {
         // ✅ Precompute selected skills ONCE
         let selectedSkills = [];
         if (activeSkill !== "CLEAR") {
@@ -1191,7 +1412,7 @@ function renderRows(docs) {
               })
               .join("");
 
-   return `
+            return `
 <tr id="row-seq-${seq}">
   <!-- Reference (rowspanned, no baseCellStyle) -->
   ${
@@ -1443,7 +1664,7 @@ function renderRows(docs) {
         return allDocs.filter((d) => d.skill === activeSkill);
       }
 
-     function applyFilters() {
+      function applyFilters() {
         const filters = {};
         document.querySelectorAll(".filter").forEach((input) => {
           const v = input.value.trim();
@@ -1729,16 +1950,24 @@ function renderRows(docs) {
       /* =======================
    Scan Modal + Scanner
   ======================== */
-async function updateTaskStatus(taskId, newStatus) {
+      async function updateTaskStatus(taskId, newStatus) {
         try {
+          // 🔹 Update Firestore task
           await updateDoc(doc(db, "tasks", taskId), { status: newStatus });
 
+          // 🔹 Update local cache
           const idx = allDocs.findIndex((d) => d.id === taskId);
           if (idx !== -1) {
             allDocs[idx] = { ...allDocs[idx], status: newStatus };
+
+            // 🔹 Log history to Firestore
+            await logHistoryEntry(allDocs[idx], newStatus);
           }
 
+          // 🔹 Refresh UI
           applyFilters();
+
+          showToast(`Status updated to ${newStatus}`, "success");
           return true;
         } catch (err) {
           console.error(err);
@@ -2117,4 +2346,3 @@ async function updateTaskStatus(taskId, newStatus) {
     </script>
   </body>
 </html>
-      
