@@ -986,8 +986,7 @@
       });
 
       let unsubscribeHistory = null; // store listener cleanup reference
-      function listenToHistoryForWO(workorder) {
-        // 🧹 Stop previous listener if active
+       function listenToHistoryForWO(workorder) {
         if (unsubscribeHistory) {
           unsubscribeHistory();
           unsubscribeHistory = null;
@@ -995,10 +994,12 @@
 
         historyListEl.innerHTML = `<li>Loading history for ${workorder}...</li>`;
 
-        // 🕵️‍♂️ Watch history entries only for this WO
+        // Detect WO type
+        const workorderValue = isNaN(workorder) ? workorder : Number(workorder);
+
         const qHistory = query(
           collection(db, "history"),
-          where("wo", "==", workorder),
+          where("wo", "==", workorderValue),
           orderBy("timestamp", "desc"),
           limit(50)
         );
@@ -1007,13 +1008,15 @@
           qHistory,
           (snapshot) => {
             historyListEl.innerHTML = ""; // clear old list
+
             if (snapshot.empty) {
-              historyListEl.innerHTML = `<li>Waiting for updates for ${workorder}</li>`;
+              historyListEl.innerHTML = `<li>No history yet for ${workorder}</li>`;
               return;
             }
 
             snapshot.docs.forEach((docSnap) => {
               const data = docSnap.data();
+
               const li = renderHistoryItem(data);
               historyListEl.appendChild(li);
             });
