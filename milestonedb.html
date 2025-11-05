@@ -156,12 +156,15 @@
           return `${y}-${m}-${d}`;
         }
         if (typeof value === "number") {
-          const excelEpoch = new Date(1899, 11, 30);
-          const dt = new Date(excelEpoch.getTime() + value * 86400000);
-          return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(
-            2,
-            "0"
-          )}-${String(dt.getDate()).padStart(2, "0")}`;
+            const excelEpoch = new Date(Date.UTC(1899, 11, 30));
+            const dt = new Date(excelEpoch.getTime() + value * 86400000);
+
+            // Remove local timezone offset (convert to pure date)
+            const localOffset = dt.getTimezoneOffset() * 60000;
+            const corrected = new Date(dt.getTime() + localOffset);
+
+            return `${corrected.getFullYear()}-${String(corrected.getMonth() + 1).padStart(2, "0")}-${String(corrected.getDate()).padStart(2, "0")}`;
+
         }
         const maybe = new Date(value);
         if (!isNaN(maybe)) {
