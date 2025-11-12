@@ -2,9 +2,9 @@
 <html lang="en">
   <head>
     <script src="auth.js"></script>
-<script>
-  requireLogin();
-</script>
+    <script>
+      requireLogin();
+    </script>
     <meta charset="utf-8" />
     <title>Web Based MilestonePlan</title>
     <meta name="viewport" content="width=device-width,initial-scale=1" />
@@ -433,6 +433,30 @@
       }
       .swatch-sunday {
         background-color: #fccc7869; /* Sunday highlight */
+      }
+      .history-line {
+        position: absolute;
+        top: 50%;
+        height: 2px;
+        width: 100%;
+        z-index: 1;
+        transform: translateY(-50%);
+        background-color: #cccccc; /* Light static gray */
+      }
+      .half-history-line {
+        position: absolute;
+        top: 50%;
+        height: 2px;
+        width: 50%;
+        transform: translateY(-50%);
+        background-color: #cccccc;
+      }
+
+      .half-history-line.right {
+        left: 50%;
+      }
+      .half-history-line.left {
+        left: 0;
       }
     </style>
   </head>
@@ -945,7 +969,15 @@
           const e = parseDateField(r.edate);
           const rs = parseDateField(r.rev_sdate ?? r.sdate);
           const re = parseDateField(r.rev_edate ?? r.edate);
-          return { ...r, _sdate: s, _edate: e, _rev_sdate: rs, _rev_edate: re };
+          const os = parseDateField(r.orig_sdate); // <-- ADDED
+          return {
+            ...r,
+            _sdate: s,
+            _edate: e,
+            _rev_sdate: rs,
+            _rev_edate: re,
+            _orig_sdate: os,
+          };
         });
 
         // compute min/max dates
@@ -1104,8 +1136,13 @@
           table.appendChild(skillTr);
 
           // stacking
+          // stacking
           const stackedRows = [];
           tasks.forEach((task) => {
+            // --- 1. Get all three date keys ---
+            const origSKey = task._orig_sdate
+              ? toSerialDayKey(task._orig_sdate)
+              : null;
             const sKey = task._sdate ? toSerialDayKey(task._sdate) : null;
             const revSKey = task._rev_sdate
               ? toSerialDayKey(task._rev_sdate)
@@ -1116,13 +1153,29 @@
               ? toSerialDayKey(task._edate)
               : revSKey;
 
+            // --- 2. Populate the 'used' Set for this row ---
             const used = new Set();
+
+            // A. Add days for the NEW gray history line (Orig -> Plan)
+            if (origSKey !== null && sKey !== null && origSKey !== sKey) {
+              if (sKey < origSKey)
+                for (let d = sKey; d <= origSKey; d++) used.add(d);
+              else for (let d = origSKey; d <= sKey; d++) used.add(d);
+            }
+
+            // B. Add days for the red/green glow line (Plan -> Revised)
             if (sKey !== null && revSKey !== null && sKey !== revSKey) {
               if (revSKey < sKey)
                 for (let d = revSKey; d <= sKey; d++) used.add(d);
               else for (let d = sKey; d <= revSKey; d++) used.add(d);
             }
-            for (let d = revSKey; d <= revEKey; d++) used.add(d);
+
+            // C. Add days for the task block itself (Revised Start -> Revised End)
+            if (revSKey !== null && revEKey !== null) {
+              for (let d = revSKey; d <= revEKey; d++) used.add(d);
+            }
+
+            // --- 3. Find a row to place the task ---
 
             let placed = false;
             for (const rowArr of stackedRows) {
@@ -1272,38 +1325,72 @@
         container.innerHTML = "";
         container.appendChild(table);
       }
-      // buildMatrixTable end
 
       function insertTaskToRow(rowTds, task, usedDatesSet, dayKeys) {
-        const sKey = task._sdate ? toSerialDayKey(task._sdate) : null;
+        // --- 1. Define all date keys ---
+        // Original start date (for gray history line)
+        const origSKey = task._orig_sdate
+          ? toSerialDayKey(task._orig_sdate)
+          : null; // Current planned start date (for red/green glow line)
+        const planSKey = task._sdate ? toSerialDayKey(task._sdate) : null; // Revised/Actual start date (where the task block is)
         const revSKey = task._rev_sdate
           ? toSerialDayKey(task._rev_sdate)
-          : sKey;
+          : planSKey; // Revised/Actual end date
         const revEKey = task._rev_edate
           ? toSerialDayKey(task._rev_edate)
           : task._edate
           ? toSerialDayKey(task._edate)
-          : revSKey;
-        const diff = revSKey !== null && sKey !== null ? revSKey - sKey : 0;
+          : revSKey; // Fallback to revSKey if no end date // --- 2. Calculate DIFF for Advance/Delay (Plan vs Revised) ---
+
+        const diff =
+          revSKey !== null && planSKey !== null ? revSKey - planSKey : 0;
         const todayKey = toSerialDayKey(new Date());
+
         dayKeys.forEach((dk, index) => {
           const td = rowTds[index + 1];
           if (!td) return;
           if (dk === todayKey) {
             td.classList.add("today-highlight");
           }
-          // mark Sunday
-          if (dayKeyToDate(dk).getUTCDay() === 0) td.classList.add("sunday");
-          // GLOW LINE: span from sKey to revSKey
+          if (dayKeyToDate(dk).getUTCDay() === 0) td.classList.add("sunday"); // --- 3. Draw NEW GRAY HISTORY LINE (Original vs Plan) ---
+
           if (
-            sKey !== null &&
+            origSKey !== null &&
+            planSKey !== null &&
+            origSKey !== planSKey &&
+            dk >= Math.min(origSKey, planSKey) &&
+            dk <= Math.max(origSKey, planSKey)
+          ) {
+            const historyLine = document.createElement("div");
+            const isHistoryAdvance = planSKey < origSKey;
+
+            if (dk === origSKey) {
+              historyLine.classList.add(
+                "half-history-line",
+                isHistoryAdvance ? "left" : "right"
+              );
+            } else if (dk === planSKey) {
+              historyLine.classList.add(
+                "half-history-line",
+                isHistoryAdvance ? "right" : "left"
+              );
+            } else {
+              historyLine.classList.add("history-line");
+            }
+            td.appendChild(historyLine);
+          } // --- 4. Draw EXISTING GLOW LINE (Plan vs Revised) ---
+
+          if (
+            planSKey !== null &&
             revSKey !== null &&
-            dk >= Math.min(sKey, revSKey) &&
-            dk <= Math.max(sKey, revSKey)
+            planSKey !== revSKey &&
+            dk >= Math.min(planSKey, revSKey) &&
+            dk <= Math.max(planSKey, revSKey)
           ) {
             const glow = document.createElement("div");
-            const isStartCell = dk === sKey;
+            const isStartCell = dk === planSKey;
             const isAdvance = diff < 0;
+
             if (isStartCell) {
               glow.classList.add("half-glow", isAdvance ? "left" : "right");
             } else {
@@ -1317,7 +1404,8 @@
                 : "glow-ontime"
             );
             td.appendChild(glow);
-            if (dk === sKey) {
+
+            if (dk === planSKey) {
               const dot = document.createElement("span");
               dot.classList.add(
                 "start-dot",
@@ -1325,9 +1413,8 @@
               );
               td.appendChild(dot);
             }
-          }
+          } // --- 5. TASK BLOCK (Renders at Revised position) ---
 
-          // TASK BLOCK: only one rendering, based on revised dates
           if (
             revSKey !== null &&
             revEKey !== null &&
@@ -1336,9 +1423,8 @@
           ) {
             const taskDiv = document.createElement("div");
             taskDiv.classList.add("task-block");
-            taskDiv.style.position = "relative"; // allow positioning of icon
+            taskDiv.style.position = "relative";
 
-            // set background color based on status
             if ((task.status || "").toLowerCase() === "closed") {
               taskDiv.style.backgroundColor = "#E7FAFE";
               taskDiv.style.color = "Black";
@@ -1350,7 +1436,6 @@
             else if (diff > 0) taskDiv.classList.add("delay");
             else taskDiv.classList.add("ontime");
 
-            // build advance/delay text
             let diffText = "";
             if (diff !== null && diff !== 0) {
               diffText = `${Math.abs(diff)} day(s) ${
@@ -1359,8 +1444,7 @@
             } else if (diff === 0) {
               diffText = "On time";
             }
-            // ✅ Compute Day Number
-            const startKey = toSerialDayKey(window.minDate || minDate); // ensure global access
+            const startKey = toSerialDayKey(window.minDate || minDate);
             const dayNumber = dk - startKey + 1;
 
             taskDiv.textContent = task.tasktitle || "(no title)";
@@ -1374,7 +1458,6 @@
               `Status: ${task.status || ""}\n` +
               `${diffText}`;
             taskDiv.dataset.taskId = task._id;
-            // add icon if remarks exist
             if (task.remarks && task.remarks.trim() !== "") {
               const icon = document.createElement("span");
               icon.textContent = "⚠️";
@@ -1385,21 +1468,16 @@
               taskDiv.appendChild(icon);
             }
 
-            // draggable
             taskDiv.draggable = true;
             taskDiv.addEventListener("dragstart", onTaskDragStart);
             taskDiv.addEventListener("dragend", onTaskDragEnd);
 
-            // right click to edit remarks
             taskDiv.addEventListener("contextmenu", (ev) => {
               ev.preventDefault();
-
               if (selectedTaskIds.length > 1) {
                 bulkClosingMode = true;
-                remarksEditingTaskId = null; // Not a single task
-                remarksTextarea.value = ""; // Empty by default
-
-                // Position editor near mouse
+                remarksEditingTaskId = null;
+                remarksTextarea.value = "";
                 remarksEditor.style.left =
                   ev.clientX + window.scrollX + 6 + "px";
                 remarksEditor.style.top =
@@ -1412,36 +1490,21 @@
               }
             });
 
-            // double-click to edit (single) or bulk-close (multi)
-            // double-click to edit (single) or bulk-close (multi)
-            // double-click to edit (single) or bulk-close (multi)
             taskDiv.addEventListener("dblclick", () => {
-              const thisTaskId = task._id; // 'task' is from the outer function scope // Check if this task is part of a multi-selection // 'selectedTaskIds' is the global array from your Ctr+Click logic
-
+              const thisTaskId = task._id;
               if (
                 selectedTaskIds.length > 1 &&
                 selectedTaskIds.includes(thisTaskId)
               ) {
                 bulkActionAnchorTaskId = thisTaskId;
-                // --- NEW: BULK ACTION MODAL LOGIC ---
-                // 1. Set title
                 document.getElementById(
                   "bulk-action-title"
                 ).textContent = `Bulk Action for ${selectedTaskIds.length} Tasks`;
-
-                // 2. Pre-fill date with "today"
                 const todayISO = dayKeyToISO(toSerialDayKey(new Date()));
                 bulkActionDate.value = todayISO;
-
-                // 3. Pre-fill remarks
-                bulkActionRemarks.value = ""; // Start blank
-
-                // 4. Show the new modal
+                bulkActionRemarks.value = "";
                 bulkActionModal.style.display = "flex";
               } else {
-                // --- SINGLE TASK LOGIC ---
-                // Original behavior: just open the main edit modal
-                // (But first, ensure selection is cleared)
                 clearSelection();
                 openTaskModal(task);
               }
@@ -1919,7 +1982,8 @@
         bulkActionAnchorTaskId = null;
       });
 
-      // "Confirm Replan" button logic (NEW relative replan logic)
+      // "Confirm Replan" button logic (Saves orig_sdate)
+      // "Confirm Replan" button logic (Saves orig_sdate)
       bulkReplanConfirm.addEventListener("click", async () => {
         const dateStr = bulkActionDate.value;
         const remarks = bulkActionRemarks.value;
@@ -1946,8 +2010,6 @@
           );
           return;
         }
-
-        // Get the anchor's original planned start date
         const anchorOrigSDate = parseDateField(anchorTask.sdate);
         if (!anchorOrigSDate) {
           alert(
@@ -1956,8 +2018,6 @@
           return;
         }
         const anchorOrigSKey = toSerialDayKey(anchorOrigSDate);
-
-        // This is the number of days to shift ALL tasks
         const dateShift = newStartDateKey - anchorOrigSKey;
 
         // --- 3. Loop and Replan ALL Selected Tasks ---
@@ -1965,7 +2025,6 @@
           const task = window.currentRows.find((r) => r._id === id);
           if (!task) continue;
 
-          // Get this task's original planned dates
           const sdate = parseDateField(task.sdate);
           const edate = parseDateField(task.edate);
           let duration = 0;
@@ -1973,24 +2032,31 @@
           if (sdate && edate) {
             const taskOrigSKey = toSerialDayKey(sdate);
             const taskOrigEKey = toSerialDayKey(edate);
-
+            duration = taskOrigEKey - taskOrigSKey;
             if (duration < 0) duration = 0;
 
-            // Calculate new dates based on the shift
             const newSKey = taskOrigSKey + dateShift;
             const newEKey = newSKey + duration;
-
             const newS_ISO = dayKeyToISO(newSKey);
             const newE_ISO = dayKeyToISO(newEKey);
 
-            await updateTask(id, {
+            // --- Build the Update Payload ---
+            const updatePayload = {
               sdate: newS_ISO,
               edate: newE_ISO,
               rev_sdate: newS_ISO,
               rev_edate: newE_ISO,
               remarks: remarks,
               status: "open",
-            });
+            };
+
+            // If orig_sdate is NOT set, set it to the *current* sdate before we overwrite it
+            if (!task.orig_sdate && task.sdate) {
+              updatePayload.orig_sdate = task.sdate;
+            }
+            // --- End Payload ---
+
+            await updateTask(id, updatePayload);
           } else {
             console.warn(`Skipping task ${task._id}, missing sdate or edate.`);
           }
