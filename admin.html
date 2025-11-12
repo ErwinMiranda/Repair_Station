@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
-     <script src="auth.js"></script>
+    <script src="auth.js"></script>
 <script>
   requireLogin();
 </script>
@@ -390,6 +390,50 @@
       td.bounce {
         animation: bounceInvalid 0.3s ease;
       }
+      .legend-container {
+        display: flex;
+        align-items: center;
+        gap: 15px; /* Space between legend items */
+        padding: 0 10px;
+      }
+      .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 5px; /* Space between swatch and label */
+      }
+      .legend-swatch {
+        width: 14px;
+        height: 14px;
+        border: 1px solid #ccc;
+        border-radius: 2px;
+        box-sizing: border-box;
+      }
+      .legend-label {
+        font-size: 12px;
+        color: #333;
+      }
+
+      /* --- Swatch-Specific Colors --- */
+      .swatch-open {
+        background-color: #fdfbbe;
+      }
+      .swatch-closed {
+        background-color: #e7fafe;
+      }
+      .swatch-delay {
+        background-color: #fdfbbe; /* Open task */
+        border: 2px solid rgb(255, 0, 0); /* Delay border */
+      }
+      .swatch-advance {
+        background-color: #fdfbbe; /* Open task */
+        border: 2px solid rgb(2, 255, 2); /* Advance border */
+      }
+      .swatch-today {
+        background-color: #2b8aff53; /* Today highlight */
+      }
+      .swatch-sunday {
+        background-color: #fccc7869; /* Sunday highlight */
+      }
     </style>
   </head>
   <body>
@@ -402,7 +446,42 @@
       <label for="wo-filter" style="padding-top: 4px">Select WO:</label>
       <select id="wo-filter" style="width: 160px"></select>
       <button id="wo-search">Search</button>
-      <div style="flex: 1"></div>
+      <div
+        style="
+          flex: 1;
+          display: flex;
+          justify-content: right;
+          align-items: center;
+          min-width: 400px;
+        "
+      >
+        <div class="legend-container">
+          <div class="legend-item">
+            <span class="legend-swatch swatch-open"></span>
+            <span class="legend-label">Open</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-swatch swatch-closed"></span>
+            <span class="legend-label">Closed</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-swatch swatch-advance"></span>
+            <span class="legend-label">Advance</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-swatch swatch-delay"></span>
+            <span class="legend-label">Delay</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-swatch swatch-today"></span>
+            <span class="legend-label">Today</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-swatch swatch-sunday"></span>
+            <span class="legend-label">Sunday &nbsp;</span>
+          </div>
+        </div>
+      </div>
       <div
         id="status-indicator"
         style="font-size: 13px; color: #363434; padding-right: 5px"
@@ -482,27 +561,30 @@
         </div>
       </div>
     </div>
-    <!-- Bulk closing Modal -->
-    <div id="bulk-close-modal" class="modal" role="dialog">
+    <!-- Bulk Action Modal (Replan or Close) -->
+    <div id="bulk-action-modal" class="modal" role="dialog">
       <div class="card" style="width: 400px">
-        <h3 id="bulk-close-title">Bulk Close Tasks</h3>
+        <h3 id="bulk-action-title">Bulk Action</h3>
         <div style="margin-bottom: 8px">
-          <label for="bulk-close-date">Close Date</label>
+          <label for="bulk-action-date">Action Date</label>
           <input
-            id="bulk-close-date"
+            id="bulk-action-date"
             type="date"
             style="width: 100%; box-sizing: border-box; padding: 6px"
           />
         </div>
         <div>
-          <label for="bulk-close-remarks">Remarks</label>
+          <label for="bulk-action-remarks">Remarks</label>
           <textarea
-            id="bulk-close-remarks"
+            id="bulk-action-remarks"
             style="width: 100%; min-height: 80px"
           ></textarea>
         </div>
         <div class="actions">
-          <button id="bulk-close-cancel" class="muted">Cancel</button>
+          <button id="bulk-action-cancel" class="muted">Cancel</button>
+          <button id="bulk-replan-confirm" class="primary">
+            Confirm Replan
+          </button>
           <button id="bulk-close-confirm" class="danger">Confirm Close</button>
         </div>
       </div>
@@ -1340,17 +1422,22 @@
                 selectedTaskIds.length > 1 &&
                 selectedTaskIds.includes(thisTaskId)
               ) {
-                // --- NEW: BULK CLOSE MODAL LOGIC --- // 1. Set title
+                bulkActionAnchorTaskId = thisTaskId;
+                // --- NEW: BULK ACTION MODAL LOGIC ---
+                // 1. Set title
                 document.getElementById(
-                  "bulk-close-title"
-                ).textContent = `Bulk Close ${selectedTaskIds.length} Tasks`; // 2. Pre-fill date with "today"
+                  "bulk-action-title"
+                ).textContent = `Bulk Action for ${selectedTaskIds.length} Tasks`;
 
+                // 2. Pre-fill date with "today"
                 const todayISO = dayKeyToISO(toSerialDayKey(new Date()));
-                bulkCloseDate.value = todayISO; // 3. Pre-fill remarks
+                bulkActionDate.value = todayISO;
 
-                bulkCloseRemarks.value = "Bulk closed"; // 4. Show the new modal
+                // 3. Pre-fill remarks
+                bulkActionRemarks.value = ""; // Start blank
 
-                bulkCloseModal.style.display = "flex";
+                // 4. Show the new modal
+                bulkActionModal.style.display = "flex";
               } else {
                 // --- SINGLE TASK LOGIC ---
                 // Original behavior: just open the main edit modal
@@ -1673,6 +1760,7 @@
       ///new***********************
       let selectedTaskIds = [];
       let bulkClosingMode = false;
+      let bulkActionAnchorTaskId = null;
 
       document.addEventListener("click", (e) => {
         const taskDiv = e.target.closest(".task-block");
@@ -1717,7 +1805,7 @@
         if (
           e.target.closest(".task-block") ||
           e.target.closest("#remarks-editor") ||
-          e.target.closest("#bulk-close-modal")
+          e.target.closest("#bulk-action-modal")
         )
           // <-- ADD THIS LINE
           return;
@@ -1749,11 +1837,13 @@
         workorder: document.getElementById("f-workorder"),
       };
       let modalEditingId = null;
-      const bulkCloseModal = document.getElementById("bulk-close-modal");
-      const bulkCloseDate = document.getElementById("bulk-close-date");
-      const bulkCloseRemarks = document.getElementById("bulk-close-remarks");
-      const bulkCloseCancel = document.getElementById("bulk-close-cancel");
+      // Get the new Bulk Action Modal elements
+      const bulkActionModal = document.getElementById("bulk-action-modal");
+      const bulkActionDate = document.getElementById("bulk-action-date");
+      const bulkActionRemarks = document.getElementById("bulk-action-remarks");
+      const bulkActionCancel = document.getElementById("bulk-action-cancel");
       const bulkCloseConfirm = document.getElementById("bulk-close-confirm");
+      const bulkReplanConfirm = document.getElementById("bulk-replan-confirm");
       // document.getElementById('add-task-btn').addEventListener('click', () => openTaskModal(null));
       document
         .getElementById("cancel-modal")
@@ -1798,20 +1888,20 @@
           }
           closeTaskModal();
         });
-      // ✅ ADD THIS BLOCK for new modal listeners
+      // --- New Bulk Action Modal Listeners ---
 
-      bulkCloseCancel.addEventListener("click", () => {
-        bulkCloseModal.style.display = "none";
+      bulkActionCancel.addEventListener("click", () => {
+        bulkActionModal.style.display = "none";
+        bulkActionAnchorTaskId = null;
       });
 
-      // ✅ FIXED VERSION
+      // "Confirm Close" button logic (this is your existing logic)
       bulkCloseConfirm.addEventListener("click", async () => {
-        // <-- 1. Make it async
-        const dateStr = bulkCloseDate.value;
-        const closingRemark = bulkCloseRemarks.value;
+        const dateStr = bulkActionDate.value;
+        const closingRemark = bulkActionRemarks.value;
 
         if (!dateStr) {
-          alert("Please select a close date.");
+          alert("Please select an Action Date.");
           return;
         }
 
@@ -1822,12 +1912,93 @@
         }
         const closeDateKey = toSerialDayKey(closeDate);
 
-        // 2. Await the function so it finishes before continuing
         await closeTasks(selectedTaskIds, closingRemark, closeDateKey);
 
-        // 3. These lines now run ONLY after the loop is complete
-        bulkCloseModal.style.display = "none";
+        bulkActionModal.style.display = "none";
         clearSelection();
+        bulkActionAnchorTaskId = null;
+      });
+
+      // "Confirm Replan" button logic (NEW relative replan logic)
+      bulkReplanConfirm.addEventListener("click", async () => {
+        const dateStr = bulkActionDate.value;
+        const remarks = bulkActionRemarks.value;
+
+        // --- 1. Get New Start Date (from modal) ---
+        if (!dateStr) {
+          alert("Please select an Action Date.");
+          return;
+        }
+        const newStartDate = parseDateField(dateStr);
+        if (!newStartDate || isNaN(newStartDate.getTime())) {
+          alert("Invalid date format.");
+          return;
+        }
+        const newStartDateKey = toSerialDayKey(newStartDate);
+
+        // --- 2. Find the Anchor Task and Calculate the Date Shift ---
+        const anchorTask = window.currentRows.find(
+          (r) => r._id === bulkActionAnchorTaskId
+        );
+        if (!anchorTask) {
+          alert(
+            "Error: Anchor task not found. Cannot perform relative replan."
+          );
+          return;
+        }
+
+        // Get the anchor's original planned start date
+        const anchorOrigSDate = parseDateField(anchorTask.sdate);
+        if (!anchorOrigSDate) {
+          alert(
+            "Error: Anchor task is missing its original start date (sdate)."
+          );
+          return;
+        }
+        const anchorOrigSKey = toSerialDayKey(anchorOrigSDate);
+
+        // This is the number of days to shift ALL tasks
+        const dateShift = newStartDateKey - anchorOrigSKey;
+
+        // --- 3. Loop and Replan ALL Selected Tasks ---
+        for (const id of selectedTaskIds) {
+          const task = window.currentRows.find((r) => r._id === id);
+          if (!task) continue;
+
+          // Get this task's original planned dates
+          const sdate = parseDateField(task.sdate);
+          const edate = parseDateField(task.edate);
+          let duration = 0;
+
+          if (sdate && edate) {
+            const taskOrigSKey = toSerialDayKey(sdate);
+            const taskOrigEKey = toSerialDayKey(edate);
+
+            if (duration < 0) duration = 0;
+
+            // Calculate new dates based on the shift
+            const newSKey = taskOrigSKey + dateShift;
+            const newEKey = newSKey + duration;
+
+            const newS_ISO = dayKeyToISO(newSKey);
+            const newE_ISO = dayKeyToISO(newEKey);
+
+            await updateTask(id, {
+              sdate: newS_ISO,
+              edate: newE_ISO,
+              rev_sdate: newS_ISO,
+              rev_edate: newE_ISO,
+              remarks: remarks,
+              status: "open",
+            });
+          } else {
+            console.warn(`Skipping task ${task._id}, missing sdate or edate.`);
+          }
+        }
+
+        bulkActionModal.style.display = "none";
+        clearSelection();
+        bulkActionAnchorTaskId = null; // Clear the anchor
       });
 
       function openTaskModal(task) {
