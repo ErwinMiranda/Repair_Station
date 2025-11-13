@@ -466,12 +466,83 @@
       .dot-history {
         background-color: #cccccc; /* Matches the history-line color */
       }
+/* --- PRINT STYLES --- */
+      @media print {
+        @page {
+          size: landscape;
+          margin: 5mm;
+        }
+        body {
+          padding: 0;
+          background: white;
+        }
+        /* Hide non-printable UI */
+        #controls,
+        .logout-btn,
+        .print-btn,
+        .modal,
+        #remarks-editor {
+          display: none !important;
+        }
+
+        /* Adjust Header for paper */
+        .plan-header {
+          position: relative !important;
+          background: none !important;
+          color: black !important;
+          border: none;
+          padding: 0;
+          margin-bottom: 10px;
+        }
+        .plan-heading {
+          color: black !important;
+          font-size: 20px;
+        }
+
+        /* Expand the container to fit all content (remove scroll) */
+        #matrix-container {
+          height: auto !important;
+          overflow: visible !important;
+          border: none;
+        }
+
+        /* Remove Sticky positioning (causes glitches in PDF/Print) */
+        th,
+        tr.skill-row td,
+        table th:first-child,
+        table td:first-child {
+          position: static !important;
+        }
+
+        /* FORCE Background Colors (Chrome/Edge/Safari) */
+        * {
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
+        }
+      }
+      .print-btn {
+        background: #fff;
+        color: var(--bg-top); /* Lufthansa Blue text */
+        padding: 8px 16px;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 14px;
+        margin-left: 10px; /* Space from Logout button */
+        font-weight: bold;
+      }
+      .print-btn:hover {
+        background: #e0e0e0;
+      }
     </style>
   </head>
   <body>
     <div class="plan-header">
       <div class="plan-heading" id="date-range-heading">Loading…</div>
-      <button onclick="logout()" class="logout-btn">Logout</button>
+      <div>
+        <button onclick="logout()" class="logout-btn">Logout</button>
+        <button onclick="window.print()" class="print-btn">Print / PDF</button>
+      </div>
     </div>
 
     <div id="controls">
