@@ -224,6 +224,7 @@
         display: block;
       }
       input[type="text"],
+      input[type="date"],
       textarea {
         padding: 6px;
         width: 100%;
@@ -252,6 +253,10 @@
       .primary {
         background: var(--accent);
         color: #000;
+      }
+      .secondary {
+        background: #3b82f6; /* A standard blue */
+        color: #fff;
       }
       .danger {
         background: #e74c3c;
@@ -458,6 +463,9 @@
       .half-history-line.left {
         left: 0;
       }
+      .dot-history {
+        background-color: #cccccc; /* Matches the history-line color */
+      }
     </style>
   </head>
   <body>
@@ -536,22 +544,22 @@
         </div>
         <div class="form-row">
           <div style="flex: 1">
-            <label>Planned Start (sdate) — ISO or Excel serial</label>
-            <input id="f-sdate" type="text" placeholder="2025-07-25 or 44636" />
+            <label>Planned Start (sdate)</label>
+            <input id="f-sdate" type="date" />
           </div>
           <div style="flex: 1">
             <label>Planned End (edate)</label>
-            <input id="f-edate" type="text" placeholder="2025-07-28 or 44639" />
+            <input id="f-edate" type="date" />
           </div>
         </div>
         <div class="form-row">
           <div style="flex: 1">
             <label>Revised Start (rev_sdate)</label>
-            <input id="f-rev_sdate" type="text" />
+            <input id="f-rev_sdate" type="date" />
           </div>
           <div style="flex: 1">
             <label>Revised End (rev_edate)</label>
-            <input id="f-rev_edate" type="text" />
+            <input id="f-rev_edate" type="date" />
           </div>
         </div>
         <div class="form-row">
@@ -571,7 +579,45 @@
         <div class="form-row">
           <div style="flex: 1">
             <label>Status</label>
-            <input id="f-status" type="text" placeholder="open / closed" />
+            <div style="display: flex; gap: 15px; padding-top: 6px">
+              <label
+                style="
+                  display: flex;
+                  align-items: center;
+                  gap: 5px;
+                  font-weight: normal;
+                  margin: 0;
+                  cursor: pointer;
+                "
+              >
+                <input
+                  type="radio"
+                  name="status_radio"
+                  id="f-status-open"
+                  value="open"
+                  checked
+                />
+                Open
+              </label>
+              <label
+                style="
+                  display: flex;
+                  align-items: center;
+                  gap: 5px;
+                  font-weight: normal;
+                  margin: 0;
+                  cursor: pointer;
+                "
+              >
+                <input
+                  type="radio"
+                  name="status_radio"
+                  id="f-status-closed"
+                  value="Closed"
+                />
+                Closed
+              </label>
+            </div>
           </div>
           <div style="flex: 1">
             <label>Workorder</label>
@@ -606,7 +652,15 @@
         </div>
         <div class="actions">
           <button id="bulk-action-cancel" class="muted">Cancel</button>
-          <button id="bulk-replan-confirm" class="primary">
+          <button
+            id="bulk-edit-details"
+            class="muted"
+            style="margin-right: auto"
+          >
+            Edit Details
+          </button>
+          <button id="bulk-new-plan-confirm" class="primary">New Plan</button>
+          <button id="bulk-replan-confirm" class="secondary">
             Confirm Replan
           </button>
           <button id="bulk-close-confirm" class="danger">Confirm Close</button>
@@ -1328,19 +1382,18 @@
 
       function insertTaskToRow(rowTds, task, usedDatesSet, dayKeys) {
         // --- 1. Define all date keys ---
-        // Original start date (for gray history line)
         const origSKey = task._orig_sdate
           ? toSerialDayKey(task._orig_sdate)
-          : null; // Current planned start date (for red/green glow line)
-        const planSKey = task._sdate ? toSerialDayKey(task._sdate) : null; // Revised/Actual start date (where the task block is)
+          : null;
+        const planSKey = task._sdate ? toSerialDayKey(task._sdate) : null;
         const revSKey = task._rev_sdate
           ? toSerialDayKey(task._rev_sdate)
-          : planSKey; // Revised/Actual end date
+          : planSKey;
         const revEKey = task._rev_edate
           ? toSerialDayKey(task._rev_edate)
           : task._edate
           ? toSerialDayKey(task._edate)
-          : revSKey; // Fallback to revSKey if no end date // --- 2. Calculate DIFF for Advance/Delay (Plan vs Revised) ---
+          : revSKey; // --- 2. Calculate DIFF for Advance/Delay (Plan vs Revised) ---
 
         const diff =
           revSKey !== null && planSKey !== null ? revSKey - planSKey : 0;
@@ -1377,7 +1430,13 @@
             } else {
               historyLine.classList.add("history-line");
             }
-            td.appendChild(historyLine);
+            td.appendChild(historyLine); // --- NEW: Draw the gray dot at the start of history ---
+
+            if (dk === origSKey) {
+              const dot = document.createElement("span");
+              dot.classList.add("start-dot", "dot-history");
+              td.appendChild(dot);
+            }
           } // --- 4. Draw EXISTING GLOW LINE (Plan vs Revised) ---
 
           if (
@@ -1470,7 +1529,50 @@
 
             taskDiv.draggable = true;
             taskDiv.addEventListener("dragstart", onTaskDragStart);
-            taskDiv.addEventListener("dragend", onTaskDragEnd);
+            taskDiv.addEventListener("dragend", onTaskDragEnd); // Double-click on TASK: ALWAYS open Bulk Action Modal
+
+            // Double-click on TASK: ALWAYS open Bulk Action Modal
+            taskDiv.addEventListener("dblclick", (e) => {
+              e.stopPropagation(); // Prevent triggering "Blank Row" click
+              const thisTaskId = task._id;
+
+              // 1. Ensure the task is selected
+              if (!selectedTaskIds.includes(thisTaskId)) {
+                if (!e.ctrlKey && !e.metaKey) {
+                  clearSelection();
+                }
+                selectedTaskIds.push(thisTaskId);
+                taskDiv.classList.add("task-selected");
+              }
+
+              // 2. Set the Anchor
+              bulkActionAnchorTaskId = thisTaskId;
+
+              // 3. Configure the Modal UI
+              const count = selectedTaskIds.length;
+              document.getElementById("bulk-action-title").textContent =
+                count > 1 ? `Bulk Action for ${count} Tasks` : "Task Action";
+
+              // --- UPDATED: Set date to the TASK'S current start date ---
+              // Priority: Revised Start -> Planned Start -> Today (fallback)
+              const dateToUse = task.rev_sdate || task.sdate;
+              const dateObj = parseDateField(dateToUse);
+
+              if (dateObj) {
+                bulkActionDate.value = dayKeyToISO(toSerialDayKey(dateObj));
+              } else {
+                // Fallback if task has no date
+                bulkActionDate.value = dayKeyToISO(toSerialDayKey(new Date()));
+              }
+              // -------------------------------------------------------
+
+              bulkActionRemarks.value = "";
+
+              // Show "Edit Details" button ONLY if single task is selected
+              bulkEditDetails.style.display = count === 1 ? "" : "none";
+
+              bulkActionModal.style.display = "flex";
+            });
 
             taskDiv.addEventListener("contextmenu", (ev) => {
               ev.preventDefault();
@@ -1487,26 +1589,6 @@
               } else {
                 bulkClosingMode = false;
                 openRemarksEditor(ev, task._id);
-              }
-            });
-
-            taskDiv.addEventListener("dblclick", () => {
-              const thisTaskId = task._id;
-              if (
-                selectedTaskIds.length > 1 &&
-                selectedTaskIds.includes(thisTaskId)
-              ) {
-                bulkActionAnchorTaskId = thisTaskId;
-                document.getElementById(
-                  "bulk-action-title"
-                ).textContent = `Bulk Action for ${selectedTaskIds.length} Tasks`;
-                const todayISO = dayKeyToISO(toSerialDayKey(new Date()));
-                bulkActionDate.value = todayISO;
-                bulkActionRemarks.value = "";
-                bulkActionModal.style.display = "flex";
-              } else {
-                clearSelection();
-                openTaskModal(task);
               }
             });
 
@@ -1659,7 +1741,7 @@
           f.tasktitle.value = "";
           f.acreg.value = acregFromHeading;
           f.remarks.value = "Newly Added";
-          f.status.value = "open";
+          f.statusOpen.checked = true;
           f.workorder.value = woFilterValue || "";
 
           modalTitle.textContent = "Add Task";
@@ -1896,7 +1978,8 @@
         tasktitle: document.getElementById("f-tasktitle"),
         acreg: document.getElementById("f-acreg"),
         remarks: document.getElementById("f-remarks"),
-        status: document.getElementById("f-status"),
+        statusOpen: document.getElementById("f-status-open"),
+        statusClosed: document.getElementById("f-status-closed"),
         workorder: document.getElementById("f-workorder"),
       };
       let modalEditingId = null;
@@ -1905,8 +1988,12 @@
       const bulkActionDate = document.getElementById("bulk-action-date");
       const bulkActionRemarks = document.getElementById("bulk-action-remarks");
       const bulkActionCancel = document.getElementById("bulk-action-cancel");
+      const bulkEditDetails = document.getElementById("bulk-edit-details");
       const bulkCloseConfirm = document.getElementById("bulk-close-confirm");
       const bulkReplanConfirm = document.getElementById("bulk-replan-confirm");
+      const bulkNewPlanConfirm = document.getElementById(
+        "bulk-new-plan-confirm"
+      );
       // document.getElementById('add-task-btn').addEventListener('click', () => openTaskModal(null));
       document
         .getElementById("cancel-modal")
@@ -1935,7 +2022,7 @@
             tasktitle: f.tasktitle.value || undefined,
             acreg: f.acreg.value || undefined,
             remarks: f.remarks.value,
-            status: f.status.value || "open",
+            status: f.statusClosed.checked ? "Closed" : "open",
             workorder: f.workorder.value || undefined,
           };
           if (modalEditingId) {
@@ -1956,6 +2043,26 @@
       bulkActionCancel.addEventListener("click", () => {
         bulkActionModal.style.display = "none";
         bulkActionAnchorTaskId = null;
+      });
+
+      // Allow switching from Action Modal -> Full Edit Modal
+      bulkEditDetails.addEventListener("click", () => {
+        // Close the action modal
+        bulkActionModal.style.display = "none";
+
+        // Find the task (it's stored in the anchor ID)
+        const task = window.currentRows.find(
+          (r) => r._id === bulkActionAnchorTaskId
+        );
+
+        // Clear selection logic
+        clearSelection();
+        bulkActionAnchorTaskId = null;
+
+        // Open the full editor
+        if (task) {
+          openTaskModal(task);
+        }
       });
 
       // "Confirm Close" button logic (this is your existing logic)
@@ -1982,9 +2089,12 @@
         bulkActionAnchorTaskId = null;
       });
 
-      // "Confirm Replan" button logic (Saves orig_sdate)
-      // "Confirm Replan" button logic (Saves orig_sdate)
-      bulkReplanConfirm.addEventListener("click", async () => {
+      /**
+       * Performs the relative move for "New Plan" and "Replan".
+       * isNewPlan = true: Resets history (orig_sdate = null)
+       * isNewPlan = false: Creates history (orig_sdate = sdate)
+       */
+      async function performRelativeMove(isNewPlan = false) {
         const dateStr = bulkActionDate.value;
         const remarks = bulkActionRemarks.value;
 
@@ -2050,9 +2160,15 @@
               status: "open",
             };
 
-            // If orig_sdate is NOT set, set it to the *current* sdate before we overwrite it
-            if (!task.orig_sdate && task.sdate) {
-              updatePayload.orig_sdate = task.sdate;
+            // THIS IS THE KEY LOGIC
+            if (isNewPlan) {
+              // "New Plan" button: Erase history
+              updatePayload.orig_sdate = null;
+            } else {
+              // "Replan" button: Create history if it doesn't exist
+              if (!task.orig_sdate && task.sdate) {
+                updatePayload.orig_sdate = task.sdate;
+              }
             }
             // --- End Payload ---
 
@@ -2065,13 +2181,26 @@
         bulkActionModal.style.display = "none";
         clearSelection();
         bulkActionAnchorTaskId = null; // Clear the anchor
+      }
+
+      // "Confirm Replan" button (blue) now calls the helper
+      bulkReplanConfirm.addEventListener("click", () => {
+        performRelativeMove(false); // false = NOT a new plan, so keep history
+      });
+
+      // "New Plan" button (yellow) now calls the helper
+      bulkNewPlanConfirm.addEventListener("click", () => {
+        performRelativeMove(true); // true = IS a new plan, so erase history
       });
 
       function openTaskModal(task) {
         modalEditingId = null;
         modalTitle.textContent = task ? "Edit Task" : "Add Task";
         // reset
-        Object.values(f).forEach((inp) => (inp.value = ""));
+        // Reset inputs (but skip radio buttons so we don't wipe their values)
+        Object.values(f).forEach((inp) => {
+          if (inp && inp.type !== "radio") inp.value = "";
+        });
         document.getElementById("delete-task-btn").style.display = task
           ? ""
           : "none";
@@ -2098,9 +2227,17 @@
           f.tasktitle.value = task.tasktitle || "";
           f.acreg.value = task.acreg || "";
           f.remarks.value = task.remarks || "";
-          f.status.value = task.status || "";
+          // CHANGED: Set the correct radio button
+          const currentStatus = (task.status || "open").toLowerCase();
+          if (currentStatus === "closed") {
+            f.statusClosed.checked = true;
+          } else {
+            f.statusOpen.checked = true;
+          }
           f.workorder.value = task.workorder || "";
         }
+        // Ensure Open is default for new tasks
+        if (!task) f.statusOpen.checked = true;
         modal.style.display = "flex";
       }
       function closeTaskModal() {
