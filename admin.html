@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
-    <script src="auth.js"></script>
+     <script src="auth.js"></script>
     <script>
       requireLogin();
     </script>
@@ -56,9 +56,7 @@
         height: 50px;
         border-bottom: 1px solid #ccc;
       }
-      .importexcel {
-        display: none;
-      } /* import removed per request */
+
       #matrix-container {
         overflow: auto;
         border: 1px solid #ddd;
@@ -225,7 +223,8 @@
       }
       input[type="text"],
       input[type="date"],
-      textarea {
+      textarea,
+      select {
         padding: 6px;
         width: 100%;
         box-sizing: border-box;
@@ -466,7 +465,7 @@
       .dot-history {
         background-color: #cccccc; /* Matches the history-line color */
       }
-/* --- PRINT STYLES --- */
+      /* --- PRINT STYLES --- */
       @media print {
         @page {
           size: landscape;
@@ -534,6 +533,23 @@
       .print-btn:hover {
         background: #e0e0e0;
       }
+      .legend-label {
+        font-size: 12px;
+        color: #333;
+      }
+      .queue-item {
+        font-size: 13px;
+        background: #fff;
+        border: 1px solid #ccc;
+        padding: 4px 8px;
+        margin-bottom: 5px;
+        border-radius: 3px;
+        display: flex;
+        justify-content: space-between;
+      }
+      .queue-item span {
+        color: #555;
+      }
     </style>
   </head>
   <body>
@@ -549,6 +565,12 @@
       <label for="wo-filter" style="padding-top: 4px">Select WO:</label>
       <select id="wo-filter" style="width: 160px"></select>
       <button id="wo-search">Search</button>
+      <button
+        id="open-batch-add-btn"
+        style="margin-left: 10px; background: #28a745; color: white"
+      >
+        Batch Add Tasks
+      </button>
       <div
         style="
           flex: 1;
@@ -738,6 +760,61 @@
         </div>
       </div>
     </div>
+    <div id="batch-add-modal" class="modal" role="dialog">
+      <div class="card" style="width: 700px">
+        <h3>Batch Add Tasks</h3>
+        <p style="font-size: 13px; color: #333; margin-top: 0">
+          Add tasks to the queue. They will all be saved to the current Work
+          Order when you click "Save All".
+        </p>
+
+        <div class="form-row" style="align-items: flex-end">
+          <div style="flex: 2">
+            <label>Task Title</label>
+            <input id="b-tasktitle" type="text" />
+          </div>
+          <div style="flex: 1">
+            <label>Skill</label>
+            <select id="b-skill"></select>
+          </div>
+          <button id="add-to-queue-btn" type="button" class="secondary">
+            Add to Queue
+          </button>
+        </div>
+        <div class="form-row">
+          <div style="flex: 1">
+            <label>Start Date</label>
+            <input id="b-sdate" type="date" />
+          </div>
+          <div style="flex: 1">
+            <label>End Date</label>
+            <input id="b-edate" type="date" />
+          </div>
+        </div>
+
+        <hr style="margin: 15px 0" />
+
+        <label>Task Queue (<span id="queue-count">0</span>)</label>
+        <div
+          id="task-queue-list"
+          style="
+            max-height: 200px;
+            overflow-y: auto;
+            background: #f9f9f9;
+            border: 1px solid #ddd;
+            padding: 8px;
+            border-radius: 4px;
+            min-height: 50px;
+          "
+        ></div>
+
+        <div class="actions">
+          <button id="batch-add-cancel" class="muted">Cancel</button>
+          <button id="batch-save-all-btn" class="primary">Save All</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Floating remarks editor -->
     <div id="remarks-editor">
       <textarea id="remarks-text" style="width: 300px; height: 100px"></textarea
@@ -755,9 +832,6 @@
         <button id="remarks-close-task" class="danger">Close Task</button>
       </div>
     </div>
-
-    <!-- SheetJS -->
-    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
     <!-- Firebase modules -->
     <script type="module">
@@ -795,11 +869,23 @@
       let app, db, auth;
       let firestoreConnected = false; // ✅ added flag
       let unsubscribe = null;
-
+      // custom skill order
+      const SKILL_ORDER = [
+        "SHOP",
+        "CAB",
+        "AVI",
+        "CRG",
+        "ENG",
+        "FLC",
+        "LDG",
+        "STR",
+      ];
       try {
         app = initializeApp(firebaseConfig);
         db = getFirestore(app);
         auth = getAuth(app);
+
+        populateSkillDropdown();
 
         document.getElementById("status-indicator").innerText =
           "Planning: connecting…";
@@ -862,6 +948,32 @@
       function weekdayShort(dateObj) {
         return dateObj.toLocaleDateString("en-US", { weekday: "short" });
       }
+
+      // VVVV ADD THIS NEW FUNCTION VVVV
+      /**
+       * Populates the batch add skill dropdown with the global skill list
+       */
+      function populateSkillDropdown() {
+        const select = document.getElementById("b-skill");
+        if (!select) return;
+
+        select.innerHTML = ""; // Clear existing options
+
+        // Add a default "General" option
+        const defaultOpt = document.createElement("option");
+        defaultOpt.value = "GEN"; // Use "GEN" or "Unassigned"
+        defaultOpt.textContent = "General / Unassigned";
+        select.appendChild(defaultOpt);
+
+        // Add all skills from the global list
+        SKILL_ORDER.forEach((skill) => {
+          const opt = document.createElement("option");
+          opt.value = skill;
+          opt.textContent = skill;
+          select.appendChild(opt);
+        });
+      }
+      // ^^^^ END OF NEW FUNCTION ^^^^
 
       // ---------- Firestore collection ----------
       const tasksCol = () => collection(db, "tasks");
@@ -1025,7 +1137,7 @@
         // <-- 1. Added closeDateKey
         console.log(
           `Closing ${taskIds.length} tasks on dayKey ${closeDateKey}...`
-        ); // const yesterday = new Date(); // <-- 2. Removed // yesterday.setDate(yesterday.getDate() - 1); // <-- 2. Removed // const todayKey = toSerialDayKey(yesterday); // <-- 2. Removed
+        );
         for (const id of taskIds) {
           const task = window.currentRows.find((r) => r._id === id);
           if (!task || (task.status || "").toLowerCase() === "closed") {
@@ -1158,20 +1270,9 @@
           grouped[sk].push(task);
         });
 
-        // custom skill order
-        const skillOrder = [
-          "SHOP",
-          "CAB",
-          "AVI",
-          "CRG",
-          "ENG",
-          "FLC",
-          "LDG",
-          "STR",
-        ];
         const sortedGrouped = Object.entries(grouped).sort(([a], [b]) => {
-          const ia = skillOrder.indexOf(a);
-          const ib = skillOrder.indexOf(b);
+          const ia = SKILL_ORDER.indexOf(a);
+          const ib = SKILL_ORDER.indexOf(b);
           return (ia === -1 ? Infinity : ia) - (ib === -1 ? Infinity : ib);
         });
 
@@ -2262,6 +2363,209 @@
       // "New Plan" button (yellow) now calls the helper
       bulkNewPlanConfirm.addEventListener("click", () => {
         performRelativeMove(true); // true = IS a new plan, so erase history
+      });
+      // ---------- VVV ADD THIS ENTIRE FUNCTION VVV ----------
+
+      /**
+       * Adds a list of tasks to the CURRENTLY selected Work Order.
+       * @param {Array} newTasks - Array of objects: { title, skill, sdate, edate }
+       */
+      async function addTasksToCurrentWO(newTasks) {
+        // 1. Get the globally selected Work Order
+        const currentWO = woFilterValue; // This variable exists in your code
+
+        // 2. Validation: Stop if no WO is selected
+        if (!currentWO || currentWO === "") {
+          alert(
+            "Error: No Work Order selected. Please select a WO from the dropdown first."
+          );
+          return;
+        }
+
+        // 3. Get the Aircraft Reg (AC Reg) automatically
+        const currentAC =
+          window.currentAcregs && window.currentAcregs.length > 0
+            ? window.currentAcregs[0]
+            : "";
+
+        console.log(
+          `Adding ${newTasks.length} tasks to WO: ${currentWO} (AC: ${currentAC})...`
+        );
+
+        // 4. Loop and Create
+        for (const task of newTasks) {
+          try {
+            // Construct the full payload
+            const payload = {
+              tasktitle: task.title || "Untitled",
+              skill: task.skill || "GEN", // Default skill if missing
+
+              // Dates (ensure they are YYYY-MM-DD strings)
+              sdate: task.sdate,
+              edate: task.edate,
+              rev_sdate: task.sdate, // Default revised to same as plan
+              rev_edate: task.edate,
+
+              // The Automatic Parts
+              workorder: currentWO,
+              acreg: currentAC,
+              status: "open",
+            };
+
+            await createTask(payload); // Assumes createTask function exists
+          } catch (err) {
+            console.error(`Failed to add task "${task.title}":`, err);
+          }
+        }
+
+        console.log("Batch add complete.");
+      }
+      // This array will hold the tasks before we save them
+      let taskQueue = [];
+      let userHasManuallySetEndDate = false;
+      // Get all the new elements
+      const batchAddModal = document.getElementById("batch-add-modal");
+      const openBatchAddBtn = document.getElementById("open-batch-add-btn");
+      const batchAddCancel = document.getElementById("batch-add-cancel");
+      const addToQueueBtn = document.getElementById("add-to-queue-btn");
+      const batchSaveAllBtn = document.getElementById("batch-save-all-btn");
+      const taskQueueList = document.getElementById("task-queue-list");
+      const queueCountEl = document.getElementById("queue-count");
+
+      // Form Inputs
+      const b = {
+        title: document.getElementById("b-tasktitle"),
+        skill: document.getElementById("b-skill"),
+        sdate: document.getElementById("b-sdate"),
+        edate: document.getElementById("b-edate"),
+      };
+
+      // This listener links the start and end dates
+      // --- Wire up the date linking logic ---
+
+      // 1. When Start Date changes:
+      b.sdate.addEventListener("change", () => {
+        // If user hasn't manually set an end date, link them.
+        if (!userHasManuallySetEndDate) {
+          b.edate.value = b.sdate.value;
+        } else {
+          // If user HAS set a date, just make sure it's not invalid
+          if (b.edate.value < b.sdate.value) {
+            b.edate.value = b.sdate.value;
+          }
+        }
+      });
+
+      // 2. When End Date changes, set the flag
+      b.edate.addEventListener("change", () => {
+        // As soon as the user changes the end date, we set the flag.
+        // We add a small check to not set the flag if the dates are the same.
+        if (b.edate.value !== b.sdate.value) {
+          userHasManuallySetEndDate = true;
+        }
+      });
+
+      // --- Helper function to re-draw the queue list ---
+      function renderTaskQueue() {
+        taskQueueList.innerHTML = ""; // Clear the list
+        queueCountEl.textContent = taskQueue.length; // Update count
+
+        if (taskQueue.length === 0) {
+          taskQueueList.innerHTML =
+            '<p style="color: #888; font-size: 13px;">Queue is empty.</p>';
+          return;
+        }
+
+        taskQueue.forEach((task, index) => {
+          const item = document.createElement("div");
+          item.className = "queue-item";
+          item.innerHTML = `
+ <strong>${task.title}</strong>
+ <span>
+ Skill: ${task.skill || "N/A"} | 
+ Start: ${task.sdate} | 
+ End: ${task.edate}
+ </span>
+ `;
+          // (Optional: Add a "remove" button here)
+          taskQueueList.appendChild(item);
+        });
+      }
+
+      // --- Wire up the buttons ---
+
+      // 1. Open the batch modal
+      openBatchAddBtn.addEventListener("click", () => {
+        // Check if a WO is selected
+        if (!woFilterValue || woFilterValue === "") {
+          alert("Please select a Work Order from the dropdown first.");
+          return;
+        }
+        userHasManuallySetEndDate = false;
+        taskQueue = []; // Clear the queue
+        renderTaskQueue(); // Re-draw the empty list
+
+        // Set default date to today
+        const todayISO = dayKeyToISO(toSerialDayKey(new Date()));
+        b.sdate.value = todayISO;
+        b.edate.value = todayISO;
+        b.title.value = "";
+        b.skill.value = "";
+
+        batchAddModal.style.display = "flex";
+        b.title.focus();
+      });
+
+      // 2. Add a single task to the queue
+      addToQueueBtn.addEventListener("click", () => {
+        const task = {
+          title: b.title.value.trim(),
+          skill: b.skill.value,
+          sdate: b.sdate.value,
+          edate: b.edate.value,
+        };
+
+        // Validation
+        if (!task.title || !task.sdate || !task.edate) {
+          alert("Please fill in Title, Start Date, and End Date.");
+          return;
+        }
+
+        taskQueue.push(task); // Add to our array
+        renderTaskQueue(); // Update the visual list
+
+        // Clear inputs for next entry
+        b.title.value = "";
+
+        b.title.focus(); // Set focus back to title
+      });
+      // 3. Save the entire queue to Firestore
+      batchSaveAllBtn.addEventListener("click", async () => {
+        if (taskQueue.length === 0) {
+          alert("Queue is empty. Nothing to save.");
+          return;
+        }
+
+        // This is the function from the previous step!
+        await addTasksToCurrentWO(taskQueue);
+
+        // Close and reset
+        batchAddModal.style.display = "none";
+        taskQueue = [];
+      });
+
+      // 4. Cancel and close the modal
+      batchAddCancel.addEventListener("click", () => {
+        if (
+          taskQueue.length > 0 &&
+          !confirm(
+            "You have tasks in the queue. Are you sure you want to cancel?"
+          )
+        ) {
+          return; // Do not close
+        }
+        batchAddModal.style.display = "none";
+        taskQueue = [];
       });
 
       function openTaskModal(task) {
