@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
-     <script src="auth.js"></script>
+    <script src="auth.js"></script>
     <script>
       requireLogin();
     </script>
@@ -1085,6 +1085,10 @@
               rows.push({ _id: docSnap.id, ...docSnap.data() });
             });
             window.currentRows = rows;
+
+            // Always initialize the timeline immediately after loading new tasks
+            ensureTimelineRange(true);
+
             applyWOfilterAndRender();
           },
           (err) => {
@@ -1218,8 +1222,15 @@
         });
 
         // compute min/max dates
-        const sCandidates = normalized.map((r) => r._sdate).filter(Boolean);
-        const eCandidates = normalized.map((r) => r._edate).filter(Boolean);
+        // Use revised dates FIRST — fall back to original only if missing
+        const sCandidates = normalized
+          .map((r) => r._rev_sdate || r._sdate)
+          .filter(Boolean);
+
+        const eCandidates = normalized
+          .map((r) => r._rev_edate || r._edate)
+          .filter(Boolean);
+
         if (!sCandidates.length || !eCandidates.length) {
           document.getElementById("matrix-container").innerHTML =
             '<div style="padding:10px">No date data</div>';
@@ -1679,7 +1690,7 @@
             const dayNumber = dk - startKey + 1;
 
             taskDiv.textContent = task.tasktitle || "(no title)";
-            taskDiv.title =
+            let baseTooltip =
               `Skill: ${task.skill || ""}\n` +
               `Date: ${formatDisplayDateShort(
                 dayKeyToDate(dk)
@@ -1688,6 +1699,9 @@
               `Remarks: ${task.remarks || ""}\n` +
               `Status: ${task.status || ""}\n` +
               `${diffText}`;
+
+            taskDiv.title = baseTooltip + buildDependencyTooltip(task);
+
             taskDiv.dataset.taskId = task._id;
             if (task.remarks && task.remarks.trim() !== "") {
               const icon = document.createElement("span");
@@ -1814,11 +1828,19 @@
         } catch (err) {}
       }
 
-      function onTaskDragEnd(e) {
+      async function onTaskDragEnd(e) {
+        // Remove highlights
         document
           .querySelectorAll("td.drop-target")
           .forEach((td) => td.classList.remove("drop-target"));
-        tableContainer.style.cursor = "default"; // 🛠 reset cursor after drag
+
+        tableContainer.style.cursor = "default";
+
+        // 🔥 FORCE REBUILD AFTER DRAGGING & CASCADE
+        setTimeout(() => {
+          ensureTimelineRange(true); // recalc min/max dates
+          applyWOfilterAndRender(); // rebuild table
+        }, 250);
       }
 
       function attachDropHandlersToTd(td) {
@@ -1873,6 +1895,7 @@
               rev_sdate: newRevS_ISO,
               rev_edate: newRevE_ISO, // 'skill' property is no longer included
             });
+            await cascadeDependents(task._id, dayShift);
           } // 🔹 Auto reset selection after bulk move
           clearSelection();
         });
@@ -2653,6 +2676,259 @@
         isPanning = false;
         tableContainer.style.cursor = "default";
       });
+      document.addEventListener("keydown", (e) => {
+        if (e.ctrlKey && (e.key === "d" || e.key === "D")) {
+          e.preventDefault();
+          createDependencyFromSelection();
+        }
+      });
+      async function createDependencyFromSelection() {
+        // Need exactly 2 selected tasks
+        if (selectedTaskIds.length !== 2) {
+          alert("Please select EXACTLY two tasks, then press CTRL + D.");
+          return;
+        }
+
+        // Retrieve full task objects
+        const tasks = selectedTaskIds
+          .map((id) => window.currentRows.find((t) => t._id === id))
+          .filter(Boolean);
+
+        if (tasks.length !== 2) return;
+
+        const taskA = tasks[0];
+        const taskB = tasks[1];
+
+        // Determine earlier and later task
+        const startA = parseDateField(taskA.rev_sdate || taskA.sdate);
+        const startB = parseDateField(taskB.rev_sdate || taskB.sdate);
+
+        let parent, child;
+
+        if (startA <= startB) {
+          parent = taskA;
+          child = taskB;
+        } else {
+          parent = taskB;
+          child = taskA;
+        }
+
+        // Prepare dependency list
+        const deps = Array.isArray(child.dependencies)
+          ? [...child.dependencies]
+          : [];
+
+        // Prevent duplicate dependency
+        if (deps.includes(parent._id)) {
+          alert("These tasks already have this dependency.");
+          return;
+        }
+
+        // Add dependency
+        deps.push(parent._id);
+
+        await updateTask(child._id, { dependencies: deps });
+
+        alert(
+          `Dependency created:\n"${child.tasktitle}" now depends on "${parent.tasktitle}".`
+        );
+
+        clearSelection();
+      }
+      function ensureTimelineRange(forceRecalculate = false) {
+        // If already initialized and not forced, keep existing
+        if (!forceRecalculate && window.minDate && window.maxDate) {
+          return {
+            minKey: toSerialDayKey(window.minDate),
+            maxKey: toSerialDayKey(window.maxDate),
+          };
+        }
+
+        // If we reach here, we MUST calculate min/max safely
+        const validTasks = window.currentRows
+          ? window.currentRows.filter((t) => t.sdate || t.rev_sdate)
+          : [];
+
+        if (validTasks.length === 0) {
+          console.warn("⚠ Timeline cannot initialize — no tasks available yet");
+          return { minKey: 0, maxKey: 0 };
+        }
+
+        const startKeys = validTasks
+          .map((t) => parseDateField(t.rev_sdate || t.sdate))
+          .filter(Boolean)
+          .map(toSerialDayKey);
+
+        const endKeys = validTasks
+          .map((t) => parseDateField(t.rev_edate || t.edate))
+          .filter(Boolean)
+          .map(toSerialDayKey);
+
+        const minKey = Math.min(...startKeys);
+        const maxKey = Math.max(...endKeys);
+
+        window.minDate = dayKeyToDate(minKey);
+        window.maxDate = dayKeyToDate(maxKey);
+
+        return { minKey, maxKey };
+      }
+
+      let cascadeRenderPending = false;
+
+      async function cascadeDependents(parentId, dayShift) {
+        if (dayShift === 0) return;
+
+        const parent = window.currentRows.find((t) => t._id === parentId);
+        if (!parent) return;
+
+        const { minKey, maxKey } = ensureTimelineRange();
+
+        const children = window.currentRows.filter(
+          (t) =>
+            Array.isArray(t.dependencies) && t.dependencies.includes(parentId)
+        );
+
+        for (const child of children) {
+          const revS = parseDateField(child.rev_sdate || child.sdate);
+          const revE = parseDateField(child.rev_edate || child.edate);
+          if (!revS || !revE) continue;
+
+          const startKey = toSerialDayKey(revS);
+          const endKey = toSerialDayKey(revE);
+          const duration = endKey - startKey;
+
+          let newS = startKey + dayShift;
+          let newE = newS + duration;
+
+          // Clamp left boundary
+          if (newS < minKey) {
+            newS = minKey;
+            newE = newS + duration;
+          }
+          // Clamp right boundary
+          if (newE > maxKey) {
+            newE = maxKey;
+            newS = newE - duration;
+          }
+
+          await updateTask(child._id, {
+            rev_sdate: dayKeyToISO(newS),
+            rev_edate: dayKeyToISO(newE),
+          });
+
+          await cascadeDependents(child._id, dayShift);
+        }
+
+        // After ALL cascading is finished → trigger a single rebuild
+        if (!cascadeRenderPending) {
+          cascadeRenderPending = true;
+
+          setTimeout(() => {
+            cascadeRenderPending = false;
+            ensureTimelineRange(true); // recalc min/max BEFORE rendering
+            applyWOfilterAndRender(); // redraw the table completely
+          }, 150); // slight delay groups multiple updates together ✔
+        }
+      }
+
+      document.addEventListener("keydown", (e) => {
+        if (e.ctrlKey && (e.key === "e" || e.key === "E")) {
+          e.preventDefault();
+          removeDependencyFromSelection();
+        }
+      });
+      async function removeDependencyFromSelection() {
+        if (selectedTaskIds.length !== 2) {
+          alert(
+            "Please select EXACTLY two tasks, then press CTRL + E to remove dependency."
+          );
+          return;
+        }
+
+        // Get the tasks
+        const tasks = selectedTaskIds
+          .map((id) => window.currentRows.find((t) => t._id === id))
+          .filter(Boolean);
+
+        if (tasks.length !== 2) return;
+
+        const t1 = tasks[0];
+        const t2 = tasks[1];
+
+        // Case 1: t2 depends on t1
+        if (
+          Array.isArray(t2.dependencies) &&
+          t2.dependencies.includes(t1._id)
+        ) {
+          const updatedDeps = t2.dependencies.filter((dep) => dep !== t1._id);
+          await updateTask(t2._id, { dependencies: updatedDeps });
+          alert(
+            `Dependency removed:\n"${t2.tasktitle}" no longer depends on "${t1.tasktitle}".`
+          );
+          clearSelection();
+          return;
+        }
+
+        // Case 2: t1 depends on t2
+        if (
+          Array.isArray(t1.dependencies) &&
+          t1.dependencies.includes(t2._id)
+        ) {
+          const updatedDeps = t1.dependencies.filter((dep) => dep !== t2._id);
+          await updateTask(t1._id, { dependencies: updatedDeps });
+          alert(
+            `Dependency removed:\n"${t1.tasktitle}" no longer depends on "${t2.tasktitle}".`
+          );
+          clearSelection();
+          return;
+        }
+
+        // No dependency found
+        alert("These two tasks do NOT have a dependency.");
+        clearSelection();
+      }
+      function buildDependencyTooltip(task) {
+        if (!task) return "";
+
+        const tasks = window.currentRows;
+
+        // ---- PARENTS ----
+        let parentLines = "";
+        if (Array.isArray(task.dependencies) && task.dependencies.length > 0) {
+          parentLines = task.dependencies
+            .map((pid) => {
+              const t = tasks.find((x) => x._id === pid);
+              return t ? `• ${t.tasktitle || "(no title)"}` : "";
+            })
+            .filter(Boolean)
+            .join("\n");
+        } else {
+          parentLines = "• None";
+        }
+
+        // ---- CHILDREN ----
+        const children = tasks.filter(
+          (x) =>
+            Array.isArray(x.dependencies) && x.dependencies.includes(task._id)
+        );
+
+        let childLines = "";
+        if (children.length > 0) {
+          childLines = children
+            .map((t) => `• ${t.tasktitle || "(no title)"}`)
+            .join("\n");
+        } else {
+          childLines = "• None";
+        }
+
+        return (
+          "\n\nDependencies:" +
+          "\nParents:\n" +
+          parentLines +
+          "\nChildren:\n" +
+          childLines
+        );
+      }
     </script>
   </body>
 </html>
