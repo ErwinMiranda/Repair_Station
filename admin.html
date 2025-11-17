@@ -834,7 +834,7 @@
     </div>
 
     <!-- Firebase modules -->
-    <script type="module">
+   <script type="module">
       import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
       import {
         getFirestore,
@@ -1895,6 +1895,7 @@
               rev_sdate: newRevS_ISO,
               rev_edate: newRevE_ISO, // 'skill' property is no longer included
             });
+            cascadeVisited.clear();
             await cascadeDependents(task._id, dayShift);
           } // 🔹 Auto reset selection after bulk move
           clearSelection();
@@ -1941,6 +1942,18 @@
 
           modalTitle.textContent = "Add Task";
           modal.style.display = "flex";
+        });
+      }
+
+      let renderPending = false;
+
+      function scheduleRender() {
+        if (renderPending) return;
+        renderPending = true;
+        requestAnimationFrame(() => {
+          ensureTimelineRange(true);
+          applyWOfilterAndRender();
+          renderPending = false;
         });
       }
 
@@ -2101,6 +2114,14 @@
       let selectedTaskIds = [];
       let bulkClosingMode = false;
       let bulkActionAnchorTaskId = null;
+
+      document.addEventListener("click", (e) => {
+        if (e.target.closest(".task-block")) return;
+        if (e.target.closest("#remarks-editor")) return;
+        if (e.target.closest("#bulk-action-modal")) return;
+        if (e.target.closest("#task-modal")) return;
+        clearSelection();
+      });
 
       document.addEventListener("click", (e) => {
         const taskDiv = e.target.closest(".task-block");
@@ -2683,49 +2704,44 @@
         }
       });
       async function createDependencyFromSelection() {
-        // Need exactly 2 selected tasks
         if (selectedTaskIds.length !== 2) {
-          alert("Please select EXACTLY two tasks, then press CTRL + D.");
+          alert("Select exactly two tasks.");
           return;
         }
 
-        // Retrieve full task objects
         const tasks = selectedTaskIds
           .map((id) => window.currentRows.find((t) => t._id === id))
           .filter(Boolean);
 
-        if (tasks.length !== 2) return;
+        const A = tasks[0];
+        const B = tasks[1];
 
-        const taskA = tasks[0];
-        const taskB = tasks[1];
-
-        // Determine earlier and later task
-        const startA = parseDateField(taskA.rev_sdate || taskA.sdate);
-        const startB = parseDateField(taskB.rev_sdate || taskB.sdate);
+        const startA = parseDateField(A.rev_sdate || A.sdate);
+        const startB = parseDateField(B.rev_sdate || B.sdate);
 
         let parent, child;
 
         if (startA <= startB) {
-          parent = taskA;
-          child = taskB;
+          parent = A;
+          child = B;
         } else {
-          parent = taskB;
-          child = taskA;
+          parent = B;
+          child = A;
         }
 
-        // Prepare dependency list
-        const deps = Array.isArray(child.dependencies)
-          ? [...child.dependencies]
-          : [];
-
-        // Prevent duplicate dependency
-        if (deps.includes(parent._id)) {
-          alert("These tasks already have this dependency.");
+        // ⭐ 1. Detect circular loops
+        if (doesCreateCycle(parent._id, child._id)) {
+          alert(
+            "❌ Cannot create dependency: This will produce a circular dependency loop."
+          );
           return;
         }
 
-        // Add dependency
-        deps.push(parent._id);
+        // 2. Add dependency
+        const deps = Array.isArray(child.dependencies)
+          ? [...child.dependencies]
+          : [];
+        if (!deps.includes(parent._id)) deps.push(parent._id);
 
         await updateTask(child._id, { dependencies: deps });
 
@@ -2735,6 +2751,25 @@
 
         clearSelection();
       }
+
+      function doesCreateCycle(parentId, childId) {
+        const visited = new Set();
+
+        function dfs(taskId) {
+          if (taskId === parentId) return true; // cycle found
+          if (visited.has(taskId)) return false;
+
+          visited.add(taskId);
+
+          const t = window.currentRows.find((r) => r._id === taskId);
+          if (!t || !Array.isArray(t.dependencies)) return false;
+
+          return t.dependencies.some((dep) => dfs(dep));
+        }
+
+        return dfs(childId);
+      }
+
       function ensureTimelineRange(forceRecalculate = false) {
         // If already initialized and not forced, keep existing
         if (!forceRecalculate && window.minDate && window.maxDate) {
@@ -2775,8 +2810,13 @@
 
       let cascadeRenderPending = false;
 
+      const cascadeVisited = new Set();
+
       async function cascadeDependents(parentId, dayShift) {
         if (dayShift === 0) return;
+
+        if (cascadeVisited.has(parentId)) return; // ⭐ stop recursion loop
+        cascadeVisited.add(parentId);
 
         const parent = window.currentRows.find((t) => t._id === parentId);
         if (!parent) return;
