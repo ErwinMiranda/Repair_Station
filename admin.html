@@ -1138,15 +1138,40 @@
        * Closes a list of tasks with a specific closing remark AND a specific date.
        */
       async function closeTasks(taskIds, closingRemark, closeDateKey) {
-        // <-- 1. Added closeDateKey
         console.log(
           `Closing ${taskIds.length} tasks on dayKey ${closeDateKey}...`
         );
+
         for (const id of taskIds) {
           const task = window.currentRows.find((r) => r._id === id);
-          if (!task || (task.status || "").toLowerCase() === "closed") {
-            console.warn(`Skipping ${id}, not found or already closed.`);
-            continue;
+          if (!task) continue;
+
+          // 🔥 NEW RULE: Do NOT allow closing if ANY parent is still open
+          if (
+            Array.isArray(task.dependencies) &&
+            task.dependencies.length > 0
+          ) {
+            const parents = task.dependencies
+              .map((pid) => window.currentRows.find((t) => t._id === pid))
+              .filter(Boolean);
+
+            const openParents = parents.filter(
+              (p) => !p.status || p.status.toLowerCase() !== "closed"
+            );
+
+            if (openParents.length > 0) {
+              const parentNames = openParents
+                .map((p) => p.tasktitle || p._id)
+                .join(", ");
+
+              alert(
+                `❌ Cannot close "${task.tasktitle}".\n` +
+                  `The following parent tasks are still OPEN:\n` +
+                  parentNames
+              );
+
+              continue; // ⛔ Skip closing this task
+            }
           }
 
           const revS = parseDateField(task.rev_sdate ?? task.sdate);
@@ -2064,6 +2089,33 @@
               if (!task) continue;
 
               const revS = parseDateField(task.rev_sdate ?? task.sdate);
+
+              // ⛔ NEW CHECK: Prevent closing a child while parent is open
+              if (task.dependencies && task.dependencies.length > 0) {
+                const parents = task.dependencies
+                  .map((pid) => window.currentRows.find((r) => r._id === pid))
+                  .filter(Boolean);
+
+                const openParents = parents.filter(
+                  (p) => !p.status || p.status.toLowerCase() !== "closed"
+                );
+
+                if (openParents.length > 0) {
+                  const names = openParents
+                    .map((p) => p.tasktitle || p._id)
+                    .join(", ");
+
+                  alert(
+                    `❌ Cannot close "${task.tasktitle}".\n` +
+                      `It has parent tasks still open:\n${names}`
+                  );
+                  // Close editor
+                  remarksEditor.style.display = "none";
+                  remarksEditingTaskId = null;
+                  return; // STOP CLOSING
+                }
+              }
+
               const revE = parseDateField(task.rev_edate ?? task.edate);
               const startKey = revS
                 ? toSerialDayKey(revS)
@@ -2089,6 +2141,32 @@
               (r) => r._id === remarksEditingTaskId
             );
             if (!task) return;
+
+            // ⛔ NEW CHECK: Prevent closing a child while parent is open
+            if (task.dependencies && task.dependencies.length > 0) {
+              const parents = task.dependencies
+                .map((pid) => window.currentRows.find((r) => r._id === pid))
+                .filter(Boolean);
+
+              const openParents = parents.filter(
+                (p) => !p.status || p.status.toLowerCase() !== "closed"
+              );
+
+              if (openParents.length > 0) {
+                const names = openParents
+                  .map((p) => p.tasktitle || p._id)
+                  .join(", ");
+
+                alert(
+                  `❌ Cannot close "${task.tasktitle}".\n` +
+                    `It has parent tasks still open:\n${names}`
+                );
+                // Close editor
+                remarksEditor.style.display = "none";
+                remarksEditingTaskId = null;
+                return; // STOP CLOSING ❗
+              }
+            }
 
             const revS = parseDateField(task.rev_sdate ?? task.sdate);
             const revE = parseDateField(task.rev_edate ?? task.edate);
@@ -2241,10 +2319,43 @@
             status: f.statusClosed.checked ? "Closed" : "open",
             workorder: f.workorder.value || undefined,
           };
+
+          // ⛔ MUST RUN BEFORE any updateTask()
+          // ---------------------------------------
+          if (modalEditingId && payload.status === "Closed") {
+            const task = window.currentRows.find(
+              (t) => t._id === modalEditingId
+            );
+
+            if (task && task.dependencies && task.dependencies.length > 0) {
+              const parents = task.dependencies
+                .map((pid) => window.currentRows.find((t) => t._id === pid))
+                .filter(Boolean);
+
+              const openParents = parents.filter(
+                (p) => !p.status || p.status.toLowerCase() !== "closed"
+              );
+
+              if (openParents.length > 0) {
+                const names = openParents
+                  .map((p) => p.tasktitle || p._id)
+                  .join(", ");
+
+                alert(
+                  `❌ Cannot close "${task.tasktitle}".\n` +
+                    `It has parent tasks still OPEN:\n${names}`
+                );
+                closeTaskModal();
+                return; // ⛔ STOP — DO NOT SAVE ANY UPDATE
+              }
+            }
+          }
+          // ---------------------------------------
+
+          // ✔️ Only update after dependency check passes
           if (modalEditingId) {
             await updateTask(modalEditingId, payload);
           } else {
-            // if taskid provided and you want it as doc ID, use it
             if (payload.taskid) {
               payload._id = payload.taskid;
               await createTask(payload);
@@ -2252,8 +2363,10 @@
               await createTask(payload);
             }
           }
+
           closeTaskModal();
         });
+
       // --- New Bulk Action Modal Listeners ---
 
       bulkActionCancel.addEventListener("click", () => {
@@ -2872,7 +2985,7 @@
       }
 
       document.addEventListener("keydown", (e) => {
-        if (e.ctrlKey && (e.key === "e" || e.key === "E")) {
+        if (e.ctrlKey && (e.key === "x" || e.key === "X")) {
           e.preventDefault();
           removeDependencyFromSelection();
         }
