@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
-    <script src="auth.js"></script>
+        <script src="auth.js"></script>
     <script>
       requireLogin();
     </script>
@@ -573,7 +573,7 @@
         id="open-batch-add-btn"
         style="margin-left: 10px; background: #28a745; color: white"
       >
-        Batch Add Tasks
+        Batch Add Milestone
       </button>
       <div
         style="
@@ -631,10 +631,10 @@
     <!-- Modal for create/edit -->
     <div id="task-modal" class="modal" role="dialog">
       <div class="card">
-        <h3 id="modal-title">Edit Task</h3>
+        <h3 id="modal-title">Edit Milestone</h3>
         <div class="form-row">
           <div style="flex: 1">
-            <label>Task ID (optional)</label>
+            <label>Milestone ID (optional)</label>
             <input
               id="f-taskid"
               type="text"
@@ -773,15 +773,15 @@
     </div>
     <div id="batch-add-modal" class="modal" role="dialog">
       <div class="card" style="width: 700px">
-        <h3>Batch Add Tasks</h3>
+        <h3>Batch Add Milestone</h3>
         <p style="font-size: 13px; color: #333; margin-top: 0">
-          Add tasks to the queue. They will all be saved to the current Work
+          Add milestone to the queue. They will all be saved to the current Work
           Order when you click "Save All".
         </p>
 
         <div class="form-row" style="align-items: flex-end">
           <div style="flex: 2">
-            <label>Task Title</label>
+            <label>Milestone Title</label>
             <input id="b-tasktitle" type="text" />
           </div>
           <div style="flex: 1">
@@ -805,7 +805,7 @@
 
         <hr style="margin: 15px 0" />
 
-        <label>Task Queue (<span id="queue-count">0</span>)</label>
+        <label>Milestone Queue (<span id="queue-count">0</span>)</label>
         <div
           id="task-queue-list"
           style="
@@ -840,7 +840,7 @@
       >
         <button id="remarks-save" class="primary">Save</button>
         <button id="remarks-cancel" class="muted">Cancel</button>
-        <button id="remarks-close-task" class="danger">Close Task</button>
+        <button id="remarks-close-task" class="danger">Close Milestone</button>
       </div>
     </div>
 
@@ -880,13 +880,13 @@
       let app, db, auth;
       let firestoreConnected = false; // ✅ added flag
       let unsubscribe = null;
-
       let skillDisplayOrder = []; // Order of skills based on click sequence
       // === Skill Visibility Globals ===
       let collapsedSkills = new Set(); // tracks which skills are hidden
       window.availableSkills = []; // skills currently present in dataset
       window.skillToolbarInitialized = false; // ensures toolbar is built once
       let isBatchSaving = false;
+
       // custom skill order
       const SKILL_ORDER = [
         "SHOP",
@@ -980,7 +980,7 @@
         // Add a default "General" option
         const defaultOpt = document.createElement("option");
         defaultOpt.value = "GEN"; // Use "GEN" or "Unassigned"
-        defaultOpt.textContent = "General / Unassigned";
+        defaultOpt.textContent = "GEN";
         select.appendChild(defaultOpt);
 
         // Add all skills from the global list
@@ -1659,7 +1659,7 @@
 
             if (allHidden) {
               container.innerHTML =
-                '<div style="padding:12px;color:#777">No tasks visible — all skills hidden</div>';
+                '<div style="padding:12px;color:#777">No milestone visible — all skills hidden</div>';
             } else {
               // Re-render table with new skillDisplayOrder
               scheduleRender();
@@ -1868,7 +1868,9 @@
               // 3. Configure the Modal UI
               const count = selectedTaskIds.length;
               document.getElementById("bulk-action-title").textContent =
-                count > 1 ? `Bulk Action for ${count} Tasks` : "Task Action";
+                count > 1
+                  ? `Bulk Action for ${count} Milestone`
+                  : "Milestone Action";
 
               // --- UPDATED: Set date to the TASK'S current start date ---
               // Priority: Revised Start -> Planned Start -> Today (fallback)
@@ -2071,7 +2073,7 @@
           f.statusOpen.checked = true;
           f.workorder.value = woFilterValue || "";
 
-          modalTitle.textContent = "Add Task";
+          modalTitle.textContent = "Add Milestone";
           modal.style.display = "flex";
         });
       }
@@ -2402,10 +2404,10 @@
         .getElementById("delete-task-btn")
         .addEventListener("click", async () => {
           if (!modalEditingId) {
-            alert("No task selected to delete");
+            alert("No milestone selected to delete");
             return;
           }
-          if (!confirm("Delete this task?")) return;
+          if (!confirm("Delete this milestone?")) return;
           await deleteTask(modalEditingId);
           closeTaskModal();
         });
@@ -2551,14 +2553,14 @@
         );
         if (!anchorTask) {
           alert(
-            "Error: Anchor task not found. Cannot perform relative replan."
+            "Error: Anchor milestone not found. Cannot perform relative replan."
           );
           return;
         }
         const anchorOrigSDate = parseDateField(anchorTask.sdate);
         if (!anchorOrigSDate) {
           alert(
-            "Error: Anchor task is missing its original start date (sdate)."
+            "Error: Anchor milestone is missing its original start date (sdate)."
           );
           return;
         }
@@ -2836,7 +2838,7 @@
         if (
           taskQueue.length > 0 &&
           !confirm(
-            "You have tasks in the queue. Are you sure you want to cancel?"
+            "You have milestone in the queue. Are you sure you want to cancel?"
           )
         ) {
           return; // Do not close
@@ -2847,7 +2849,7 @@
 
       function openTaskModal(task) {
         modalEditingId = null;
-        modalTitle.textContent = task ? "Edit Task" : "Add Task";
+        modalTitle.textContent = task ? "Edit Milestone" : "Add Milestone";
         // reset
         // Reset inputs (but skip radio buttons so we don't wipe their values)
         Object.values(f).forEach((inp) => {
