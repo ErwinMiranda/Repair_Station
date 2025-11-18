@@ -845,7 +845,7 @@
     </div>
 
     <!-- Firebase modules -->
-    <script type="module">
+     <script type="module">
       import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
       import {
         getFirestore,
@@ -1547,27 +1547,37 @@
         labelCumTd.style.zIndex = "16"; // ⭐ higher than row to keep sticky
         cumulativeTr.appendChild(labelCumTd);
 
-        const counts = {};
-        const closedCounts = {};
+        // --- NEW cumulative logic ---
+        const totalsPerDay = {}; // how many tasks cover each day
+        const closedFinishDay = {}; // how many tasks finish (closed) on a specific day
 
+        // 1. Collect per-day totals AND closed finish dates
         normalized.forEach((task) => {
           const rs = task._rev_sdate ? toSerialDayKey(task._rev_sdate) : null;
           const re = task._rev_edate ? toSerialDayKey(task._rev_edate) : null;
           if (rs === null || re === null) return;
 
+          // count tasks covering the day (non-cumulative)
           for (let d = rs; d <= re; d++) {
-            counts[d] = (counts[d] || 0) + 1;
-            if (task.status?.toLowerCase() === "closed" && re <= d) {
-              closedCounts[d] = (closedCounts[d] || 0) + 1;
-            }
+            totalsPerDay[d] = (totalsPerDay[d] || 0) + 1;
+          }
+
+          // mark closed tasks only once — on their end day
+          if ((task.status || "").toLowerCase() === "closed") {
+            closedFinishDay[re] = (closedFinishDay[re] || 0) + 1;
           }
         });
 
+        // 2. Build cumulative row
+        let runningTotal = 0;
+        let runningClosed = 0;
+
         dayKeys.forEach((dk) => {
+          runningTotal += totalsPerDay[dk] || 0;
+          runningClosed += closedFinishDay[dk] || 0;
+
           const td = document.createElement("td");
-          const tot = counts[dk] || 0;
-          const closed = closedCounts[dk] || 0;
-          td.textContent = `${closed} / ${tot}`;
+          td.textContent = `${runningClosed} / ${runningTotal}`;
           td.style.background = "#E9EAF2";
           td.style.position = "sticky";
           td.style.top = cumulativeStickyTop;
@@ -3292,6 +3302,81 @@
           childLines
         );
       }
+      document.addEventListener("keydown", async (e) => {
+        // Must have selected tasks
+        if (selectedTaskIds.length === 0) return;
+
+        // Accept both Delete and Backspace (optional)
+        if (e.key !== "Delete") return;
+
+        // Prevent browser from navigating back
+        e.preventDefault();
+
+        const count = selectedTaskIds.length;
+
+        // Confirmation
+        if (!confirm(`Delete ${count} selected milestone(s)?`)) return;
+
+        // Perform the delete
+        for (const id of selectedTaskIds) {
+          await deleteTask(id); // You already have this function
+        }
+
+        // Clear selection after deleting
+        clearSelection();
+      });
+      document.addEventListener("click", (e) => {
+        const taskDiv = e.target.closest(".task-block");
+        if (!taskDiv) return;
+
+        const tid = taskDiv.dataset.taskId;
+        const task = window.currentRows.find((t) => t._id === tid);
+        if (!task) return;
+
+        // SHIFT + ALT = Only select CLOSED tasks
+        if (e.shiftKey && e.altKey) {
+          if ((task.status || "").toLowerCase() !== "closed") {
+            return; // ignore open tasks
+          }
+
+          // Multi-select closed tasks only
+          if (!selectedTaskIds.includes(tid)) {
+            selectedTaskIds.push(tid);
+            taskDiv.classList.add("task-selected");
+          }
+
+          return;
+        }
+      });
+      document.addEventListener("keydown", async (e) => {
+        // SHIFT + ALT + O
+        if (e.key.toLowerCase() === "o" && e.shiftKey && e.altKey) {
+          if (selectedTaskIds.length === 0) return;
+
+          // Filter only CLOSED tasks
+          const closedOnly = selectedTaskIds.filter((id) => {
+            const t = window.currentRows.find((r) => r._id === id);
+            return t && (t.status || "").toLowerCase() === "closed";
+          });
+
+          if (closedOnly.length === 0) {
+            alert("No closed milestones selected to open.");
+            return;
+          }
+
+          if (!confirm(`Open ${closedOnly.length} closed milestone(s)?`))
+            return;
+
+          for (const id of closedOnly) {
+            await updateTask(id, {
+              status: "open",
+              // keep dates unchanged
+            });
+          }
+
+          clearSelection();
+        }
+      });
     </script>
   </body>
 </html>
