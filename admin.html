@@ -503,6 +503,7 @@
           height: auto !important;
           overflow: visible !important;
           border: none;
+          width: 100%;
         }
 
         /* Remove Sticky positioning (causes glitches in PDF/Print) */
@@ -549,6 +550,9 @@
       }
       .queue-item span {
         color: #555;
+      }
+      .skill-row {
+        border-top: 4px solid #000 !important; /* thick separator */
       }
     </style>
   </head>
@@ -616,7 +620,14 @@
     </div>
 
     <div style="margin-bottom: 10px"></div>
+    <!-- Skill Filter Toolbar -->
+    <div
+      id="skill-toolbar"
+      style="display: flex; gap: 6px; margin-bottom: 6px; flex-wrap: wrap"
+    ></div>
+
     <div id="matrix-container"></div>
+
     <!-- Modal for create/edit -->
     <div id="task-modal" class="modal" role="dialog">
       <div class="card">
@@ -834,7 +845,7 @@
     </div>
 
     <!-- Firebase modules -->
-  <script type="module">
+    <script type="module">
       import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
       import {
         getFirestore,
