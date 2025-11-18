@@ -845,7 +845,7 @@
     </div>
 
     <!-- Firebase modules -->
-     <script type="module">
+    <script type="module">
       import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
       import {
         getFirestore,
@@ -2243,8 +2243,6 @@
               await updateTask(task._id, {
                 status: "Closed",
                 remarks: remarksText,
-                rev_sdate: dayKeyToISO(todayKey),
-                rev_edate: dayKeyToISO(todayKey + duration),
               });
             }
 
@@ -2296,8 +2294,6 @@
             await updateTask(task._id, {
               status: "Closed",
               remarks: remarksText,
-              rev_sdate: dayKeyToISO(todayKey),
-              rev_edate: dayKeyToISO(todayKey + duration),
             });
           }
 
@@ -2899,7 +2895,6 @@
         }
 
         renderTaskQueue();
-        resetBatchForm();
       });
 
       // 3. Save the entire queue to Firestore
