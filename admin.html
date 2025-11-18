@@ -834,7 +834,7 @@
     </div>
 
     <!-- Firebase modules -->
-   <script type="module">
+  <script type="module">
       import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
       import {
         getFirestore,
@@ -869,6 +869,13 @@
       let app, db, auth;
       let firestoreConnected = false; // ✅ added flag
       let unsubscribe = null;
+
+      let skillDisplayOrder = []; // Order of skills based on click sequence
+      // === Skill Visibility Globals ===
+      let collapsedSkills = new Set(); // tracks which skills are hidden
+      window.availableSkills = []; // skills currently present in dataset
+      window.skillToolbarInitialized = false; // ensures toolbar is built once
+
       // custom skill order
       const SKILL_ORDER = [
         "SHOP",
@@ -1084,11 +1091,34 @@
             snapshot.forEach((docSnap) => {
               rows.push({ _id: docSnap.id, ...docSnap.data() });
             });
+            // Build rows normally...
+            // inside onSnapshot success callback, after building rows:
             window.currentRows = rows;
 
-            // Always initialize the timeline immediately after loading new tasks
-            ensureTimelineRange(true);
+            // derive current skill set (preserve SKILL_ORDER where possible)
+            const skillSet = new Set();
+            rows.forEach((r) => skillSet.add(r.skill || "Unassigned"));
 
+            // Build ordered skill list: SKILL_ORDER first, then any extras (stable order)
+            const ordered = [];
+            SKILL_ORDER.forEach((s) => {
+              if (skillSet.has(s)) {
+                ordered.push(s);
+                skillSet.delete(s);
+              }
+            });
+            [...skillSet].sort().forEach((s) => ordered.push(s)); // add remaining alphabetically
+
+            window.availableSkills = ordered;
+
+            // Render toolbar only once (keeps buttons stable)
+            if (!window.skillToolbarInitialized) {
+              renderSkillToolbar(window.availableSkills);
+              window.skillToolbarInitialized = true;
+            }
+
+            // Ensure timeline + render
+            ensureTimelineRange(true);
             applyWOfilterAndRender();
           },
           (err) => {
@@ -1226,7 +1256,6 @@
 
       // ---------- Build matrix table ----------
       // store collapsed skills globally
-      let collapsedSkills = new Set();
 
       function buildMatrixTable(rows) {
         // normalize rows
@@ -1235,7 +1264,7 @@
           const e = parseDateField(r.edate);
           const rs = parseDateField(r.rev_sdate ?? r.sdate);
           const re = parseDateField(r.rev_edate ?? r.edate);
-          const os = parseDateField(r.orig_sdate); // <-- ADDED
+          const os = parseDateField(r.orig_sdate);
           return {
             ...r,
             _sdate: s,
@@ -1246,12 +1275,10 @@
           };
         });
 
-        // compute min/max dates
-        // Use revised dates FIRST — fall back to original only if missing
+        // compute min/max from revised FIRST
         const sCandidates = normalized
           .map((r) => r._rev_sdate || r._sdate)
           .filter(Boolean);
-
         const eCandidates = normalized
           .map((r) => r._rev_edate || r._edate)
           .filter(Boolean);
@@ -1263,12 +1290,14 @@
             "No date range";
           return;
         }
+
         let minDate = new Date(
           Math.min(...sCandidates.map((d) => d.getTime()))
         );
         let maxDate = new Date(
           Math.max(...eCandidates.map((d) => d.getTime()))
         );
+
         minDate = new Date(
           minDate.getFullYear(),
           minDate.getMonth(),
@@ -1280,14 +1309,21 @@
           maxDate.getDate()
         );
         window.minDate = minDate;
-        // build array of day keys
-        const dayKeys = [];
-        for (let k = toSerialDayKey(minDate); k <= toSerialDayKey(maxDate); k++)
-          dayKeys.push(k);
 
-        // update heading
+        // build day keys
+        const dayKeys = [];
+        for (
+          let k = toSerialDayKey(minDate);
+          k <= toSerialDayKey(maxDate);
+          k++
+        ) {
+          dayKeys.push(k);
+        }
+
+        // heading update
         const acregs = [...new Set(rows.map((r) => r.acreg).filter(Boolean))];
         window.currentAcregs = acregs;
+
         const todayKey = toSerialDayKey(new Date());
         const startKey = toSerialDayKey(minDate);
         const dayOfPlan = todayKey - startKey + 1;
@@ -1307,19 +1343,27 @@
         });
 
         const sortedGrouped = Object.entries(grouped).sort(([a], [b]) => {
-          const ia = SKILL_ORDER.indexOf(a);
-          const ib = SKILL_ORDER.indexOf(b);
-          return (ia === -1 ? Infinity : ia) - (ib === -1 ? Infinity : ib);
+          const ia = skillDisplayOrder.indexOf(a);
+          const ib = skillDisplayOrder.indexOf(b);
+
+          if (ia === -1 && ib === -1) {
+            // fallback to SKILL_ORDER
+            return SKILL_ORDER.indexOf(a) - SKILL_ORDER.indexOf(b);
+          }
+          if (ia === -1) return 1;
+          if (ib === -1) return -1;
+          return ia - ib;
         });
 
         // create table
         const table = document.createElement("table");
 
-        // header rows
-        // header rows
+        // HEADER ROWS (unchanged)
         const headerRow1 = document.createElement("tr");
-        headerRow1.innerHTML = `<th rowspan="3" 
-  style="min-width:120px; position:sticky; left:0; z-index:24;">Skill</th>`;
+        headerRow1.innerHTML = `
+        <th rowspan="3" style="min-width:120px; position:sticky; left:0; z-index:24;">
+            Skill
+        </th>`;
         dayKeys.forEach((k) => {
           const dateObj = dayKeyToDate(k);
           const th = document.createElement("th");
@@ -1341,7 +1385,7 @@
           th.textContent = weekdayShort(dateObj);
           if (dateObj.getUTCDay() === 0) th.classList.add("sunday");
           th.style.position = "sticky";
-          th.style.top = "30px"; // adjust based on header height
+          th.style.top = "30px";
           th.style.background = "white";
           th.style.zIndex = "9";
           headerRow2.appendChild(th);
@@ -1355,53 +1399,38 @@
           th.textContent = `Day ${idx + 1}`;
           if (dateObj.getUTCDay() === 0) th.classList.add("sunday");
           th.style.position = "sticky";
-          th.style.top = "60px"; // adjust based on stacked header height
+          th.style.top = "60px";
           th.style.background = "white";
           th.style.zIndex = "8";
           headerRow3.appendChild(th);
         });
         table.appendChild(headerRow3);
 
-        // iterate skill groups
+        // ================================
+        //  MAIN TASK ROWS (no skill row!)
+        // ================================
         sortedGrouped.forEach(([skill, tasks], skillIndex) => {
           const groupId = `skill-${skillIndex}`;
 
-          // skill header row
-          const skillTr = document.createElement("tr");
-          skillTr.classList.add("skill-row");
-          const skillTd = document.createElement("td");
-          skillTd.style.position = "sticky";
-          skillTd.colSpan = dayKeys.length + 1;
-          skillTd.style.background = "#ecf0f1";
-          skillTd.style.padding = "2px 6px";
-          skillTd.style.fontSize = "12px";
-          skillTd.style.lineHeight = "1.2";
-          skillTd.style.height = "20px";
-          skillTd.style.cursor = "pointer";
-          skillTd.textContent = collapsedSkills.has(skill) ? `▶ ${skill}` : `▼`;
+          // INSERT THICK SEPARATOR ROW
+          const sepTr = document.createElement("tr");
+          sepTr.classList.add("skill-separator-row");
 
-          skillTd.addEventListener("click", () => {
-            const rows = document.querySelectorAll(`.task-row-${groupId}`);
-            if (!rows.length) return;
-            const isVisible = rows[0].style.display !== "none";
-            rows.forEach((tr) => (tr.style.display = isVisible ? "none" : ""));
-            if (isVisible) {
-              collapsedSkills.add(skill);
-              skillTd.textContent = `▶ ${skill}`;
-            } else {
-              collapsedSkills.delete(skill);
-              skillTd.textContent = `▼`;
-            }
-          });
+          // ↓ KEEP BELOW sticky headers
+          sepTr.style.position = "relative";
+          sepTr.style.zIndex = "1";
+          const sepTd = document.createElement("td");
+          sepTd.colSpan = dayKeys.length + 1;
+          sepTd.style.borderTop = "1px solid #ccc";
+          sepTd.style.padding = "0";
+          sepTd.style.height = "0px";
+          sepTr.appendChild(sepTd);
+          table.appendChild(sepTr);
 
-          skillTr.appendChild(skillTd);
-          table.appendChild(skillTr);
-
-          // stacking
-          // stacking
+          // STACK rows
           const stackedRows = [];
+
           tasks.forEach((task) => {
-            // --- 1. Get all three date keys ---
             const origSKey = task._orig_sdate
               ? toSerialDayKey(task._orig_sdate)
               : null;
@@ -1415,30 +1444,26 @@
               ? toSerialDayKey(task._edate)
               : revSKey;
 
-            // --- 2. Populate the 'used' Set for this row ---
             const used = new Set();
 
-            // A. Add days for the NEW gray history line (Orig -> Plan)
+            // history + glow + block
             if (origSKey !== null && sKey !== null && origSKey !== sKey) {
-              if (sKey < origSKey)
-                for (let d = sKey; d <= origSKey; d++) used.add(d);
-              else for (let d = origSKey; d <= sKey; d++) used.add(d);
+              const low = Math.min(origSKey, sKey);
+              const high = Math.max(origSKey, sKey);
+              for (let d = low; d <= high; d++) used.add(d);
             }
 
-            // B. Add days for the red/green glow line (Plan -> Revised)
             if (sKey !== null && revSKey !== null && sKey !== revSKey) {
-              if (revSKey < sKey)
-                for (let d = revSKey; d <= sKey; d++) used.add(d);
-              else for (let d = sKey; d <= revSKey; d++) used.add(d);
+              const low = Math.min(sKey, revSKey);
+              const high = Math.max(sKey, revSKey);
+              for (let d = low; d <= high; d++) used.add(d);
             }
 
-            // C. Add days for the task block itself (Revised Start -> Revised End)
             if (revSKey !== null && revEKey !== null) {
               for (let d = revSKey; d <= revEKey; d++) used.add(d);
             }
 
-            // --- 3. Find a row to place the task ---
-
+            // Try to place into existing stacked rows
             let placed = false;
             for (const rowArr of stackedRows) {
               const conflict = dayKeys.some(
@@ -1450,8 +1475,12 @@
                 break;
               }
             }
+
+            // Create new row if needed
             if (!placed) {
               const rowArr = [];
+
+              // skill cell (first row only)
               if (stackedRows.length === 0) {
                 const skillCell = document.createElement("td");
                 skillCell.textContent = skill;
@@ -1460,119 +1489,91 @@
                 skillCell.style.background = "#fff";
                 skillCell.style.position = "sticky";
                 skillCell.style.left = "0";
-                skillCell.style.zIndex = "3";
                 skillCell.style.borderRight = "1px solid #ccc";
-                skillCell.style.verticalAlign = "middle";
                 skillCell.style.textAlign = "center";
                 rowArr.push(skillCell);
               } else {
                 rowArr.push(document.createElement("td"));
               }
+
               for (let i = 0; i < dayKeys.length; i++) {
                 rowArr.push(document.createElement("td"));
               }
+
               insertTaskToRow(rowArr, task, used, dayKeys);
               stackedRows.push(rowArr);
             }
           });
 
-          // append stacked rows
+          // append rows
           stackedRows.forEach((rowArr) => {
             const tr = document.createElement("tr");
-            tr.classList.add(`task-row-${groupId}`);
             tr.dataset.skill = skill;
-            if (collapsedSkills.has(skill)) tr.style.display = "none";
+
+            // Respect current collapsed state at render-time
+            // respect collapsed state
+            tr.style.display = collapsedSkills.has(skill) ? "none" : "";
+
             rowArr.forEach((td) => tr.appendChild(td));
             table.appendChild(tr);
           });
         });
 
-        const ngayonKey = toSerialDayKey(new Date());
+        // cumulative row (unchanged)
+        const cumulativeStickyTop = "90px";
+        const cumulativeTr = document.createElement("tr");
+        cumulativeTr.style.background = "#E9EAF2";
+        cumulativeTr.style.position = "sticky";
+        cumulativeTr.style.top = cumulativeStickyTop;
+        cumulativeTr.style.zIndex = "15"; // ⭐ stays above tasks but below headers
+        cumulativeTr.style.boxShadow = "0 2px 4px rgba(0,0,0,0.05)"; // optional
+        const labelCumTd = document.createElement("td");
+        labelCumTd.textContent = "Closed / Total";
+        labelCumTd.style.position = "sticky";
+        labelCumTd.style.top = cumulativeStickyTop;
+        labelCumTd.style.left = "0";
+        labelCumTd.style.background = "#E9EAF2";
+        labelCumTd.style.zIndex = "16"; // ⭐ higher than row to keep sticky
+        cumulativeTr.appendChild(labelCumTd);
 
-        // ✅ compute totals per dayKey
         const counts = {};
         const closedCounts = {};
 
         normalized.forEach((task) => {
-          const revSKey = task._rev_sdate
-            ? toSerialDayKey(task._rev_sdate)
-            : task._sdate
-            ? toSerialDayKey(task._sdate)
-            : null;
-          const revEKey = task._rev_edate
-            ? toSerialDayKey(task._rev_edate)
-            : task._edate
-            ? toSerialDayKey(task._edate)
-            : revSKey;
+          const rs = task._rev_sdate ? toSerialDayKey(task._rev_sdate) : null;
+          const re = task._rev_edate ? toSerialDayKey(task._rev_edate) : null;
+          if (rs === null || re === null) return;
 
-          if (revSKey !== null && revEKey !== null) {
-            for (let d = revSKey; d <= revEKey; d++) {
-              counts[d] = (counts[d] || 0) + 1;
-
-              // mark closed if task is finished and end date <= that day
-              if (
-                task.status &&
-                task.status.toLowerCase() === "closed" &&
-                revEKey <= d
-              ) {
-                closedCounts[d] = (closedCounts[d] || 0) + 1;
-              }
+          for (let d = rs; d <= re; d++) {
+            counts[d] = (counts[d] || 0) + 1;
+            if (task.status?.toLowerCase() === "closed" && re <= d) {
+              closedCounts[d] = (closedCounts[d] || 0) + 1;
             }
           }
         });
 
-        // ✅ build cumulative row
-        const cumulativeStickyTop = "90px"; // 50px (last th) + 25px (assumed th height)
-        const cumulativeTr = document.createElement("tr");
-        cumulativeTr.style.background = "#E9EAF2";
-        cumulativeTr.style.textAlign = "center";
-        cumulativeTr.style.fontSize = "14px";
-        cumulativeTr.style.height = "30px"; // thick black line
-
-        const labelCumTd = document.createElement("td");
-        labelCumTd.textContent = "Closed / Total"; // --- ADDED STICKY STYLES ---
-        labelCumTd.style.position = "sticky";
-        labelCumTd.style.top = cumulativeStickyTop;
-        labelCumTd.style.left = "0";
-        labelCumTd.style.zIndex = "22"; // Below main 'Skill' TH (24), above others
-        labelCumTd.style.background = "#E9EAF2"; // Needs own background
-        labelCumTd.style.borderRight = "1px solid #ccc"; // --- END ADDED ---
-        cumulativeTr.appendChild(labelCumTd);
-
-        // fill cumulative per day
-        let runningTotal = 0;
-        let runningClosed = 0;
-
         dayKeys.forEach((dk) => {
-          runningTotal += counts[dk] || 0;
-          runningClosed += closedCounts[dk] || 0;
-
           const td = document.createElement("td");
-          td.style.textAlign = "center";
-          td.textContent = `${runningClosed} / ${runningTotal}`; // --- ADDED STICKY STYLES ---
-
+          const tot = counts[dk] || 0;
+          const closed = closedCounts[dk] || 0;
+          td.textContent = `${closed} / ${tot}`;
+          td.style.background = "#E9EAF2";
           td.style.position = "sticky";
           td.style.top = cumulativeStickyTop;
-          td.style.zIndex = "7"; // Below TH headers (8, 9, 10)
-          td.style.background = "#E9EAF2"; // Needs own background // --- END ADDED ---
           cumulativeTr.appendChild(td);
         });
 
-        // ✅ insert below header row
         table.insertBefore(cumulativeTr, table.rows[3]);
-        //table.insertBefore(totalsTr, table.rows[3]);
-        // (optional) then insert "Total Tasks per Day" row right after it
-        //table.insertBefore(totalsTr, table.rows[4]);
 
-        // set dataset.day and drop handlers
+        // set dataset.day and attach drop handlers
         const trs = table.querySelectorAll("tr");
         trs.forEach((tr, idx) => {
           if (idx < 3) return;
           const tds = tr.querySelectorAll("td");
-          if (!tds.length) return;
           const headerTh = table
             .querySelector("tr:first-child")
             .querySelectorAll("th");
+
           for (let i = 1; i < tds.length; i++) {
             const hd = headerTh[i];
             if (hd?.dataset?.day) {
@@ -1581,11 +1582,103 @@
             attachDropHandlersToTd(tds[i]);
           }
         });
-
-        // render container
+        // Re-apply collapse state after rendering
+        for (const skill of collapsedSkills) {
+          applySkillCollapse(skill);
+        }
         const container = document.getElementById("matrix-container");
         container.innerHTML = "";
         container.appendChild(table);
+      }
+
+      function renderSkillToolbar(skills) {
+        const bar = document.getElementById("skill-toolbar");
+        bar.innerHTML = "";
+
+        // keep the same order passed in `skills`
+        skills.forEach((skill) => {
+          const btn = document.createElement("button");
+          btn.dataset.skill = skill;
+          btn.textContent = skill;
+          btn.style.padding = "4px 10px";
+          btn.style.borderRadius = "6px";
+          btn.style.cursor = "pointer";
+          btn.style.border = "1px solid #cfcfcf";
+          btn.style.transition = "background .12s, color .12s";
+
+          // initial style from collapsedSkills set
+          const isCollapsed = collapsedSkills.has(skill);
+          btn.style.background = isCollapsed ? "#ddd" : "#3b82f6";
+          btn.style.color = isCollapsed ? "#333" : "#fff";
+
+          btn.addEventListener("click", () => {
+            const skill = btn.dataset.skill;
+
+            // 🔄 Toggle collapsed state
+            if (collapsedSkills.has(skill)) {
+              collapsedSkills.delete(skill);
+
+              // 🔵 If becoming visible → add to skillDisplayOrder (at end)
+              if (!skillDisplayOrder.includes(skill)) {
+                skillDisplayOrder.push(skill);
+              }
+            } else {
+              collapsedSkills.add(skill);
+
+              // ⚪ If becoming hidden → remove from skillDisplayOrder
+              skillDisplayOrder = skillDisplayOrder.filter((s) => s !== skill);
+            }
+
+            // 🔧 Update button color
+            const nowCollapsed = collapsedSkills.has(skill);
+            btn.style.background = nowCollapsed ? "#ddd" : "#3b82f6";
+            btn.style.color = nowCollapsed ? "#333" : "#fff";
+
+            // 🔄 Apply change to table rows
+            applySkillCollapse(skill);
+
+            // 👀 Special case: all skills hidden → show message
+            const allHidden =
+              window.availableSkills.length > 0 &&
+              window.availableSkills.every((s) => collapsedSkills.has(s));
+
+            const container = document.getElementById("matrix-container");
+
+            if (allHidden) {
+              container.innerHTML =
+                '<div style="padding:12px;color:#777">No tasks visible — all skills hidden</div>';
+            } else {
+              // Re-render table with new skillDisplayOrder
+              scheduleRender();
+            }
+          });
+
+          bar.appendChild(btn);
+        });
+      }
+
+      function updateSkillButtonStyle(btn) {
+        const skill = btn.dataset.skill;
+
+        if (collapsedSkills.has(skill)) {
+          btn.style.background = "#dddddd"; // hidden
+          btn.style.color = "#333";
+        } else {
+          btn.style.background = "#3b82f6"; // visible
+          btn.style.color = "#fff";
+        }
+      }
+
+      function applySkillCollapse(skill) {
+        const rows = document.querySelectorAll(`tr[data-skill="${skill}"]`);
+
+        rows.forEach((tr) => {
+          if (collapsedSkills.has(skill)) {
+            tr.style.display = "none"; // hide only this skill
+          } else {
+            tr.style.display = ""; // show only this skill
+          }
+        });
       }
 
       function insertTaskToRow(rowTds, task, usedDatesSet, dayKeys) {
