@@ -886,7 +886,7 @@
       let collapsedSkills = new Set(); // tracks which skills are hidden
       window.availableSkills = []; // skills currently present in dataset
       window.skillToolbarInitialized = false; // ensures toolbar is built once
-
+      let isBatchSaving = false;
       // custom skill order
       const SKILL_ORDER = [
         "SHOP",
@@ -2804,17 +2804,31 @@
       });
       // 3. Save the entire queue to Firestore
       batchSaveAllBtn.addEventListener("click", async () => {
+        if (isBatchSaving) return; // ⛔ Prevent duplicate clicks immediately
         if (taskQueue.length === 0) {
           alert("Queue is empty. Nothing to save.");
           return;
         }
 
-        // This is the function from the previous step!
-        await addTasksToCurrentWO(taskQueue);
+        isBatchSaving = true; // 🔒 Lock
+        batchSaveAllBtn.disabled = true; // 🔒 Disable button
+        batchSaveAllBtn.textContent = "Saving..."; // UX feedback
 
-        // Close and reset
-        batchAddModal.style.display = "none";
-        taskQueue = [];
+        try {
+          await addTasksToCurrentWO(taskQueue);
+
+          // Close and reset
+          batchAddModal.style.display = "none";
+          taskQueue = [];
+        } catch (err) {
+          console.error("Batch save failed:", err);
+          alert("Error saving tasks. Please try again.");
+        }
+
+        // 🔓 Unlock and restore UI
+        isBatchSaving = false;
+        batchSaveAllBtn.disabled = false;
+        batchSaveAllBtn.textContent = "Save All";
       });
 
       // 4. Cancel and close the modal
