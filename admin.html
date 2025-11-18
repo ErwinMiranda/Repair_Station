@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
-        <script src="auth.js"></script>
+    <script src="auth.js"></script>
     <script>
       requireLogin();
     </script>
@@ -886,7 +886,7 @@
       window.availableSkills = []; // skills currently present in dataset
       window.skillToolbarInitialized = false; // ensures toolbar is built once
       let isBatchSaving = false;
-
+      let editingQueueIndex = null;
       // custom skill order
       const SKILL_ORDER = [
         "SHOP",
@@ -2732,8 +2732,8 @@
 
       // --- Helper function to re-draw the queue list ---
       function renderTaskQueue() {
-        taskQueueList.innerHTML = ""; // Clear the list
-        queueCountEl.textContent = taskQueue.length; // Update count
+        taskQueueList.innerHTML = "";
+        queueCountEl.textContent = taskQueue.length;
 
         if (taskQueue.length === 0) {
           taskQueueList.innerHTML =
@@ -2744,17 +2744,98 @@
         taskQueue.forEach((task, index) => {
           const item = document.createElement("div");
           item.className = "queue-item";
+          item.style.display = "flex";
+          item.style.justifyContent = "space-between";
+          item.style.alignItems = "center";
+          item.style.padding = "6px 8px";
+          item.style.border = "1px solid #ccc";
+          item.style.borderRadius = "6px";
+          item.style.marginBottom = "6px";
+          item.style.background = "#f7f7f7";
+
           item.innerHTML = `
- <strong>${task.title}</strong>
- <span>
- Skill: ${task.skill || "N/A"} | 
- Start: ${task.sdate} | 
- End: ${task.edate}
- </span>
- `;
-          // (Optional: Add a "remove" button here)
+              <div>
+                <strong>${task.title}</strong><br>
+                <span style="font-size:12px;">
+                  Skill: ${task.skill} |
+                  Start: ${task.sdate} |
+                  End: ${task.edate}
+                </span>
+              </div>
+
+              <div style="display:flex; gap:6px;">
+                <button class="queue-edit-btn" data-index="${index}"
+                  style="background:#3b82f6; color:#fff; border:none; padding:4px 8px; border-radius:4px; cursor:pointer;">
+                  Edit
+                </button>
+
+                <button class="queue-remove-btn" data-index="${index}"
+                  style="background:#dc2626; color:#fff; border:none; padding:4px 8px; border-radius:4px; cursor:pointer;">
+                  Remove
+                </button>
+              </div>
+            `;
+
           taskQueueList.appendChild(item);
         });
+
+        // Attach edit/remove events
+        document.querySelectorAll(".queue-remove-btn").forEach((btn) => {
+          btn.addEventListener("click", () => {
+            const i = Number(btn.dataset.index);
+            taskQueue.splice(i, 1);
+            renderTaskQueue();
+          });
+        });
+
+        document.querySelectorAll(".queue-edit-btn").forEach((btn) => {
+          btn.addEventListener("click", () => {
+            const i = Number(btn.dataset.index);
+            loadTaskIntoForm(i);
+          });
+        });
+      }
+      function loadTaskIntoForm(index) {
+        const task = taskQueue[index];
+        if (!task) return;
+
+        editingQueueIndex = index;
+
+        b.title.value = task.title;
+        b.skill.value = task.skill;
+        b.sdate.value = task.sdate;
+        b.edate.value = task.edate;
+
+        addToQueueBtn.textContent = "Update Task";
+        addToQueueBtn.style.background = "#f59e0b";
+      }
+      //addToQueueBtn.onclick = addTaskToQueueDefault;
+      function resetBatchForm() {
+        b.title.value = "";
+        b.skill.value = "";
+        const today = dayKeyToISO(toSerialDayKey(new Date()));
+        b.sdate.value = today;
+        b.edate.value = today;
+        userHasManuallySetEndDate = false;
+
+        editingQueueIndex = null;
+      }
+      function addTaskToQueueDefault() {
+        const task = {
+          title: b.title.value.trim(),
+          skill: b.skill.value.trim(),
+          sdate: b.sdate.value,
+          edate: b.edate.value,
+        };
+
+        if (!task.title || !task.skill || !task.sdate || !task.edate) {
+          alert("Please fill in Title, Skill, Start Date, and End Date.");
+          return;
+        }
+
+        taskQueue.push(task);
+        renderTaskQueue();
+        resetBatchForm();
       }
 
       // --- Wire up the buttons ---
@@ -2783,27 +2864,34 @@
 
       // 2. Add a single task to the queue
       addToQueueBtn.addEventListener("click", () => {
-        const task = {
-          title: b.title.value.trim(),
-          skill: b.skill.value,
-          sdate: b.sdate.value,
-          edate: b.edate.value,
-        };
+        const title = b.title.value.trim();
+        const skill = b.skill.value;
+        const sdate = b.sdate.value;
+        const edate = b.edate.value;
 
-        // Validation
-        if (!task.title || !task.sdate || !task.edate) {
-          alert("Please fill in Title, Start Date, and End Date.");
+        // VALIDATION — this was failing before because fields were undefined
+        if (!title || !skill || !sdate || !edate) {
+          alert("Please fill in Title, Skill, Start Date, and End Date.");
           return;
         }
 
-        taskQueue.push(task); // Add to our array
-        renderTaskQueue(); // Update the visual list
+        if (editingQueueIndex === null) {
+          // NORMAL ADD MODE
+          taskQueue.push({ title, skill, sdate, edate });
+        } else {
+          // EDIT MODE
+          taskQueue[editingQueueIndex] = { title, skill, sdate, edate };
+          editingQueueIndex = null;
 
-        // Clear inputs for next entry
-        b.title.value = "";
+          // Restore button
+          addToQueueBtn.textContent = "Add to Queue";
+          addToQueueBtn.style.background = "";
+        }
 
-        b.title.focus(); // Set focus back to title
+        renderTaskQueue();
+        resetBatchForm();
       });
+
       // 3. Save the entire queue to Firestore
       batchSaveAllBtn.addEventListener("click", async () => {
         if (isBatchSaving) return; // ⛔ Prevent duplicate clicks immediately
