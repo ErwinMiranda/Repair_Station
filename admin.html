@@ -5,7 +5,7 @@
     <script>
       requireLogin();
     </script>
-    <meta charset="utf-8" />
+ <meta charset="utf-8" />
     <title>Web Based MilestonePlan</title>
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <style>
@@ -554,6 +554,14 @@
       .skill-row {
         border-top: 4px solid #000 !important; /* thick separator */
       }
+      .task-dependency-indicator {
+        position: absolute;
+        top: 2px;
+        right: 3px;
+        font-size: 12px;
+        pointer-events: none;
+        opacity: 0.8;
+      }
     </style>
   </head>
   <body>
@@ -881,7 +889,7 @@
       let firestoreConnected = false; // ✅ added flag
       let unsubscribe = null;
       let skillDisplayOrder = []; // Order of skills based on click sequence
-      // === Skill Visibility Globals ===
+
       let collapsedSkills = new Set(); // tracks which skills are hidden
       window.availableSkills = []; // skills currently present in dataset
       window.skillToolbarInitialized = false; // ensures toolbar is built once
@@ -1546,8 +1554,8 @@
         labelCumTd.style.background = "#E9EAF2";
         labelCumTd.style.zIndex = "16"; // ⭐ higher than row to keep sticky
         cumulativeTr.appendChild(labelCumTd);
-
-         // Only include tasks from visible (non-collapsed) skills
+        // --- FILTER TO SELECTED SKILL(S) ONLY ---
+        // Only include tasks from visible (non-collapsed) skills
         const visibleSkills = new Set(
           Object.entries(grouped)
             .filter(([skill]) => !collapsedSkills.has(skill))
@@ -1930,6 +1938,28 @@
               }
             });
 
+            // --- DEPENDENCY INDICATOR ---
+            const hasParents =
+              Array.isArray(task.dependencies) && task.dependencies.length > 0;
+
+            const hasChildren = window.currentRows.some(
+              (t) =>
+                Array.isArray(t.dependencies) &&
+                t.dependencies.includes(task._id)
+            );
+
+            let depIcon = "";
+            if (hasParents && hasChildren) depIcon = "↔"; // both directions
+            else if (hasParents) depIcon = "←"; // depends on others
+            else if (hasChildren) depIcon = "→"; // others depend on it
+
+            if (depIcon) {
+              const icon = document.createElement("div");
+              icon.classList.add("task-dependency-indicator");
+              icon.textContent = depIcon;
+              taskDiv.appendChild(icon);
+            }
+
             td.appendChild(taskDiv);
           }
         });
@@ -2011,47 +2041,95 @@
 
           const tid = ev.dataTransfer.getData("text/plain");
           if (!tid) return;
+
           const dayStr = td.dataset.day;
           if (!dayStr) return;
 
           const dayKey = Number(dayStr);
-          const draggedTask = window.currentRows.find((r) => r._id === tid);
-          if (!draggedTask) return; // --- 🛑 SKILL CHECK REMOVED --- // The original "bounce" check that compared // draggedTask.skill to dropSkill is now gone. // Get the date shift from the primary dragged task
 
+          // Get dragged task
+          const draggedTask = window.currentRows.find((r) => r._id === tid);
+          if (!draggedTask) return;
+
+          // Get original start date of dragged task
           const revS = parseDateField(
             draggedTask.rev_sdate ?? draggedTask.sdate
           );
           const startKey = toSerialDayKey(
             revS || parseDateField(draggedTask.sdate)
           );
-          const dayShift = dayKey - startKey; // Move all selected tasks
 
+          // COMPUTE DAY SHIFT FIRST ✔️
+          const dayShift = dayKey - startKey;
+
+          // BUILD TASK MAP ✔️
+          const taskMap = Object.fromEntries(
+            window.currentRows.map((t) => [t._id, t])
+          );
+
+          // VALIDATE BEFORE MOVING ANYTHING ✔️
+          for (const taskId of selectedTaskIds) {
+            const task = taskMap[taskId];
+            if (!task) continue;
+
+            const curStart = toSerialDayKey(
+              parseDateField(task.rev_sdate ?? task.sdate)
+            );
+            const curEnd = toSerialDayKey(
+              parseDateField(task.rev_edate ?? task.edate)
+            );
+
+            // NEW positions after drag
+            const newStart = curStart + dayShift;
+            const newEnd = curEnd + dayShift;
+
+            // Check parents
+            for (const parentId of task.dependencies || []) {
+              const parent = taskMap[parentId];
+              if (!parent) continue;
+
+              const parentEnd = toSerialDayKey(
+                parseDateField(parent.rev_edate ?? parent.edate)
+              );
+
+              // BLOCK MOVE ✔️
+              if (newStart < parentEnd) {
+                alert(
+                  `Cannot move "${task.tasktitle}" before its parent "${parent.tasktitle}".`
+                );
+                return; // CANCEL DROP
+              }
+            }
+          }
+
+          // APPLY MOVE (only if passed validation) ✔️
           for (const id of selectedTaskIds) {
-            const task = window.currentRows.find((r) => r._id === id);
-            if (!task) continue; // --- 🛑 SKILL CHECK REMOVED --- // The check inside the loop that skipped // tasks from other skills is also gone. // Calculate new dates based on the dayShift
+            const task = taskMap[id];
+            if (!task) continue;
 
-            const revS = parseDateField(task.rev_sdate ?? task.sdate);
-            const revE = parseDateField(task.rev_edate ?? task.edate);
-            const startKeyTask = toSerialDayKey(
-              revS || parseDateField(task.sdate)
+            const curStart = toSerialDayKey(
+              parseDateField(task.rev_sdate ?? task.sdate)
             );
-            const endKeyTask = toSerialDayKey(
-              revE || parseDateField(task.edate)
+            const curEnd = toSerialDayKey(
+              parseDateField(task.rev_edate ?? task.edate)
             );
-            const duration = endKeyTask - startKeyTask;
+            const duration = curEnd - curStart;
 
-            const newRevS_ISO = dayKeyToISO(startKeyTask + dayShift);
-            const newRevE_ISO = dayKeyToISO(startKeyTask + dayShift + duration); // --- 🛑 SKILL UPDATE REMOVED --- // We no longer change the task's skill. // We only update its dates.
+            const newStartISO = dayKeyToISO(curStart + dayShift);
+            const newEndISO = dayKeyToISO(curStart + dayShift + duration);
 
             await updateTask(task._id, {
-              rev_sdate: newRevS_ISO,
-              rev_edate: newRevE_ISO, // 'skill' property is no longer included
+              rev_sdate: newStartISO,
+              rev_edate: newEndISO,
             });
+
             cascadeVisited.clear();
             await cascadeDependents(task._id, dayShift);
-          } // 🔹 Auto reset selection after bulk move
+          }
+
           clearSelection();
         });
+
         // ✅ NEW: double click empty cell to add a task
         td.addEventListener("dblclick", async () => {
           if (td.querySelector(".task-block")) return; // already has a task
@@ -3040,52 +3118,74 @@
           createDependencyFromSelection();
         }
       });
+
       async function createDependencyFromSelection() {
-        if (selectedTaskIds.length !== 2) {
-          alert("Select exactly two tasks.");
+        if (selectedTaskIds.length < 2) {
+          alert("Select at least two tasks.");
           return;
         }
 
-        const tasks = selectedTaskIds
+        // Load row objects and sort by timeline
+        const ordered = selectedTaskIds
           .map((id) => window.currentRows.find((t) => t._id === id))
-          .filter(Boolean);
+          .filter(Boolean)
+          .sort((a, b) => {
+            const aStart = parseDateField(a.rev_sdate || a.sdate);
+            const bStart = parseDateField(b.rev_sdate || b.sdate);
+            return aStart - bStart;
+          });
 
-        const A = tasks[0];
-        const B = tasks[1];
+        // -------------------------------------------------------------------
+        // CASE A — EXACTLY TWO TASKS (your original behavior)
+        // -------------------------------------------------------------------
+        if (ordered.length === 2) {
+          const A = ordered[0];
+          const B = ordered[1];
 
-        const startA = parseDateField(A.rev_sdate || A.sdate);
-        const startB = parseDateField(B.rev_sdate || B.sdate);
+          if (doesCreateCycle(A._id, B._id)) {
+            alert("❌ Cannot create dependency: circular dependency detected.");
+            return;
+          }
 
-        let parent, child;
+          const deps = Array.isArray(B.dependencies) ? [...B.dependencies] : [];
+          if (!deps.includes(A._id)) deps.push(A._id);
 
-        if (startA <= startB) {
-          parent = A;
-          child = B;
-        } else {
-          parent = B;
-          child = A;
-        }
+          await updateTask(B._id, { dependencies: deps });
 
-        // ⭐ 1. Detect circular loops
-        if (doesCreateCycle(parent._id, child._id)) {
           alert(
-            "❌ Cannot create dependency: This will produce a circular dependency loop."
+            `Dependency created:\n"${B.tasktitle}" now depends on "${A.tasktitle}".`
           );
+          clearSelection();
           return;
         }
 
-        // 2. Add dependency
-        const deps = Array.isArray(child.dependencies)
-          ? [...child.dependencies]
-          : [];
-        if (!deps.includes(parent._id)) deps.push(parent._id);
+        // -------------------------------------------------------------------
+        // CASE B — 3 OR MORE TASKS → SERIAL CHAIN
+        // -------------------------------------------------------------------
+        let chainMsg = "Serial dependency created:\n\n";
 
-        await updateTask(child._id, { dependencies: deps });
+        for (let i = 0; i < ordered.length - 1; i++) {
+          const parent = ordered[i];
+          const child = ordered[i + 1];
 
-        alert(
-          `Dependency created:\n"${child.tasktitle}" now depends on "${parent.tasktitle}".`
-        );
+          // Skip if cycle would be created
+          if (doesCreateCycle(parent._id, child._id)) {
+            alert(
+              `❌ Skipping link: "${child.tasktitle}" → "${parent.tasktitle}" would cause a circular dependency.`
+            );
+            continue;
+          }
 
+          const deps = Array.isArray(child.dependencies)
+            ? [...child.dependencies]
+            : [];
+          if (!deps.includes(parent._id)) deps.push(parent._id);
+
+          await updateTask(child._id, { dependencies: deps });
+          chainMsg += `${parent.tasktitle} → ${child.tasktitle}\n`;
+        }
+
+        alert(chainMsg);
         clearSelection();
       }
 
@@ -3215,55 +3315,55 @@
         }
       });
       async function removeDependencyFromSelection() {
-        if (selectedTaskIds.length !== 2) {
-          alert(
-            "Please select EXACTLY two tasks, then press CTRL + E to remove dependency."
-          );
+        if (selectedTaskIds.length < 2) {
+          alert("Select at least TWO tasks to remove dependency links.");
           return;
         }
 
-        // Get the tasks
-        const tasks = selectedTaskIds
-          .map((id) => window.currentRows.find((t) => t._id === id))
-          .filter(Boolean);
+        const selectedSet = new Set(selectedTaskIds);
+        const rows = window.currentRows;
 
-        if (tasks.length !== 2) return;
+        let removedCount = 0;
 
-        const t1 = tasks[0];
-        const t2 = tasks[1];
+        // Loop through all selected tasks
+        for (const tid of selectedTaskIds) {
+          const task = rows.find((t) => t._id === tid);
+          if (!task) continue;
 
-        // Case 1: t2 depends on t1
-        if (
-          Array.isArray(t2.dependencies) &&
-          t2.dependencies.includes(t1._id)
-        ) {
-          const updatedDeps = t2.dependencies.filter((dep) => dep !== t1._id);
-          await updateTask(t2._id, { dependencies: updatedDeps });
-          alert(
-            `Dependency removed:\n"${t2.tasktitle}" no longer depends on "${t1.tasktitle}".`
+          // Remove PARENT dependencies inside the selected group
+          if (Array.isArray(task.dependencies)) {
+            const newDeps = task.dependencies.filter(
+              (dep) => !selectedSet.has(dep)
+            );
+            if (newDeps.length !== task.dependencies.length) {
+              await updateTask(tid, { dependencies: newDeps });
+              removedCount++;
+            }
+          }
+
+          // Remove CHILD dependencies inside the selected group
+          const children = rows.filter(
+            (t) => Array.isArray(t.dependencies) && t.dependencies.includes(tid)
           );
-          clearSelection();
-          return;
+
+          for (const child of children) {
+            if (!selectedSet.has(child._id)) continue; // only modify inside group
+
+            const newDepList = child.dependencies.filter((dep) => dep !== tid);
+            await updateTask(child._id, { dependencies: newDepList });
+            removedCount++;
+          }
         }
 
-        // Case 2: t1 depends on t2
-        if (
-          Array.isArray(t1.dependencies) &&
-          t1.dependencies.includes(t2._id)
-        ) {
-          const updatedDeps = t1.dependencies.filter((dep) => dep !== t2._id);
-          await updateTask(t1._id, { dependencies: updatedDeps });
-          alert(
-            `Dependency removed:\n"${t1.tasktitle}" no longer depends on "${t2.tasktitle}".`
-          );
-          clearSelection();
-          return;
+        if (removedCount > 0) {
+          alert(`Removed ${removedCount} dependency link(s) inside selection.`);
+        } else {
+          alert("No dependencies found among selected tasks.");
         }
 
-        // No dependency found
-        alert("These two tasks do NOT have a dependency.");
         clearSelection();
       }
+
       function buildDependencyTooltip(task) {
         if (!task) return "";
 
