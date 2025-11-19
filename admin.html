@@ -1547,26 +1547,35 @@
         labelCumTd.style.zIndex = "16"; // ⭐ higher than row to keep sticky
         cumulativeTr.appendChild(labelCumTd);
 
-        // --- NEW cumulative logic ---
-        const totalsPerDay = {}; // how many tasks cover each day
-        const closedFinishDay = {}; // how many tasks finish (closed) on a specific day
+         // Only include tasks from visible (non-collapsed) skills
+        const visibleSkills = new Set(
+          Object.entries(grouped)
+            .filter(([skill]) => !collapsedSkills.has(skill))
+            .map(([skill]) => skill)
+        );
 
-        // 1. Collect per-day totals AND closed finish dates
-        normalized.forEach((task) => {
-          const rs = task._rev_sdate ? toSerialDayKey(task._rev_sdate) : null;
-          const re = task._rev_edate ? toSerialDayKey(task._rev_edate) : null;
-          if (rs === null || re === null) return;
+        // --- NEW cumulative logic (skill-filtered) ---
+        const totalsPerDay = {}; // tasks covering each day
+        const closedFinishDay = {}; // closed tasks finishing on each day
 
-          // count tasks covering the day (non-cumulative)
-          for (let d = rs; d <= re; d++) {
-            totalsPerDay[d] = (totalsPerDay[d] || 0) + 1;
-          }
+        // 1. Collect totals ONLY from visible skills
+        normalized
+          .filter((task) => visibleSkills.has(task.skill || "Unassigned"))
+          .forEach((task) => {
+            const rs = task._rev_sdate ? toSerialDayKey(task._rev_sdate) : null;
+            const re = task._rev_edate ? toSerialDayKey(task._rev_edate) : null;
+            if (rs === null || re === null) return;
 
-          // mark closed tasks only once — on their end day
-          if ((task.status || "").toLowerCase() === "closed") {
-            closedFinishDay[re] = (closedFinishDay[re] || 0) + 1;
-          }
-        });
+            // Count tasks covering each day
+            for (let d = rs; d <= re; d++) {
+              totalsPerDay[d] = (totalsPerDay[d] || 0) + 1;
+            }
+
+            // Count closed tasks only once on their end day
+            if ((task.status || "").toLowerCase() === "closed") {
+              closedFinishDay[re] = (closedFinishDay[re] || 0) + 1;
+            }
+          });
 
         // 2. Build cumulative row
         let runningTotal = 0;
