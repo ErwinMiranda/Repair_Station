@@ -8,99 +8,475 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Real-time Excel → Firestore (Tasks)</title>
-  <style>
-         :root {
-    --bg-top: #0f172a;
-    --bg-bottom: #1e3a8a;
-    --card: rgba(255,255,255,0.08);
-    --muted: #9ca3af;
-    --accent: #ffcc00; /* Lufthansa yellow */
-    --error: #ef4444;
-    --radius: 14px;
-  }
-    :root { font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; }
-    body { max-width:1100px; margin:18px auto; padding:18px; }
-    h1 { margin:0 0 8px 0; font-size:20px; }
-    .controls { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin:12px 0; }
-    button { padding:8px 12px; border-radius:6px; border:1px solid #bbb; background:#f5f5f5; cursor:pointer; }
-    button.primary {  background: linear-gradient(to bottom, var(--bg-top), var(--bg-bottom)); color:white; border-color:#0a66c2; }
-    button.danger { background:#ffe6e6; border-color:#ff8b8b; }
-    input[type=file] { padding:6px; }
-    .status { margin-left:6px; color:#333; font-size:13px; }
-    #tasksTable { width:100%; border-collapse:collapse; margin-top:12px; max-height:520px; overflow:auto; display:block; }
-    #tasksTable thead { background:#fafafa; position:sticky; top:0; z-index:2; }
-    #tasksTable th, #tasksTable td { padding:6px 8px; border:1px solid #eee; text-align:left; font-size:13px; }
-    #tasksTable tbody tr:nth-child(odd) { background:#fff; }
-    #tasksTable tbody tr:nth-child(even) { background:#fbfbfb; }
-    .small { font-size:13px; color:#666; }
-        .logout-btn {
-     background: linear-gradient(to bottom, var(--bg-top), var(--bg-bottom));   /* blue background */
-      color: rgb(244, 236, 236);          /* white text */
-      padding: 8px 16px;     /* spacing */
-      border:#f4f4f4;          /* no border */
-      border-radius: 8px;    /* rounded corners */
-      cursor: pointer;       /* pointer on hover */
-      font-size: 14px;
-      text-align: center;
-      float: right;
-      width: 120px;
-    }
+ <!-- SheetJS -->
+    <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
 
-    .logout-btn:hover {
-     
-     background: var(--accent); 
-    }
+    <style>
+      /* --------------------
+       Lufthansa Modern Minimalist Theme
+       -------------------- */
+      :root {
+        --lu-blue: #05164d;
+        --lu-blue-2: #07307a;
+        --lu-yellow: #ffcc00;
+        --muted: #7b7b7b;
+        --bg: #f6f8fb;
+        --card: #ffffff;
+        --glass: rgba(255, 255, 255, 0.7);
+        --danger: #ef4444;
+        --radius: 12px;
+        --shadow: 0 6px 22px rgba(12, 24, 60, 0.12);
+        --accent-contrast: #04204a;
+      }
+      /* Dark theme vars */
+      :root[data-theme="dark"] {
+        --bg: #07102a;
+        --card: linear-gradient(
+          180deg,
+          rgba(255, 255, 255, 0.03),
+          rgba(255, 255, 255, 0.02)
+        );
+        --glass: rgba(255, 255, 255, 0.03);
+        --muted: #9aa8d9;
+        --shadow: 0 6px 22px rgba(0, 0, 0, 0.6);
+        --accent-contrast: #ffffff;
+      }
 
-  </style>
-</head>
-<body>
-  <div <button onclick="logout()" class="logout-btn">Logout </button> </div>  
-  <h1>Real-time Excel → Milestone Database</h1>
-  <div class="small">Uploads Excel rows to Milestone database (collection: <code>tasks</code>) using <code>taskid</code> as document ID. Live updates via Web milestone plan onSnapshot.</div>
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+          Roboto, "Helvetica Neue", Arial;
+        background: linear-gradient(180deg, var(--bg), #eaf0ff);
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        color: var(--accent-contrast);
+      }
 
-    <div class="controls">
-      <input id="file" type="file" accept=".xlsx,.xls,.csv" />
-      <button id="uploadBtn" class="primary">Upload to Firestore</button>
-      <label for="workorderSelect">Select Workorder:</label>
-      <select id="workorderSelect"></select>
-      <button id="deleteWorkorderBtn" class="danger">Delete Workorder</button>
-      <button id="downloadWorkorderBtn" class="primary">
-        Download Workorder
-      </button>
-      <label style="margin-left: 8px">
-        <input id="useRemote" type="checkbox" checked /> Use Firestore (remote)
-      </label>
-      <span class="status" id="status">Initializing Firebase...</span>
+      /* CONTAINER */
+      .wrap {
+        max-width: 1200px;
+        margin: 28px auto;
+        padding: 18px;
+      }
+
+      /* HEADER */
+      .topbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        background: linear-gradient(90deg, var(--lu-blue), var(--lu-blue-2));
+        padding: 12px 18px;
+        border-radius: 14px;
+        box-shadow: var(--shadow);
+      }
+      .brand {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+      }
+      .brand img {
+        width: 44px;
+        height: 44px;
+        border-radius: 8px;
+        object-fit: contain;
+        background: white;
+        padding: 6px;
+      }
+      .brand h1 {
+        margin: 0;
+        font-size: 18px;
+        color: white;
+        font-weight: 600;
+        line-height: 1;
+      }
+      .brand p {
+        margin: 0;
+        font-size: 12px;
+        color: rgba(255, 255, 255, 0.9);
+      }
+
+      .top-actions {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+      }
+
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        border: none;
+        cursor: pointer;
+        padding: 8px 12px;
+        font-weight: 600;
+        border-radius: 10px;
+        transition: transform 0.12s ease, box-shadow 0.12s ease;
+      }
+      .btn:hover {
+        transform: translateY(-2px);
+      }
+      .btn.primary {
+        background: var(--lu-yellow);
+        color: var(--lu-blue);
+      }
+      .btn.ghost {
+        background: transparent;
+        color: #fff;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+      }
+      .btn.icon {
+        padding: 8px;
+        width: 44px;
+        height: 44px;
+        justify-content: center;
+        background: rgba(255, 255, 255, 0.06);
+        color: #fff;
+      }
+
+      /* CONTROLS CARD */
+      .card {
+        background: var(--card);
+        padding: 16px;
+        margin-top: 18px;
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+        color: var(--accent-contrast);
+      }
+
+      .controls {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+      .controls .file {
+        background: transparent;
+        border: 1px dashed rgba(0, 0, 0, 0.06);
+        padding: 8px 10px;
+        border-radius: 10px;
+        cursor: pointer;
+        color: var(--accent-contrast);
+        min-width: 220px;
+      }
+
+      select,
+      input[type="file"],
+      input[type="text"] {
+        padding: 8px 10px;
+        border-radius: 10px;
+        border: 1px solid rgba(0, 0, 0, 0.08);
+        background: transparent;
+        color: inherit;
+      }
+
+      label.small {
+        font-size: 13px;
+        color: var(--muted);
+      }
+
+      /* TABLE area */
+      .table-wrap {
+        margin-top: 16px;
+        border-radius: 12px;
+        overflow: hidden;
+        background: linear-gradient(
+          180deg,
+          rgba(255, 255, 255, 0.02),
+          rgba(255, 255, 255, 0.01)
+        );
+      }
+
+      table#tasksTable {
+        width: 100%;
+        border-collapse: collapse;
+        min-width: 900px;
+      }
+      thead tr {
+        background: linear-gradient(
+          90deg,
+          rgba(5, 22, 77, 0.97),
+          rgba(7, 48, 122, 0.97)
+        );
+        color: white;
+        position: sticky;
+        top: 0;
+      }
+      th,
+      td {
+        padding: 10px 12px;
+        text-align: left;
+        font-size: 13px;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+      }
+      tbody tr:nth-child(even) {
+        background: rgba(255, 255, 255, 0.02);
+      }
+      tbody tr:hover {
+        background: rgba(255, 255, 255, 0.04);
+      }
+
+      th.sortable {
+        cursor: pointer;
+        user-select: none;
+      }
+      th .sort-ind {
+        opacity: 0.8;
+        margin-left: 8px;
+        font-size: 12px;
+      }
+
+      /* TOASTS */
+      .toasts {
+        position: fixed;
+        right: 20px;
+        bottom: 20px;
+        z-index: 9999;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .toast {
+        background: rgba(10, 10, 10, 0.85);
+        color: white;
+        padding: 10px 14px;
+        border-radius: 10px;
+        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
+        min-width: 220px;
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        font-size: 14px;
+      }
+      .toast.success {
+        background: linear-gradient(90deg, #134e4a, #0ea5a2);
+      }
+      .toast.error {
+        background: linear-gradient(90deg, #9f1239, #ef4444);
+      }
+
+      /* MODAL */
+      .modal-backdrop {
+        position: fixed;
+        inset: 0;
+        background: rgba(2, 6, 23, 0.6);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 9998;
+      }
+      .modal {
+        width: 520px;
+        max-width: 92%;
+        background: var(--card);
+        color: var(--accent-contrast);
+        border-radius: 12px;
+        padding: 18px;
+        box-shadow: var(--shadow);
+      }
+      .modal h3 {
+        margin: 0 0 8px 0;
+      }
+      .modal p {
+        margin: 0 0 14px 0;
+        color: var(--muted);
+      }
+
+      .modal .row {
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+        margin-top: 12px;
+      }
+
+      /* LOADER overlay */
+      .overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(2, 6, 23, 0.35);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 9997;
+      }
+      .spinner {
+        width: 96px;
+        height: 96px;
+        border-radius: 12px;
+        background: linear-gradient(
+          180deg,
+          rgba(255, 255, 255, 0.02),
+          rgba(255, 255, 255, 0.01)
+        );
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: var(--shadow);
+        color: var(--accent-contrast);
+        flex-direction: column;
+        gap: 8px;
+      }
+      .loader-ring {
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        border: 4px solid rgba(255, 255, 255, 0.06);
+        border-top-color: var(--lu-yellow);
+        animation: spin 1s linear infinite;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      /* small responsive */
+      @media (max-width: 900px) {
+        .controls {
+          flex-direction: column;
+          align-items: stretch;
+        }
+        table#tasksTable {
+          min-width: 700px;
+        }
+      }
+
+      code {
+        background: rgba(0, 0, 0, 0.06);
+        padding: 2px 6px;
+        border-radius: 6px;
+        font-size: 13px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <!-- TOP BAR -->
+      <div class="topbar">
+        <div class="brand">
+          <!-- lightweight Lufthansa-like mark - for real product replace img src with official logo -->
+          <img
+            alt="lufthansa"
+            src="data:image/svg+xml;utf8,
+          %3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect fill='%23ffcc00' width='24' height='24' rx='4'/%3E%3Cpath d='M6.5 16.5c2.8-1 4.1-3.1 4.1-6.1 0-2.1-.9-3.6-2.1-4.6C9.8 5 11.5 3.6 13.9 3c1 .5 1.8 1.1 2.4 1.9-3.5.5-5.5 2.6-5.5 6 0 3.6 2.3 5.5 6.5 6.1-1.9 1.2-4.1 1.8-6.4 1.8-1.7 0-3.2-.3-4.9-1.1 0 0 .9-1.6 3.5-3.2z' fill='%2305164d'/%3E%3C/svg%3E"
+          />
+          <div>
+            <h1>Milestone Plan — Real-time Uploads</h1>
+            <p>Excel → MilestoneDb (collection: <code>tasks</code>)</p>
+          </div>
+        </div>
+
+        <div class="top-actions">
+          <button id="themeToggle" class="btn ghost" title="Toggle dark mode">
+            🌙
+          </button>
+          <button onclick="logout()" class="btn primary" title="Logout">
+            Logout
+          </button>
+        </div>
+      </div>
+
+      <!-- CONTROL CARD -->
+      <div class="card">
+        <div class="controls">
+          <label class="file" title="Click to choose file">
+            <input
+              id="file"
+              type="file"
+              accept=".xlsx,.xls,.csv"
+              style="display: none"
+            />
+            <span id="fileLabel">📁 Choose Excel / CSV</span>
+          </label>
+
+          <button id="uploadBtn" class="btn primary">
+            Upload to Firestore
+          </button>
+
+          <label style="min-width: 140px">
+            <div class="small">Select Workorder</div>
+            <select id="workorderSelect" style="min-width: 160px"></select>
+          </label>
+
+          <button id="downloadWorkorderBtn" class="btn">
+            Download Workorder
+          </button>
+          <button
+            id="deleteWorkorderBtn"
+            class="btn"
+            style="
+              background: #fff1f0;
+              color: var(--danger);
+              border-radius: 10px;
+            "
+          >
+            Delete Workorder
+          </button>
+
+          <label
+            style="
+              display: flex;
+              align-items: center;
+              gap: 8px;
+              margin-left: auto;
+            "
+          >
+            <input id="useRemote" type="checkbox" checked />
+            <span class="small">Use Firestore (remote)</span>
+          </label>
+
+          <div style="min-width: 220px; text-align: right">
+            <div class="small" id="statusText">Initializing Firebase...</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TABLE -->
+      <div class="table-wrap card" style="padding: 0; margin-top: 16px">
+        <table id="tasksTable" aria-label="Tasks table">
+          <thead>
+            <tr id="headerRow"></tr>
+          </thead>
+          <tbody id="tasksBody">
+            <tr>
+              <td colspan="12" style="padding: 18px; color: var(--muted)">
+                No tasks loaded yet.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
 
-  <div style="flex:1 1 100%;">
-    <table id="tasksTable" aria-label="Tasks table">
-      <thead>
-        <tr id="headerRow"></tr>
-      </thead>
-      <tbody id="tasksBody">
-        <tr><td colspan="12" class="small">No tasks loaded yet.</td></tr>
-      </tbody>
-    </table>
-  </div>
+    <!-- TOASTS -->
+    <div class="toasts" id="toasts"></div>
 
-  <!-- SheetJS for parsing -->
-  <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+    <!-- MODAL BACKDROP -->
+    <div class="modal-backdrop" id="modalBackdrop">
+      <div class="modal" role="dialog" aria-modal="true" id="modal">
+        <h3 id="modalTitle">Confirm</h3>
+        <p id="modalMessage">Are you sure?</p>
+        <div class="row" id="modalButtons">
+          <button id="modalCancel" class="btn">Cancel</button>
+          <button id="modalConfirm" class="btn primary">Confirm</button>
+        </div>
+      </div>
+    </div>
 
-  <script 
-      const SESSION_KEY = "demo_session";
-  const savedSession = JSON.parse(localStorage.getItem(SESSION_KEY) || sessionStorage.getItem(SESSION_KEY));
+    <!-- LOADER OVERLAY -->
+    <div class="overlay" id="overlay">
+      <div class="spinner">
+        <div class="loader-ring" aria-hidden="true"></div>
+        <div style="font-size: 13px; color: var(--muted)">Working…</div>
+      </div>
+    </div>
 
-  if (!savedSession) {
-    location.href = "index.html"; // not logged in
-  } else {
-    // Role-based access check
-    const page = location.pathname.split("/").pop(); // current file name
-    if (savedSession.page !== page) {
-      location.href = "index.html"; // redirect if wrong user for this page
-    }
-  }
-    type="module">
+    <script type="module">
+      // ----------------------
+      // Module imports (Firebase)
+      // ----------------------
       import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
       import {
         getFirestore,
@@ -119,6 +495,9 @@
         signInAnonymously,
       } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
+      // ----------------------
+      // Firebase config (kept as provided)
+      // ----------------------
       const firebaseConfig = {
         apiKey: "AIzaSyCUNjFesHA_nMEsULylFlEdNZHy-MlT7_o",
         authDomain: "webmilestoneplan.firebaseapp.com",
@@ -128,24 +507,119 @@
         appId: "1:757067401738:web:697d0440b4aa7264562df3",
       };
 
-      let app, db, auth;
-      let firebaseReady = false;
+      // ----------------------
+      // DOM helpers & UI utilities
+      // ----------------------
+      const overlay = document.getElementById("overlay");
+      const toastsRoot = document.getElementById("toasts");
+      const modalBackdrop = document.getElementById("modalBackdrop");
+      const modalTitle = document.getElementById("modalTitle");
+      const modalMessage = document.getElementById("modalMessage");
+      const modalConfirmBtn = document.getElementById("modalConfirm");
+      const modalCancelBtn = document.getElementById("modalCancel");
+      const statusText = document.getElementById("statusText");
 
+      function showOverlay(show = true) {
+        overlay.style.display = show ? "flex" : "none";
+      }
+      function toast(message, type = "info", timeout = 3500) {
+        const el = document.createElement("div");
+        el.className =
+          "toast " +
+          (type === "success" ? "success" : type === "error" ? "error" : "");
+        el.textContent = message;
+        toastsRoot.appendChild(el);
+        setTimeout(() => (el.style.opacity = "1"), 20);
+        setTimeout(() => {
+          el.style.opacity = "0";
+          setTimeout(() => el.remove(), 500);
+        }, timeout);
+      }
+      function setStatus(msg, isError = false) {
+        statusText.textContent = msg;
+        statusText.style.color = isError ? "crimson" : "";
+      }
+
+      // Modal promise wrapper
+      function confirmModal(
+        title,
+        message,
+        confirmText = "Confirm",
+        cancelText = "Cancel"
+      ) {
+        return new Promise((resolve) => {
+          modalTitle.textContent = title;
+          modalMessage.textContent = message;
+          modalConfirmBtn.textContent = confirmText;
+          modalCancelBtn.textContent = cancelText;
+          modalBackdrop.style.display = "flex";
+
+          function cleanup(val) {
+            modalBackdrop.style.display = "none";
+            modalConfirmBtn.removeEventListener("click", onConfirm);
+            modalCancelBtn.removeEventListener("click", onCancel);
+            resolve(val);
+          }
+          function onConfirm() {
+            cleanup(true);
+          }
+          function onCancel() {
+            cleanup(false);
+          }
+
+          modalConfirmBtn.addEventListener("click", onConfirm);
+          modalCancelBtn.addEventListener("click", onCancel);
+        });
+      }
+
+      // theme toggle
+      const themeToggle = document.getElementById("themeToggle");
+      const root = document.documentElement;
+      function loadTheme() {
+        const t = localStorage.getItem("site_theme") || "light";
+        root.setAttribute("data-theme", t === "dark" ? "dark" : "light");
+        themeToggle.textContent = t === "dark" ? "☀️" : "🌙";
+      }
+      themeToggle.addEventListener("click", () => {
+        const cur =
+          root.getAttribute("data-theme") === "dark" ? "dark" : "light";
+        const next = cur === "dark" ? "light" : "dark";
+        root.setAttribute("data-theme", next);
+        localStorage.setItem("site_theme", next);
+        themeToggle.textContent = next === "dark" ? "☀️" : "🌙";
+      });
+      loadTheme();
+
+      // File chooser UX
       const fileInput = document.getElementById("file");
+      const fileLabel = document.getElementById("fileLabel");
+      document
+        .querySelector(".file")
+        .addEventListener("click", () => fileInput.click());
+      fileInput.addEventListener("change", (e) => {
+        const f = e.target.files?.[0];
+        fileLabel.textContent = f ? `📁 ${f.name}` : "📁 Choose Excel / CSV";
+      });
+
+      // ----------------------
+      // App state + DOM nodes
+      // ----------------------
       const uploadBtn = document.getElementById("uploadBtn");
-      const statusSpan = document.getElementById("status");
-      const tasksBody = document.getElementById("tasksBody");
-      const headerRow = document.getElementById("headerRow");
+      const downloadWorkorderBtn = document.getElementById(
+        "downloadWorkorderBtn"
+      );
+      const deleteWorkorderBtn = document.getElementById("deleteWorkorderBtn");
+      const workorderSelect = document.getElementById("workorderSelect");
       const useRemote = document.getElementById("useRemote");
+      const headerRow = document.getElementById("headerRow");
+      const tasksBody = document.getElementById("tasksBody");
 
       const TASKS_COLLECTION = "tasks";
       const BATCH_LIMIT = 500;
 
-      function setStatus(msg, isError = false) {
-        statusSpan.textContent = msg;
-        statusSpan.style.color = isError ? "crimson" : "#333";
-      }
-
+      // ----------------------
+      // Utility: Date normalization (kept from original)
+      // ----------------------
       function normalizeDate(value) {
         if (value == null) return null;
         if (Object.prototype.toString.call(value) === "[object Date]") {
@@ -156,15 +630,13 @@
           return `${y}-${m}-${d}`;
         }
         if (typeof value === "number") {
-            const excelEpoch = new Date(Date.UTC(1899, 11, 30));
-            const dt = new Date(excelEpoch.getTime() + value * 86400000);
-
-            // Remove local timezone offset (convert to pure date)
-            const localOffset = dt.getTimezoneOffset() * 60000;
-            const corrected = new Date(dt.getTime() + localOffset);
-
-            return `${corrected.getFullYear()}-${String(corrected.getMonth() + 1).padStart(2, "0")}-${String(corrected.getDate()).padStart(2, "0")}`;
-
+          const excelEpoch = new Date(Date.UTC(1899, 11, 30));
+          const dt = new Date(excelEpoch.getTime() + value * 86400000);
+          const localOffset = dt.getTimezoneOffset() * 60000;
+          const corrected = new Date(dt.getTime() + localOffset);
+          return `${corrected.getFullYear()}-${String(
+            corrected.getMonth() + 1
+          ).padStart(2, "0")}-${String(corrected.getDate()).padStart(2, "0")}`;
         }
         const maybe = new Date(value);
         if (!isNaN(maybe)) {
@@ -175,6 +647,9 @@
         return String(value);
       }
 
+      // ----------------------
+      // Read Excel -> rows
+      // ----------------------
       async function parseFileToRows(file) {
         return new Promise((resolve, reject) => {
           const reader = new FileReader();
@@ -193,9 +668,12 @@
         });
       }
 
+      // ----------------------
+      // mapping helper (kept)
+      // ----------------------
       function mapRow(raw) {
         const mapKey = (names) => {
-          const keys = Object.keys(raw);
+          const keys = Object.keys(raw || {});
           for (const n of names) {
             const found = keys.find(
               (k) => k.trim().toLowerCase() === n.toLowerCase()
@@ -205,9 +683,8 @@
           return null;
         };
         return {
-          taskid: raw[mapKey(["ID", "taskid"])] ?? null, // 👈 Pull ID column from Excel
+          taskid: raw[mapKey(["ID", "taskid"])] ?? null,
           skill: raw[mapKey(["Skill", "skill"])] ?? null,
-
           sdate: normalizeDate(
             raw[mapKey(["sdate", "Scheduled Start"])] ?? null
           ),
@@ -227,8 +704,9 @@
         };
       }
 
+      // Headers mapping for display/export
       const HEADER_LABELS = {
-        taskid: "ID", // 👈 New column
+        taskid: "ID",
         skill: "Skill",
         sdate: "Scheduled Start",
         edate: "Scheduled End",
@@ -242,6 +720,9 @@
         bay: "AO",
       };
 
+      // ----------------------
+      // Render table (sorted by sdate)
+      // ----------------------
       function renderTable(rows) {
         const headers = Object.keys(HEADER_LABELS);
         rows = [...rows].sort(
@@ -252,24 +733,87 @@
         headerRow.innerHTML = "";
         headers.forEach((h) => {
           const th = document.createElement("th");
-          th.textContent = HEADER_LABELS[h];
+          th.className = "sortable";
+          th.dataset.key = h;
+          th.innerHTML = `${HEADER_LABELS[h]} <span class="sort-ind">↕</span>`;
           headerRow.appendChild(th);
         });
+
+        // simple click-to-sort
+        headerRow.querySelectorAll("th").forEach((th) => {
+          th.addEventListener("click", () => {
+            const key = th.dataset.key;
+            // toggle sort
+            const asc = th.dataset.asc === "true" ? false : true;
+            headerRow
+              .querySelectorAll("th")
+              .forEach((t) => (t.dataset.asc = ""));
+            th.dataset.asc = asc ? "true" : "false";
+            rows.sort((a, b) => {
+              const A = a[key] ?? "";
+              const B = b[key] ?? "";
+              return asc
+                ? String(A).localeCompare(String(B))
+                : String(B).localeCompare(String(A));
+            });
+            // re-render
+            tasksBody.innerHTML = "";
+            rows.forEach((r) => appendRowToBody(r, headers));
+          });
+        });
+
         tasksBody.innerHTML = "";
         if (!rows.length) {
-          tasksBody.innerHTML = `<tr><td colspan="${headers.length}" class="small">No tasks found.</td></tr>`;
+          tasksBody.innerHTML = `<tr><td colspan="${headers.length}" style="padding:18px;color:var(--muted)">No tasks found.</td></tr>`;
           return;
         }
-        rows.forEach((r) => {
-          const tr = document.createElement("tr");
-          headers.forEach((h) => {
-            const td = document.createElement("td");
-            td.textContent = r[h] ?? "";
-            tr.appendChild(td);
-          });
-          tasksBody.appendChild(tr);
-        });
+        rows.forEach((r) => appendRowToBody(r, headers));
         populateWorkorderDropdown();
+      }
+
+      function appendRowToBody(r, headers) {
+        const tr = document.createElement("tr");
+        headers.forEach((h) => {
+          const td = document.createElement("td");
+          td.textContent = r[h] ?? "";
+          tr.appendChild(td);
+        });
+        tasksBody.appendChild(tr);
+      }
+
+      // ----------------------
+      // FIRESTORE: initialization + realtime listener + upload + utils
+      // ----------------------
+      let app, db, auth;
+      let firebaseReady = false;
+
+      function safeLog(...a) {
+        console.log(...a);
+      }
+      function showError(e) {
+        console.error(e);
+        toast(e?.message || String(e), "error", 6000);
+        setStatus(e?.message || String(e), true);
+      }
+
+      async function attachRealtimeListener() {
+        try {
+          const q = query(collection(db, TASKS_COLLECTION), orderBy("sdate"));
+          onSnapshot(
+            q,
+            (snapshot) => {
+              const rows = [];
+              snapshot.forEach((docSnap) => rows.push(docSnap.data()));
+              renderTable(rows);
+              setStatus(`Realtime: ${rows.length} tasks`);
+            },
+            (err) => {
+              setStatus("Listener error: " + err.message, true);
+            }
+          );
+        } catch (err) {
+          showError(err);
+        }
       }
 
       async function uploadRowsToFirestore(mappedRows) {
@@ -280,99 +824,289 @@
         let uploaded = 0;
 
         setStatus("⏳ Fetching existing Firestore tasks...");
+        showOverlay(true);
+        try {
+          const existingDocsSnap = await getDocs(
+            collection(db, TASKS_COLLECTION)
+          );
+          const existingMap = {};
+          existingDocsSnap.forEach((d) => {
+            existingMap[d.id] = d.data();
+          });
 
-        // ✅ STEP 1: Read all existing tasks once for efficiency
-        const existingDocsSnap = await getDocs(
-          collection(db, TASKS_COLLECTION)
-        );
-        const existingMap = {};
-        existingDocsSnap.forEach((d) => {
-          existingMap[d.id] = d.data(); // Use Firestore doc ID (taskid)
-        });
+          safeLog(
+            `Fetched ${existingDocsSnap.size} existing tasks from Firestore`
+          );
 
-        console.log(
-          `Fetched ${existingDocsSnap.size} existing tasks from Firestore`
-        );
+          for (let i = 0; i < totalChunks; i++) {
+            const start = i * BATCH_LIMIT;
+            const end = start + BATCH_LIMIT;
+            const chunk = mappedRows.slice(start, end);
+            const batch = writeBatch(db);
 
-        // ✅ STEP 2: Process upload in batches
-        for (let i = 0; i < totalChunks; i++) {
-          const start = i * BATCH_LIMIT;
-          const end = start + BATCH_LIMIT;
-          const chunk = mappedRows.slice(start, end);
-          const batch = writeBatch(db);
+            for (const row of chunk) {
+              if (!row.taskid) {
+                console.warn("Row missing ID, skipping:", row);
+                continue;
+              }
+              const docId = String(row.taskid);
+              const existing = existingMap[docId];
 
-          for (const row of chunk) {
-            if (!row.taskid) {
-              console.warn("Row missing ID, skipping:", row);
-              continue;
+              // Skip if Firestore already has it and it's Closed
+              if (
+                existing &&
+                String(existing.status).toLowerCase() === "closed"
+              ) {
+                console.log(`⏭️ Skipping closed task: ${docId}`);
+                continue;
+              }
+
+              batch.set(
+                doc(db, TASKS_COLLECTION, docId),
+                { ...row, updatedAt: serverTimestamp() },
+                { merge: true }
+              );
             }
 
-            const docId = String(row.taskid);
-            const existing = existingMap[docId];
-
-            // 🚫 Skip if Firestore already has it and it's Closed
-            if (
-              existing &&
-              String(existing.status).toLowerCase() === "closed"
-            ) {
-              console.log(`⏭️ Skipping closed task: ${docId}`);
-              continue;
-            }
-
-            // ✅ Create or update (merge)
-            batch.set(
-              doc(db, TASKS_COLLECTION, docId),
-              {
-                ...row,
-                updatedAt: serverTimestamp(),
-              },
-              { merge: true }
+            setStatus(
+              `⏳ Uploading batch ${
+                i + 1
+              }/${totalChunks}... (${uploaded}/${totalRows})`
+            );
+            await batch.commit();
+            uploaded += chunk.length;
+            setStatus(
+              `✅ Batch ${
+                i + 1
+              }/${totalChunks} committed (${uploaded}/${totalRows})`
             );
           }
 
           setStatus(
-            `⏳ Uploading batch ${
-              i + 1
-            }/${totalChunks}... (${uploaded}/${totalRows})`
+            `🎉 Upload complete! (${uploaded}/${totalRows} rows processed)`
           );
-          await batch.commit();
-
-          uploaded += chunk.length;
-          setStatus(
-            `✅ Batch ${
-              i + 1
-            }/${totalChunks} committed (${uploaded}/${totalRows})`
+          toast(
+            `Upload complete — ${uploaded}/${totalRows} rows processed`,
+            "success",
+            4500
           );
-          console.log(`✅ Batch ${i + 1}/${totalChunks} done`);
+        } catch (err) {
+          showError(err);
+          throw err;
+        } finally {
+          showOverlay(false);
         }
-
-        setStatus(
-          `🎉 Upload complete! (${uploaded}/${totalRows} rows processed)`
-        );
       }
 
-      function attachRealtimeListener() {
-        const q = query(collection(db, TASKS_COLLECTION), orderBy("sdate"));
-        onSnapshot(
-          q,
-          (snapshot) => {
-            const rows = [];
-            snapshot.forEach((docSnap) => rows.push(docSnap.data()));
-            renderTable(rows);
-            setStatus(`Realtime: ${rows.length} tasks`);
-          },
-          (err) => setStatus("Listener error: " + err.message, true)
-        );
+      // ----------------------
+      // Populate workorder dropdown
+      // ----------------------
+      async function populateWorkorderDropdown() {
+        try {
+          const snap = await getDocs(collection(db, TASKS_COLLECTION));
+          const workorders = new Set();
+          snap.forEach((d) => {
+            const w = d.data().workorder;
+            if (w !== undefined && w !== null && String(w).trim() !== "")
+              workorders.add(w);
+          });
+          workorderSelect.innerHTML = "";
+          if (workorders.size === 0) {
+            const opt = document.createElement("option");
+            opt.value = "";
+            opt.textContent = "No workorders found";
+            workorderSelect.appendChild(opt);
+            workorderSelect.disabled = true;
+          } else {
+            const opt0 = document.createElement("option");
+            opt0.value = "";
+            opt0.textContent = "Select workorder";
+            workorderSelect.appendChild(opt0);
+            [...workorders].sort().forEach((w) => {
+              const opt = document.createElement("option");
+              opt.value = w;
+              opt.textContent = w;
+              workorderSelect.appendChild(opt);
+            });
+            workorderSelect.disabled = false;
+          }
+        } catch (err) {
+          showError(err);
+        }
       }
 
-      uploadBtn.addEventListener("click", async () => {
-        const file = fileInput.files?.[0];
-        if (!file) return setStatus("Select file", true);
-        const rows = (await parseFileToRows(file)).map((r) => mapRow(r));
-        if (useRemote.checked) await uploadRowsToFirestore(rows);
-        else setStatus("Remote disabled (no upload)");
+      // ----------------------
+      // Delete workorder (modal + batch)
+      // ----------------------
+      deleteWorkorderBtn.addEventListener("click", async () => {
+        const workorder1 = workorderSelect.value;
+        if (!workorder1) return setStatus("Please select a workorder", true);
+        // Confirm via modal
+        const ok = await confirmModal(
+          "Delete Workorder",
+          `Delete all tasks for Workorder "${workorder1}"? This cannot be undone.`,
+          "Delete",
+          "Cancel"
+        );
+        if (!ok) return;
+        showOverlay(true);
+        try {
+          let q = query(
+            collection(db, TASKS_COLLECTION),
+            where("workorder", "==", workorder1)
+          );
+          let snap = await getDocs(q);
+          if (snap.empty && !isNaN(workorder1)) {
+            q = query(
+              collection(db, TASKS_COLLECTION),
+              where("workorder", "==", Number(workorder1))
+            );
+            snap = await getDocs(q);
+          }
+          if (snap.empty) {
+            setStatus(`No tasks found for Workorder "${workorder1}"`, true);
+            toast(`No tasks found for "${workorder1}"`, "error");
+            return;
+          }
+          const docs = snap.docs;
+          const count = docs.length;
+          // Batch delete in chunks
+          for (let i = 0; i < docs.length; i += BATCH_LIMIT) {
+            const batch = writeBatch(db);
+            docs.slice(i, i + BATCH_LIMIT).forEach((d) => batch.delete(d.ref));
+            await batch.commit();
+          }
+          toast(`Deleted ${count} task(s) for "${workorder1}"`, "success");
+          setStatus(`Deleted ${count} task(s) for Workorder "${workorder1}"`);
+          await populateWorkorderDropdown();
+        } catch (err) {
+          showError(err);
+        } finally {
+          showOverlay(false);
+        }
       });
 
+      // ----------------------
+      // Download workorder as Excel
+      // ----------------------
+      downloadWorkorderBtn.addEventListener("click", async () => {
+        const workorder = workorderSelect.value;
+        if (!workorder) {
+          setStatus("Please select a workorder to download", true);
+          toast("Choose a workorder first", "error");
+          return;
+        }
+        setStatus(`Fetching tasks for Workorder "${workorder}"...`);
+        showOverlay(true);
+        try {
+          const rows = [];
+          const qString = query(
+            collection(db, TASKS_COLLECTION),
+            where("workorder", "==", workorder)
+          );
+          const snapString = await getDocs(qString);
+          snapString.forEach((docSnap) => rows.push(docSnap.data()));
+          if (!isNaN(workorder)) {
+            const qNumber = query(
+              collection(db, TASKS_COLLECTION),
+              where("workorder", "==", Number(workorder))
+            );
+            const snapNumber = await getDocs(qNumber);
+            snapNumber.forEach((docSnap) => rows.push(docSnap.data()));
+          }
+          // Unique by taskid
+          const seen = new Set();
+          const uniqueRows = rows.filter((r) => {
+            if (seen.has(r.taskid)) return false;
+            seen.add(r.taskid);
+            return true;
+          });
+          if (!uniqueRows.length) {
+            setStatus(`No tasks found for "${workorder}"`, true);
+            toast(`No tasks for "${workorder}"`, "error");
+            return;
+          }
+          uniqueRows.sort(
+            (a, b) =>
+              new Date(a.sdate || "2100-01-01") -
+              new Date(b.sdate || "2100-01-01")
+          );
+
+          const headers = Object.keys(HEADER_LABELS);
+          const exportData = uniqueRows.map((r) =>
+            Object.fromEntries(
+              headers.map((h) => [HEADER_LABELS[h], r[h] ?? ""])
+            )
+          );
+          const ws = XLSX.utils.json_to_sheet(exportData);
+          const wb = XLSX.utils.book_new();
+          XLSX.utils.book_append_sheet(wb, ws, `Workorder_${workorder}`);
+          const fileName = `Workorder_${workorder}_${
+            new Date().toISOString().split("T")[0]
+          }.xlsx`;
+          XLSX.writeFile(wb, fileName);
+          toast(
+            `Downloaded ${uniqueRows.length} task(s) for "${workorder}"`,
+            "success"
+          );
+          setStatus(
+            `✅ Downloaded ${uniqueRows.length} task(s) for "${workorder}"`
+          );
+        } catch (err) {
+          showError(err);
+          setStatus("Download failed: " + err.message, true);
+        } finally {
+          showOverlay(false);
+        }
+      });
+
+      // ----------------------
+      // Upload button flow (parse file -> map -> upload)
+      // ----------------------
+      uploadBtn.addEventListener("click", async () => {
+        const file = fileInput.files?.[0];
+        if (!file) {
+          setStatus("Select a file first", true);
+          toast("Please select an Excel/CSV file", "error");
+          return;
+        }
+        try {
+          setStatus("Parsing file...");
+          showOverlay(true);
+          const rawRows = await parseFileToRows(file);
+          const rows = rawRows.map((r) => mapRow(r));
+          setStatus(`Parsed ${rows.length} rows`);
+          // Confirmation modal if large
+          if (rows.length > 1000) {
+            const ok = await confirmModal(
+              "Large upload",
+              `You're about to upload ${rows.length} rows. Continue?`,
+              "Upload",
+              "Cancel"
+            );
+            if (!ok) {
+              setStatus("Upload cancelled");
+              showOverlay(false);
+              return;
+            }
+          }
+          if (useRemote.checked) {
+            await uploadRowsToFirestore(rows);
+          } else {
+            setStatus("Remote disabled — no upload performed");
+            toast("Remote disabled — local only", "info");
+          }
+        } catch (err) {
+          showError(err);
+          setStatus("Upload failed: " + (err?.message || err), true);
+        } finally {
+          showOverlay(false);
+        }
+      });
+
+      // ----------------------
+      // Authentication + start listener
+      // ----------------------
       try {
         app = initializeApp(firebaseConfig);
         db = getFirestore(app);
@@ -382,158 +1116,64 @@
             setStatus("Signed in (anonymous)");
             firebaseReady = true;
             attachRealtimeListener();
+            populateWorkorderDropdown();
           })
-          .catch((err) => setStatus("Auth failed: " + err.message, true));
+          .catch((err) => {
+            setStatus("Auth failed: " + err.message, true);
+            showError(err);
+          });
       } catch (e) {
         setStatus("Firebase init failed: " + e.message, true);
+        showError(e);
       }
 
-      async function populateWorkorderDropdown() {
-        const snap = await getDocs(collection(db, TASKS_COLLECTION));
-        const workorders = new Set();
-        snap.forEach((d) => {
-          if (d.data().workorder !== undefined && d.data().workorder !== null) {
-            workorders.add(d.data().workorder);
-          }
-        });
-        const select = document.getElementById("workorderSelect");
-        select.innerHTML = "";
-        if (workorders.size === 0) {
-          const opt = document.createElement("option");
-          opt.value = "";
-          opt.textContent = "No workorders found";
-          select.appendChild(opt);
-          select.disabled = true;
-        } else {
-          workorders.forEach((workorder) => {
-            const opt = document.createElement("option");
-            opt.value = workorder;
-            opt.textContent = workorder;
-            select.appendChild(opt);
-          });
-          select.disabled = false;
-        }
-      }
-      populateWorkorderDropdown();
-
-      deleteWorkorderBtn.addEventListener("click", async () => {
-        const select = document.getElementById("workorderSelect");
-        let workorder1 = select.value;
-        if (!workorder1) return setStatus("Please select a workorder", true);
-        let q = query(
-          collection(db, TASKS_COLLECTION),
-          where("workorder", "==", workorder1)
+      // ----------------------
+      // Small guard: session check + logout (kept from original)
+      // ----------------------
+      const SESSION_KEY = "demo_session";
+      try {
+        const savedSession = JSON.parse(
+          localStorage.getItem(SESSION_KEY) ||
+            sessionStorage.getItem(SESSION_KEY)
         );
-        let snap = await getDocs(q);
-        if (snap.empty && !isNaN(workorder1)) {
-          q = query(
-            collection(db, TASKS_COLLECTION),
-            where("workorder", "==", Number(workorder1))
-          );
-          snap = await getDocs(q);
-        }
-        if (snap.empty) {
-          return setStatus(
-            `No tasks found for Workorder "${workorder1}"`,
-            true
-          );
-        }
-        const docs = snap.docs;
-        const count = docs.length;
-        if (!confirm(`Delete ${count} task(s) for Workorder "${workorder1}"?`))
-          return;
-        for (let i = 0; i < docs.length; i += BATCH_LIMIT) {
-          const batch = writeBatch(db);
-          docs.slice(i, i + BATCH_LIMIT).forEach((d) => batch.delete(d.ref));
-          await batch.commit();
-        }
-        setStatus(`Deleted ${count} task(s) for Workorder "${workorder1}"`);
-        populateWorkorderDropdown();
-      });
-
-      const downloadWorkorderBtn = document.getElementById(
-        "downloadWorkorderBtn"
-      );
-
-      downloadWorkorderBtn.addEventListener("click", async () => {
-        const select = document.getElementById("workorderSelect");
-        const workorder = select.value;
-
-        if (!workorder) {
-          setStatus("Please select a workorder to download", true);
-          return;
-        }
-
-        setStatus(`Fetching tasks for Workorder "${workorder}"...`);
-
-        try {
-          const rows = [];
-
-          // 🔍 Query 1: workorder stored as STRING
-          const qString = query(
-            collection(db, TASKS_COLLECTION),
-            where("workorder", "==", workorder)
-          );
-          const snapString = await getDocs(qString);
-          snapString.forEach((docSnap) => rows.push(docSnap.data()));
-
-          // 🔍 Query 2: workorder stored as NUMBER
-          if (!isNaN(workorder)) {
-            const qNumber = query(
-              collection(db, TASKS_COLLECTION),
-              where("workorder", "==", Number(workorder))
-            );
-            const snapNumber = await getDocs(qNumber);
-            snapNumber.forEach((docSnap) => rows.push(docSnap.data()));
+        if (!savedSession) {
+          // If you want to keep original redirect behavior, uncomment next line:
+          // location.href = "index.html";
+          // For this copy/paste file we'll just show a toast
+          toast("No session detected — demo mode", "info", 4000);
+        } else {
+          const page = location.pathname.split("/").pop();
+          if (savedSession.page && savedSession.page !== page) {
+            // location.href = "index.html";
           }
-
-          // 🧩 Remove duplicates (if both queries returned same docs)
-          const seen = new Set();
-          const uniqueRows = rows.filter((r) => {
-            if (seen.has(r.taskid)) return false;
-            seen.add(r.taskid);
-            return true;
-          });
-
-          if (!uniqueRows.length) {
-            setStatus(`No tasks found for "${workorder}"`, true);
-            return;
-          }
-
-          // 🗓️ Sort by scheduled start
-          uniqueRows.sort(
-            (a, b) =>
-              new Date(a.sdate || "2100-01-01") -
-              new Date(b.sdate || "2100-01-01")
-          );
-
-          // 🧾 Format data for Excel with readable headers
-          const headers = Object.keys(HEADER_LABELS);
-          const exportData = uniqueRows.map((r) =>
-            Object.fromEntries(
-              headers.map((h) => [HEADER_LABELS[h], r[h] ?? ""])
-            )
-          );
-
-          // 📘 Create Excel sheet and trigger download
-          const ws = XLSX.utils.json_to_sheet(exportData);
-          const wb = XLSX.utils.book_new();
-          XLSX.utils.book_append_sheet(wb, ws, `Workorder_${workorder}`);
-
-          const fileName = `Workorder_${workorder}_${
-            new Date().toISOString().split("T")[0]
-          }.xlsx`;
-
-          XLSX.writeFile(wb, fileName);
-          setStatus(
-            `✅ Downloaded ${uniqueRows.length} task(s) for "${workorder}"`
-          );
-        } catch (err) {
-          console.error(err);
-          setStatus("Download failed: " + err.message, true);
         }
-      });
+      } catch (e) {
+        /* ignore parse errors */
+      }
 
-  </script>
-</body>
+      window.logout = function () {
+        // Clear demo session and redirect if desired
+        localStorage.removeItem(SESSION_KEY);
+        sessionStorage.removeItem(SESSION_KEY);
+        toast("Logged out", "success", 1400);
+        setTimeout(() => {
+          // Replace redirect as needed:
+          // location.href = 'index.html';
+        }, 600);
+      };
+
+      // ----------------------
+      // initial small render
+      // ----------------------
+      (function initUI() {
+        // render header row with placeholder until data arrives
+        headerRow.innerHTML = "";
+        Object.values(HEADER_LABELS).forEach((h) => {
+          const th = document.createElement("th");
+          th.textContent = h;
+          headerRow.appendChild(th);
+        });
+      })();
+    </script>
+  </body>
 </html>
