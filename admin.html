@@ -1296,10 +1296,21 @@
 
         // compute min/max from revised FIRST
         const sCandidates = normalized
-          .map((r) => r._rev_sdate || r._sdate)
+          .map((r) => {
+            const s1 = r._sdate;
+            const s2 = r._rev_sdate;
+            if (s1 && s2) return new Date(Math.min(s1, s2));
+            return s1 || s2;
+          })
           .filter(Boolean);
+
         const eCandidates = normalized
-          .map((r) => r._rev_edate || r._edate)
+          .map((r) => {
+            const e1 = r._edate;
+            const e2 = r._rev_edate;
+            if (e1 && e2) return new Date(Math.max(e1, e2));
+            return e1 || e2;
+          })
           .filter(Boolean);
 
         if (!sCandidates.length || !eCandidates.length) {
