@@ -628,13 +628,34 @@
     </div>
 
     <div style="margin-bottom: 10px"></div>
-    <!-- Skill Filter Toolbar -->
-    <div
-      id="skill-toolbar"
-      style="display: flex; gap: 6px; margin-bottom: 6px; flex-wrap: wrap"
-    ></div>
+    <!-- Skill Toolbar + CP Toggle -->
+<div style="
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+    flex-wrap: wrap;
+    gap: 6px;
+">
+  <div id="skill-toolbar" style="display: flex; gap: 6px; flex-wrap: wrap;"></div>
 
-    <div id="matrix-container"></div>
+  <button id="cp-toggle-btn"
+    style="
+      padding: 6px 12px;
+      border: none;
+      background: #dc2626;
+      color: white;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+      white-space: nowrap;
+    ">
+    Show Critical Path Only
+  </button>
+</div>
+
+<div id="matrix-container"></div>
+
 
     <!-- Modal for create/edit -->
     <div id="task-modal" class="modal" role="dialog">
@@ -1339,6 +1360,25 @@
           maxDate.getDate()
         );
         window.minDate = minDate;
+          // Compute Critical Path (global)
+window.criticalPathIds = computeCriticalPath(rows);
+// --- CRITICAL PATH TOGGLE LOGIC ---
+const cpBtn = document.getElementById("cp-toggle-btn");
+if (!window.cpToggleInitialized) {
+  window.cpToggleInitialized = true;
+  window.showOnlyCP = false;
+
+  cpBtn.addEventListener("click", () => {
+    window.showOnlyCP = !window.showOnlyCP;
+    cpBtn.textContent = window.showOnlyCP
+      ? "Show All Tasks"
+      : "Show Critical Path Only";
+
+    // rebuild table respecting toggle
+    applyWOfilterAndRender();
+  });
+}
+
 
         // build day keys
         const dayKeys = [];
@@ -1734,6 +1774,7 @@
 
       function insertTaskToRow(rowTds, task, usedDatesSet, dayKeys) {
         // --- 1. Define all date keys ---
+        const isCritical = window.criticalPathIds?.includes(task._id);
         const origSKey = task._orig_sdate
           ? toSerialDayKey(task._orig_sdate)
           : null;
@@ -1749,6 +1790,9 @@
 
         const diff =
           revSKey !== null && planSKey !== null ? revSKey - planSKey : 0;
+          // --- CP Only Mode: hide ALL trace lines (history + glow) ---
+const hideTraces = window.showOnlyCP && !window.criticalPathIds.includes(task._id);
+
         const todayKey = toSerialDayKey(new Date());
 
         dayKeys.forEach((dk, index) => {
@@ -1759,13 +1803,14 @@
           }
           if (dayKeyToDate(dk).getUTCDay() === 0) td.classList.add("sunday"); // --- 3. Draw NEW GRAY HISTORY LINE (Original vs Plan) ---
 
-          if (
-            origSKey !== null &&
-            planSKey !== null &&
-            origSKey !== planSKey &&
-            dk >= Math.min(origSKey, planSKey) &&
-            dk <= Math.max(origSKey, planSKey)
-          ) {
+          if (!hideTraces &&
+  origSKey !== null &&
+  planSKey !== null &&
+  origSKey !== planSKey &&
+  dk >= Math.min(origSKey, planSKey) &&
+  dk <= Math.max(origSKey, planSKey)
+) {
+
             const historyLine = document.createElement("div");
             const isHistoryAdvance = planSKey < origSKey;
 
@@ -1791,7 +1836,7 @@
             }
           } // --- 4. Draw EXISTING GLOW LINE (Plan vs Revised) ---
 
-          if (
+          if (!hideTraces &&
             planSKey !== null &&
             revSKey !== null &&
             planSKey !== revSKey &&
@@ -1835,6 +1880,21 @@
             const taskDiv = document.createElement("div");
             taskDiv.classList.add("task-block");
             taskDiv.style.position = "relative";
+
+            // --- Critical Path Filter: hide non-CP tasks ---
+if (window.showOnlyCP && !window.criticalPathIds.includes(task._id)) {
+  return; // do NOT render this task
+}
+
+            // 🔥 CRITICAL PATH HIGHLIGHT
+const isCritical =
+  Array.isArray(window.criticalPathIds) &&
+  window.criticalPathIds.includes(task._id);
+
+if (isCritical) {
+  taskDiv.style.border = "3px solid black";
+  
+}
 
             if ((task.status || "").toLowerCase() === "closed") {
               taskDiv.style.backgroundColor = "#E7FAFE";
@@ -3318,6 +3378,60 @@
           }, 150); // slight delay groups multiple updates together ✔
         }
       }
+
+      // ============================================================
+// 🔥 CRITICAL PATH CALCULATION
+// ============================================================
+
+function computeCriticalPath(rows) {
+  const map = Object.fromEntries(rows.map(t => [t._id, t]));
+
+  // duration per task (in days)
+  const dur = (t) => {
+    const s = parseDateField(t.rev_sdate ?? t.sdate);
+    const e = parseDateField(t.rev_edate ?? t.edate);
+    if (!s || !e) return 0;
+    return toSerialDayKey(e) - toSerialDayKey(s) + 1;
+  };
+
+  // memo for dynamic programming
+  const memo = {};
+
+  function longestPath(taskId) {
+    if (memo[taskId]) return memo[taskId];
+
+    const task = map[taskId];
+    if (!task) return { len: 0, chain: [] };
+
+    const parents = (task.dependencies || [])
+      .map(pid => longestPath(pid))
+      .sort((a,b) => b.len - a.len);
+
+    if (parents.length === 0) {
+      const result = { len: dur(task), chain: [taskId] };
+      memo[taskId] = result;
+      return result;
+    }
+
+    // pick longest parent chain
+    const best = parents[0];
+    const result = { len: best.len + dur(task), chain: [...best.chain, taskId] };
+
+    memo[taskId] = result;
+    return result;
+  }
+
+  // evaluate all tasks, choose the longest chain
+  let best = { len: 0, chain: [] };
+
+  rows.forEach(t => {
+    const result = longestPath(t._id);
+    if (result.len > best.len) best = result;
+  });
+
+  return best.chain; // list of task IDs on critical path
+}
+
 
       document.addEventListener("keydown", (e) => {
         if (e.ctrlKey && (e.key === "x" || e.key === "X")) {
