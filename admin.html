@@ -3379,58 +3379,97 @@ if (isCritical) {
         }
       }
 
-      // ============================================================
-// 🔥 CRITICAL PATH CALCULATION
 // ============================================================
-
+// 🔥 OPTION B3 — TIMELINE CP USING EARLIEST SUCCESSOR START
+// ============================================================
 function computeCriticalPath(rows) {
-  const map = Object.fromEntries(rows.map(t => [t._id, t]));
-
-  // duration per task (in days)
-  const dur = (t) => {
+  // --- Build map ---
+  const tasks = {};
+  rows.forEach(t => {
     const s = parseDateField(t.rev_sdate ?? t.sdate);
     const e = parseDateField(t.rev_edate ?? t.edate);
-    if (!s || !e) return 0;
-    return toSerialDayKey(e) - toSerialDayKey(s) + 1;
-  };
+    const startKey = s ? toSerialDayKey(s) : null;
+    const endKey = e ? toSerialDayKey(e) : startKey;
 
-  // memo for dynamic programming
-  const memo = {};
-
-  function longestPath(taskId) {
-    if (memo[taskId]) return memo[taskId];
-
-    const task = map[taskId];
-    if (!task) return { len: 0, chain: [] };
-
-    const parents = (task.dependencies || [])
-      .map(pid => longestPath(pid))
-      .sort((a,b) => b.len - a.len);
-
-    if (parents.length === 0) {
-      const result = { len: dur(task), chain: [taskId] };
-      memo[taskId] = result;
-      return result;
-    }
-
-    // pick longest parent chain
-    const best = parents[0];
-    const result = { len: best.len + dur(task), chain: [...best.chain, taskId] };
-
-    memo[taskId] = result;
-    return result;
-  }
-
-  // evaluate all tasks, choose the longest chain
-  let best = { len: 0, chain: [] };
-
-  rows.forEach(t => {
-    const result = longestPath(t._id);
-    if (result.len > best.len) best = result;
+    tasks[t._id] = {
+      id: t._id,
+      startKey,
+      endKey,
+      parents: Array.isArray(t.dependencies) ? t.dependencies : [],
+      children: []
+    };
   });
 
-  return best.chain; // list of task IDs on critical path
+  // --- Build children (successor list) ---
+  Object.values(tasks).forEach(t => {
+    t.parents.forEach(pid => {
+      if (tasks[pid]) tasks[pid].children.push(t.id);
+    });
+  });
+
+  // Memo store
+  const memo = {};
+
+  function exploreForward(taskId) {
+    if (memo[taskId]) return memo[taskId];
+
+    const t = tasks[taskId];
+    if (!t) return null;
+
+    // If no successors → this is an endpoint
+    if (t.children.length === 0) {
+      memo[taskId] = {
+        chain: [taskId],
+        start: t.startKey,
+        end: t.endKey
+      };
+      return memo[taskId];
+    }
+
+    let best = null;
+
+    // Explore successors
+    for (const cId of t.children) {
+      const child = exploreForward(cId);
+      if (!child) continue;
+
+      // SUCCESSOR DRIVEN TIMELINE:
+      const start = Math.min(t.startKey, child.start);
+      const end   = Math.max(t.endKey, child.end);
+
+      const candidate = {
+        chain: [taskId, ...child.chain],
+        start,
+        end
+      };
+
+      if (!best) best = candidate;
+      else {
+        const bestLen = best.end - best.start;
+        const candLen = end - start;
+        if (candLen > bestLen) best = candidate;
+      }
+    }
+
+    memo[taskId] = best;
+    return best;
+  }
+
+  // Evaluate all possible chains from all tasks
+  let globalBest = null;
+
+  Object.keys(tasks).forEach(id => {
+    const result = exploreForward(id);
+    if (!result) return;
+    const len = result.end - result.start;
+    if (!globalBest || len > (globalBest.end - globalBest.start)) {
+      globalBest = result;
+    }
+  });
+
+  return globalBest ? globalBest.chain : [];
 }
+
 
 
       document.addEventListener("keydown", (e) => {
