@@ -5,7 +5,7 @@
     <script>
       requireLogin();
     </script>
- <meta charset="utf-8" />
+    <meta charset="utf-8" />
     <title>Web Based MilestonePlan</title>
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <style>
@@ -254,7 +254,7 @@
         color: #000;
       }
       .secondary {
-        background: #3b82f6; /* A standard blue */
+        background: #05164d; /* A standard blue */
         color: #fff;
       }
       .danger {
@@ -627,35 +627,58 @@
       </div>
     </div>
 
-    <div style="margin-bottom: 10px"></div>
     <!-- Skill Toolbar + CP Toggle -->
-<div style="
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 6px;
-    flex-wrap: wrap;
-    gap: 6px;
-">
-  <div id="skill-toolbar" style="display: flex; gap: 6px; flex-wrap: wrap;"></div>
+    <div
+      style="
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 6px;
+        flex-wrap: wrap;
+        gap: 6px;
+      "
+    >
+      <div
+        id="skill-toolbar"
+        style="display: flex; gap: 6px; flex-wrap: wrap"
+      ></div>
 
-  <button id="cp-toggle-btn"
-    style="
-      padding: 6px 12px;
-      border: none;
-      background: #dc2626;
-      color: white;
-      border-radius: 6px;
-      cursor: pointer;
-      font-size: 13px;
-      white-space: nowrap;
-    ">
-    Show Critical Path Only
-  </button>
-</div>
+      <div style="display: flex; gap: 6px">
+        <button
+          id="cp-toggle-btn"
+          style="
+            padding: 6px 12px;
+            border: none;
+            background: #dc2626;
+            color: white;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            white-space: nowrap;
+          "
+        >
+          Show CP Only
+        </button>
 
-<div id="matrix-container"></div>
+        <button
+          id="cp-highlight-btn"
+          style="
+            padding: 6px 12px;
+            border: none;
+            background: #111;
+            color: white;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            white-space: nowrap;
+          "
+        >
+          Highlight CP
+        </button>
+      </div>
+    </div>
 
+    <div id="matrix-container"></div>
 
     <!-- Modal for create/edit -->
     <div id="task-modal" class="modal" role="dialog">
@@ -1360,25 +1383,41 @@
           maxDate.getDate()
         );
         window.minDate = minDate;
-          // Compute Critical Path (global)
-window.criticalPathIds = computeCriticalPath(rows);
-// --- CRITICAL PATH TOGGLE LOGIC ---
-const cpBtn = document.getElementById("cp-toggle-btn");
-if (!window.cpToggleInitialized) {
-  window.cpToggleInitialized = true;
-  window.showOnlyCP = false;
+        // Compute Critical Path (global)
+        window.criticalPathIds = computeCriticalPath(rows);
+        // --- CRITICAL PATH TOGGLE LOGIC ---
+        const cpBtn = document.getElementById("cp-toggle-btn");
+        if (!window.cpToggleInitialized) {
+          window.cpToggleInitialized = true;
+          window.showOnlyCP = false;
 
-  cpBtn.addEventListener("click", () => {
-    window.showOnlyCP = !window.showOnlyCP;
-    cpBtn.textContent = window.showOnlyCP
-      ? "Show All Tasks"
-      : "Show Critical Path Only";
+          cpBtn.addEventListener("click", () => {
+            window.showOnlyCP = !window.showOnlyCP;
+            cpBtn.textContent = window.showOnlyCP
+              ? "Show All Tasks"
+              : "Show CP Only";
 
-    // rebuild table respecting toggle
-    applyWOfilterAndRender();
-  });
-}
+            // rebuild table respecting toggle
+            applyWOfilterAndRender();
+          });
+        }
+        // --- HIGHLIGHT CP BUTTON LOGIC ---
+        const cpHighlightBtn = document.getElementById("cp-highlight-btn");
+        if (!window.cpHighlightInitialized) {
+          window.cpHighlight = false;
+          window.cpHighlightInitialized = true;
 
+          cpHighlightBtn.addEventListener("click", () => {
+            window.cpHighlight = !window.cpHighlight;
+
+            cpHighlightBtn.textContent = window.cpHighlight
+              ? "Unhighlight CP"
+              : "Highlight CP";
+
+            // Re-render tasks with updated borders
+            applyWOfilterAndRender();
+          });
+        }
 
         // build day keys
         const dayKeys = [];
@@ -1699,7 +1738,7 @@ if (!window.cpToggleInitialized) {
 
           // initial style from collapsedSkills set
           const isCollapsed = collapsedSkills.has(skill);
-          btn.style.background = isCollapsed ? "#ddd" : "#3b82f6";
+          btn.style.background = isCollapsed ? "#ddd" : "#05164d";
           btn.style.color = isCollapsed ? "#333" : "#fff";
 
           btn.addEventListener("click", () => {
@@ -1722,7 +1761,7 @@ if (!window.cpToggleInitialized) {
 
             // 🔧 Update button color
             const nowCollapsed = collapsedSkills.has(skill);
-            btn.style.background = nowCollapsed ? "#ddd" : "#3b82f6";
+            btn.style.background = nowCollapsed ? "#ddd" : "#05164d";
             btn.style.color = nowCollapsed ? "#333" : "#fff";
 
             // 🔄 Apply change to table rows
@@ -1755,7 +1794,7 @@ if (!window.cpToggleInitialized) {
           btn.style.background = "#dddddd"; // hidden
           btn.style.color = "#333";
         } else {
-          btn.style.background = "#3b82f6"; // visible
+          btn.style.background = "#05164d"; // visible
           btn.style.color = "#fff";
         }
       }
@@ -1790,8 +1829,9 @@ if (!window.cpToggleInitialized) {
 
         const diff =
           revSKey !== null && planSKey !== null ? revSKey - planSKey : 0;
-          // --- CP Only Mode: hide ALL trace lines (history + glow) ---
-const hideTraces = window.showOnlyCP && !window.criticalPathIds.includes(task._id);
+        // --- CP Only Mode: hide ALL trace lines (history + glow) ---
+        const hideTraces =
+          window.showOnlyCP && !window.criticalPathIds.includes(task._id);
 
         const todayKey = toSerialDayKey(new Date());
 
@@ -1803,14 +1843,14 @@ const hideTraces = window.showOnlyCP && !window.criticalPathIds.includes(task._i
           }
           if (dayKeyToDate(dk).getUTCDay() === 0) td.classList.add("sunday"); // --- 3. Draw NEW GRAY HISTORY LINE (Original vs Plan) ---
 
-          if (!hideTraces &&
-  origSKey !== null &&
-  planSKey !== null &&
-  origSKey !== planSKey &&
-  dk >= Math.min(origSKey, planSKey) &&
-  dk <= Math.max(origSKey, planSKey)
-) {
-
+          if (
+            !hideTraces &&
+            origSKey !== null &&
+            planSKey !== null &&
+            origSKey !== planSKey &&
+            dk >= Math.min(origSKey, planSKey) &&
+            dk <= Math.max(origSKey, planSKey)
+          ) {
             const historyLine = document.createElement("div");
             const isHistoryAdvance = planSKey < origSKey;
 
@@ -1836,7 +1876,8 @@ const hideTraces = window.showOnlyCP && !window.criticalPathIds.includes(task._i
             }
           } // --- 4. Draw EXISTING GLOW LINE (Plan vs Revised) ---
 
-          if (!hideTraces &&
+          if (
+            !hideTraces &&
             planSKey !== null &&
             revSKey !== null &&
             planSKey !== revSKey &&
@@ -1882,19 +1923,25 @@ const hideTraces = window.showOnlyCP && !window.criticalPathIds.includes(task._i
             taskDiv.style.position = "relative";
 
             // --- Critical Path Filter: hide non-CP tasks ---
-if (window.showOnlyCP && !window.criticalPathIds.includes(task._id)) {
-  return; // do NOT render this task
-}
+            if (
+              window.showOnlyCP &&
+              !window.criticalPathIds.includes(task._id)
+            ) {
+              return; // do NOT render this task
+            }
 
             // 🔥 CRITICAL PATH HIGHLIGHT
-const isCritical =
-  Array.isArray(window.criticalPathIds) &&
-  window.criticalPathIds.includes(task._id);
+            const isCritical =
+              Array.isArray(window.criticalPathIds) &&
+              window.criticalPathIds.includes(task._id);
 
-if (isCritical) {
-  taskDiv.style.border = "3px solid black";
-  
-}
+            if (isCritical) {
+              if (window.cpHighlight) {
+                taskDiv.style.border = "3px solid black";
+              } else {
+                taskDiv.style.border = "1px solid gray";
+              }
+            }
 
             if ((task.status || "").toLowerCase() === "closed") {
               taskDiv.style.backgroundColor = "#E7FAFE";
@@ -2929,7 +2976,7 @@ if (isCritical) {
 
               <div style="display:flex; gap:6px;">
                 <button class="queue-edit-btn" data-index="${index}"
-                  style="background:#3b82f6; color:#fff; border:none; padding:4px 8px; border-radius:4px; cursor:pointer;">
+                  style="background:#05164d; color:#fff; border:none; padding:4px 8px; border-radius:4px; cursor:pointer;">
                   Edit
                 </button>
 
@@ -3379,98 +3426,96 @@ if (isCritical) {
         }
       }
 
-// ============================================================
-// 🔥 OPTION B3 — TIMELINE CP USING EARLIEST SUCCESSOR START
-// ============================================================
-function computeCriticalPath(rows) {
-  // --- Build map ---
-  const tasks = {};
-  rows.forEach(t => {
-    const s = parseDateField(t.rev_sdate ?? t.sdate);
-    const e = parseDateField(t.rev_edate ?? t.edate);
-    const startKey = s ? toSerialDayKey(s) : null;
-    const endKey = e ? toSerialDayKey(e) : startKey;
+      // ============================================================
+      // 🔥 OPTION B3 — TIMELINE CP USING EARLIEST SUCCESSOR START
+      // ============================================================
+      function computeCriticalPath(rows) {
+        // --- Build map ---
+        const tasks = {};
+        rows.forEach((t) => {
+          const s = parseDateField(t.rev_sdate ?? t.sdate);
+          const e = parseDateField(t.rev_edate ?? t.edate);
+          const startKey = s ? toSerialDayKey(s) : null;
+          const endKey = e ? toSerialDayKey(e) : startKey;
 
-    tasks[t._id] = {
-      id: t._id,
-      startKey,
-      endKey,
-      parents: Array.isArray(t.dependencies) ? t.dependencies : [],
-      children: []
-    };
-  });
+          tasks[t._id] = {
+            id: t._id,
+            startKey,
+            endKey,
+            parents: Array.isArray(t.dependencies) ? t.dependencies : [],
+            children: [],
+          };
+        });
 
-  // --- Build children (successor list) ---
-  Object.values(tasks).forEach(t => {
-    t.parents.forEach(pid => {
-      if (tasks[pid]) tasks[pid].children.push(t.id);
-    });
-  });
+        // --- Build children (successor list) ---
+        Object.values(tasks).forEach((t) => {
+          t.parents.forEach((pid) => {
+            if (tasks[pid]) tasks[pid].children.push(t.id);
+          });
+        });
 
-  // Memo store
-  const memo = {};
+        // Memo store
+        const memo = {};
 
-  function exploreForward(taskId) {
-    if (memo[taskId]) return memo[taskId];
+        function exploreForward(taskId) {
+          if (memo[taskId]) return memo[taskId];
 
-    const t = tasks[taskId];
-    if (!t) return null;
+          const t = tasks[taskId];
+          if (!t) return null;
 
-    // If no successors → this is an endpoint
-    if (t.children.length === 0) {
-      memo[taskId] = {
-        chain: [taskId],
-        start: t.startKey,
-        end: t.endKey
-      };
-      return memo[taskId];
-    }
+          // If no successors → this is an endpoint
+          if (t.children.length === 0) {
+            memo[taskId] = {
+              chain: [taskId],
+              start: t.startKey,
+              end: t.endKey,
+            };
+            return memo[taskId];
+          }
 
-    let best = null;
+          let best = null;
 
-    // Explore successors
-    for (const cId of t.children) {
-      const child = exploreForward(cId);
-      if (!child) continue;
+          // Explore successors
+          for (const cId of t.children) {
+            const child = exploreForward(cId);
+            if (!child) continue;
 
-      // SUCCESSOR DRIVEN TIMELINE:
-      const start = Math.min(t.startKey, child.start);
-      const end   = Math.max(t.endKey, child.end);
+            // SUCCESSOR DRIVEN TIMELINE:
+            const start = Math.min(t.startKey, child.start);
+            const end = Math.max(t.endKey, child.end);
 
-      const candidate = {
-        chain: [taskId, ...child.chain],
-        start,
-        end
-      };
+            const candidate = {
+              chain: [taskId, ...child.chain],
+              start,
+              end,
+            };
 
-      if (!best) best = candidate;
-      else {
-        const bestLen = best.end - best.start;
-        const candLen = end - start;
-        if (candLen > bestLen) best = candidate;
+            if (!best) best = candidate;
+            else {
+              const bestLen = best.end - best.start;
+              const candLen = end - start;
+              if (candLen > bestLen) best = candidate;
+            }
+          }
+
+          memo[taskId] = best;
+          return best;
+        }
+
+        // Evaluate all possible chains from all tasks
+        let globalBest = null;
+
+        Object.keys(tasks).forEach((id) => {
+          const result = exploreForward(id);
+          if (!result) return;
+          const len = result.end - result.start;
+          if (!globalBest || len > globalBest.end - globalBest.start) {
+            globalBest = result;
+          }
+        });
+
+        return globalBest ? globalBest.chain : [];
       }
-    }
-
-    memo[taskId] = best;
-    return best;
-  }
-
-  // Evaluate all possible chains from all tasks
-  let globalBest = null;
-
-  Object.keys(tasks).forEach(id => {
-    const result = exploreForward(id);
-    if (!result) return;
-    const len = result.end - result.start;
-    if (!globalBest || len > (globalBest.end - globalBest.start)) {
-      globalBest = result;
-    }
-  });
-
-  return globalBest ? globalBest.chain : [];
-}
-
-
 
       document.addEventListener("keydown", (e) => {
         if (e.ctrlKey && (e.key === "x" || e.key === "X")) {
