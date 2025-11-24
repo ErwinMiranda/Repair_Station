@@ -1996,6 +1996,10 @@
             // Double-click on TASK: ALWAYS open Bulk Action Modal
             taskDiv.addEventListener("dblclick", (e) => {
               e.stopPropagation(); // Prevent triggering "Blank Row" click
+                // ⛔ BLOCK double-click for CLOSED tasks
+    if ((task.status || "").toLowerCase() === "closed") {
+        return; // do nothing
+    }
               const thisTaskId = task._id;
 
               // 1. Ensure the task is selected
