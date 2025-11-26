@@ -933,13 +933,11 @@
       let firestoreConnected = false; // ✅ added flag
       let unsubscribe = null;
       let skillDisplayOrder = []; // Order of skills based on click sequence
-
       let collapsedSkills = new Set(); // tracks which skills are hidden
       window.availableSkills = []; // skills currently present in dataset
       window.skillToolbarInitialized = false; // ensures toolbar is built once
       let isBatchSaving = false;
       let editingQueueIndex = null;
-      // custom skill order
       const SKILL_ORDER = [
         "SHOP",
         "CAB",
@@ -954,8 +952,6 @@
         app = initializeApp(firebaseConfig);
         db = getFirestore(app);
         auth = getAuth(app);
-
-        populateSkillDropdown();
 
         document.getElementById("status-indicator").innerText =
           "Planning: connecting…";
@@ -1019,10 +1015,6 @@
         return dateObj.toLocaleDateString("en-US", { weekday: "short" });
       }
 
-      // VVVV ADD THIS NEW FUNCTION VVVV
-      /**
-       * Populates the batch add skill dropdown with the global skill list
-       */
       function populateSkillDropdown() {
         const select = document.getElementById("b-skill");
         if (!select) return;
@@ -1043,7 +1035,6 @@
           select.appendChild(opt);
         });
       }
-      // ^^^^ END OF NEW FUNCTION ^^^^
 
       // ---------- Firestore collection ----------
       const tasksCol = () => collection(db, "tasks");
@@ -1059,7 +1050,7 @@
           const ac = String(data.acreg || "").trim();
 
           if (wo !== "") {
-            woMap.set(wo, ac); // if multiple docs share same workorder, last one wins
+            woMap.set(wo, ac);
           }
         });
 
@@ -1074,26 +1065,35 @@
           opt.textContent = "No workorders found";
           select.appendChild(opt);
           select.disabled = true;
-        } else {
-          woMap.forEach((acreg, wo) => {
-            const opt = document.createElement("option");
-            opt.value = wo;
-            opt.textContent = wo;
-            if (acreg) {
-              opt.title = acreg; // <-- this shows on hover
-            }
-            select.appendChild(opt);
-          });
-
-          // preselect saved value
-          if (woMap.has(savedValue)) {
-            select.value = savedValue;
-          }
-
-          select.disabled = false;
+          return;
         }
 
-        // save on change
+        // Sort workorders
+        const sorted = [...woMap.entries()].sort((a, b) =>
+          a[0].localeCompare(b[0], undefined, { numeric: true })
+        );
+
+        // Build options: WO – ACREG
+        sorted.forEach(([wo, acreg]) => {
+          const opt = document.createElement("option");
+          opt.value = wo;
+
+          // ↓↓↓ THIS IS THE NEW DISPLAY FORMAT ↓↓↓
+          opt.textContent = acreg ? `${wo} - ${acreg}` : wo;
+
+          // tooltip still shows ACREG only
+
+          select.appendChild(opt);
+        });
+
+        // Restore previous selection
+        if (savedValue && woMap.has(savedValue)) {
+          select.value = savedValue;
+        }
+
+        select.disabled = false;
+
+        // Save on change
         select.onchange = function () {
           localStorage.setItem("woFilterValue", this.value);
         };
@@ -1220,16 +1220,7 @@
           return r.id;
         }
       }
-      /**
-       * Closes a list of tasks with a specific closing remark.
-       * Uses the app's "yesterday" logic for dates.
-       */
 
-      // (Place this new function near updateTask, deleteTask, etc.)
-
-      /**
-       * Closes a list of tasks with a specific closing remark AND a specific date.
-       */
       async function closeTasks(taskIds, closingRemark, closeDateKey) {
         console.log(
           `Closing ${taskIds.length} tasks on dayKey ${closeDateKey}...`
@@ -1316,9 +1307,6 @@
           console.error("deleteTask err", err);
         }
       }
-
-      // ---------- Build matrix table ----------
-      // store collapsed skills globally
 
       function buildMatrixTable(rows) {
         // normalize rows
@@ -1996,10 +1984,10 @@
             // Double-click on TASK: ALWAYS open Bulk Action Modal
             taskDiv.addEventListener("dblclick", (e) => {
               e.stopPropagation(); // Prevent triggering "Blank Row" click
-                // ⛔ BLOCK double-click for CLOSED tasks
-    if ((task.status || "").toLowerCase() === "closed") {
-        return; // do nothing
-    }
+              // ⛔ BLOCK double-click for CLOSED tasks
+              if ((task.status || "").toLowerCase() === "closed") {
+                return; // do nothing
+              }
               const thisTaskId = task._id;
 
               // 1. Ensure the task is selected
@@ -2617,6 +2605,7 @@
         .addEventListener("click", closeTaskModal);
       document
         .getElementById("delete-task-btn")
+
         .addEventListener("click", async () => {
           if (!modalEditingId) {
             alert("No milestone selected to delete");
@@ -2628,6 +2617,7 @@
         });
       document
         .getElementById("save-modal")
+
         .addEventListener("click", async () => {
           const payload = {
             taskid: f.taskid.value || undefined,
@@ -2741,11 +2731,6 @@
         bulkActionAnchorTaskId = null;
       });
 
-      /**
-       * Performs the relative move for "New Plan" and "Replan".
-       * isNewPlan = true: Resets history (orig_sdate = null)
-       * isNewPlan = false: Creates history (orig_sdate = sdate)
-       */
       async function performRelativeMove(isNewPlan = false) {
         const dateStr = bulkActionDate.value;
         const remarks = bulkActionRemarks.value;
@@ -2846,10 +2831,6 @@
       });
       // ---------- VVV ADD THIS ENTIRE FUNCTION VVV ----------
 
-      /**
-       * Adds a list of tasks to the CURRENTLY selected Work Order.
-       * @param {Array} newTasks - Array of objects: { title, skill, sdate, edate }
-       */
       async function addTasksToCurrentWO(newTasks) {
         // 1. Get the globally selected Work Order
         const currentWO = woFilterValue; // This variable exists in your code
@@ -2919,9 +2900,6 @@
         sdate: document.getElementById("b-sdate"),
         edate: document.getElementById("b-edate"),
       };
-
-      // This listener links the start and end dates
-      // --- Wire up the date linking logic ---
 
       // 1. When Start Date changes:
       b.sdate.addEventListener("change", () => {
@@ -3052,8 +3030,6 @@
         renderTaskQueue();
         resetBatchForm();
       }
-
-      // --- Wire up the buttons ---
 
       // 1. Open the batch modal
       openBatchAddBtn.addEventListener("click", () => {
@@ -3234,6 +3210,7 @@
         isPanning = false;
         tableContainer.style.cursor = "default";
       });
+
       document.addEventListener("keydown", (e) => {
         if (e.ctrlKey && (e.key === "d" || e.key === "D")) {
           e.preventDefault();
@@ -3527,6 +3504,7 @@
           removeDependencyFromSelection();
         }
       });
+
       async function removeDependencyFromSelection() {
         if (selectedTaskIds.length < 2) {
           alert("Select at least TWO tasks to remove dependency links.");
@@ -3619,6 +3597,7 @@
           childLines
         );
       }
+
       document.addEventListener("keydown", async (e) => {
         // Must have selected tasks
         if (selectedTaskIds.length === 0) return;
@@ -3642,6 +3621,7 @@
         // Clear selection after deleting
         clearSelection();
       });
+
       document.addEventListener("click", (e) => {
         const taskDiv = e.target.closest(".task-block");
         if (!taskDiv) return;
@@ -3665,6 +3645,7 @@
           return;
         }
       });
+
       document.addEventListener("keydown", async (e) => {
         // SHIFT + ALT + O
         if (e.key.toLowerCase() === "o" && e.shiftKey && e.altKey) {
