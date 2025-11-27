@@ -21,7 +21,7 @@
       /* --- trimmed / same style as you provided with minor adjustments --- */
       body {
         font-family: Arial, sans-serif;
-        padding: 18px;
+        padding: 10px;
         margin: 0;
         background: #fafafa;
       }
@@ -69,11 +69,10 @@
         border-spacing: 0;
         min-width: 1000px;
         border-collapse: separate;
-        border: 1px solid #ccc;
       }
       th,
       td {
-        padding: 0;
+        padding: 5px;
         min-width: 120px;
         border-left: 1px solid #ccc;
         border-right: 1px solid #ccc;
@@ -81,15 +80,16 @@
       }
       th {
         background: #f4f4f4;
-        padding: 6px;
-        border-bottom: 2px solid #ccc;
+        padding: 5px;
+        border-bottom: 1px solid #ccc;
+        border-top: 1px solid #ccc;
         position: sticky;
         top: 0;
         z-index: 21;
       }
       tr.skill-row td {
         background: #ecf0f1;
-        padding: 8px 12px;
+        padding: 0px 0px;
         font-weight: 700;
         text-align: left;
         cursor: pointer;
@@ -1621,11 +1621,13 @@
         const cumulativeTr = document.createElement("tr");
         cumulativeTr.style.background = "#E9EAF2";
         cumulativeTr.style.position = "sticky";
+        cumulativeTr.style.textAlign = "center";
         cumulativeTr.style.top = cumulativeStickyTop;
         cumulativeTr.style.zIndex = "15"; // ⭐ stays above tasks but below headers
         cumulativeTr.style.boxShadow = "0 2px 4px rgba(0,0,0,0.05)"; // optional
         const labelCumTd = document.createElement("td");
         labelCumTd.textContent = "Closed / Total";
+
         labelCumTd.style.position = "sticky";
         labelCumTd.style.top = cumulativeStickyTop;
         labelCumTd.style.left = "0";
@@ -1676,12 +1678,65 @@
           td.style.background = "#E9EAF2";
           td.style.position = "sticky";
           td.style.top = cumulativeStickyTop;
+
           td.style.textAlign = "center";
           td.style.verticalAlign = "middle";
           cumulativeTr.appendChild(td);
         });
 
         table.insertBefore(cumulativeTr, table.rows[3]);
+
+        // ============================
+        //  DAILY TOTAL ROW (NEW)
+        // ============================
+        const dailyTr = document.createElement("tr");
+        dailyTr.style.background = "#E9EAF2";
+        dailyTr.style.position = "sticky";
+        dailyTr.style.top = "118px";
+        dailyTr.style.zIndex = "16";
+
+        const dailyLabel = document.createElement("td");
+        dailyLabel.textContent = "Daily Total";
+        dailyLabel.style.textAlign = "center";
+        dailyLabel.style.position = "sticky";
+        dailyLabel.style.left = "0";
+        dailyLabel.style.background = "#E9EAF2";
+        dailyLabel.style.zIndex = "15";
+        dailyLabel.style.top = "118px";
+
+        dailyTr.appendChild(dailyLabel);
+
+        // Compute per-day totals ONLY for visible skills
+        const dailyTotals = {};
+
+        normalized
+          .filter((task) => visibleSkills.has(task.skill || "Unassigned"))
+          .forEach((task) => {
+            const rs = task._rev_sdate ? toSerialDayKey(task._rev_sdate) : null;
+            const re = task._rev_edate ? toSerialDayKey(task._rev_edate) : null;
+            if (rs === null || re === null) return;
+
+            for (let d = rs; d <= re; d++) {
+              dailyTotals[d] = (dailyTotals[d] || 0) + 1;
+            }
+          });
+
+        // Build daily row
+        dayKeys.forEach((dk) => {
+          const td = document.createElement("td");
+          const totalDaily = dailyTotals[dk] || 0;
+
+          td.textContent = totalDaily;
+          td.style.textAlign = "center";
+          td.style.background = "#F4F5FA";
+          td.style.position = "sticky";
+          td.style.top = "120px";
+
+          dailyTr.appendChild(td);
+        });
+
+        // Insert daily row below cumulative
+        table.insertBefore(dailyTr, table.rows[4]);
 
         // set dataset.day and attach drop handlers
         const trs = table.querySelectorAll("tr");
