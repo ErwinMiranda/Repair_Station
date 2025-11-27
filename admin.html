@@ -947,6 +947,8 @@
         "FLC",
         "LDG",
         "STR",
+         "ENG/CRG",
+        "FLC/LDG",
       ];
       try {
         app = initializeApp(firebaseConfig);
@@ -1143,6 +1145,7 @@
 
          populateSkillToolbarForWO(filteredRows);
         buildMatrixTable(filteredRows);
+        populateSkillDropdown();
       }
       function populateSkillToolbarForWO(filteredRows) {
         const skills = new Set();
