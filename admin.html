@@ -1141,7 +1141,34 @@
           return;
         }
 
+         populateSkillToolbarForWO(filteredRows);
         buildMatrixTable(filteredRows);
+      }
+      function populateSkillToolbarForWO(filteredRows) {
+        const skills = new Set();
+
+        filteredRows.forEach((r) => {
+          if (r.skill) skills.add(r.skill);
+          else skills.add("Unassigned");
+        });
+
+        const ordered = [];
+
+        // Keep your preferred SKILL_ORDER
+        SKILL_ORDER.forEach((s) => {
+          if (skills.has(s)) {
+            ordered.push(s);
+            skills.delete(s);
+          }
+        });
+
+        // Add remaining skills
+        [...skills].sort().forEach((s) => ordered.push(s));
+
+        window.availableSkills = ordered;
+
+        // Re-render toolbar with only these skills
+        renderSkillToolbar(ordered);
       }
 
       // ---------- Listen real-time ----------
