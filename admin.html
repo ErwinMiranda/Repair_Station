@@ -975,27 +975,11 @@
         db = getFirestore(app);
         auth = getAuth(app);
 
-        document.getElementById("status-indicator").innerText =
-          "Planning: connecting…";
-
-        signInAnonymously(auth)
-          .then(() => {
-            firestoreConnected = true;
-            console.log("✅ Signed in anonymously");
+     
             document.getElementById("status-indicator").innerText =
               "Planning: signed in";
             startRealtime(); // ✅ only start after signed in
-          })
-          .catch((err) => {
-            console.error("❌ Auth failed", err);
-            document.getElementById("status-indicator").innerText =
-              "Auth failed: " + err.message;
-          });
-      } catch (err) {
-        console.error("Firebase init error", err);
-        document.getElementById("status-indicator").innerText =
-          "Planning init failed: " + err.message;
-      }
+        
 
       // ---------- helpers for date parsing ----------
       function excelSerialToDate(serial) {
