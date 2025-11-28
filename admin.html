@@ -1,42 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Admin Panel</title>
-
-  <!-- Firebase -->
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-
-
-  <script>
-    const firebaseConfig = {
-      apiKey: "AIzaSyCUNjFesHA_nMEsULylFlEdNZHy-MlT7_o",
-      authDomain: "webmilestoneplan.firebaseapp.com",
-      projectId: "webmilestoneplan",
-    };
-    firebase.initializeApp(firebaseConfig);
-  </script>
-
-  <!-- Your auth system -->
-     <script type="module">
-      import { requireLogin, logout } from "./auth.js";
-
-      document.addEventListener("DOMContentLoaded", () => {
-        requireLogin(); // 🔥 block admin page until subscription check passes
-      });
-
-      // Make logout global so your logout button still works
-      window.logout = logout;
+  <head>
+    <script src="auth.js"></script>
+    <script>
+      requireLogin();
     </script>
-
-  <script>
-    // 🔥 BLOCK PAGE UNTIL LOGIN + SUBSCRIPTION VERIFIED
-    document.addEventListener("DOMContentLoaded", () => {
-      requireLogin();  // from auth.js
-    });
-  </script>
+    <meta charset="utf-8" />
+    <title>Web Based MilestonePlan</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
     <style>
       :root {
         --bg-top: #05164d; /* Lufthansa Blue */
@@ -947,7 +918,15 @@
         signInAnonymously,
       } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
-   
+      // 🔑 Firebase Config
+      const firebaseConfig = {
+        apiKey: "AIzaSyCUNjFesHA_nMEsULylFlEdNZHy-MlT7_o",
+        authDomain: "webmilestoneplan.firebaseapp.com",
+        projectId: "webmilestoneplan",
+        storageBucket: "webmilestoneplan.firebasestorage.app",
+        messagingSenderId: "757067401738",
+        appId: "1:757067401738:web:697d0440b4aa7264562df3",
+      };
 
       // Globals
       let app, db, auth;
@@ -971,7 +950,32 @@
          "ENG/CRG",
         "FLC/LDG",
       ];
-      
+      try {
+        app = initializeApp(firebaseConfig);
+        db = getFirestore(app);
+        auth = getAuth(app);
+
+        document.getElementById("status-indicator").innerText =
+          "Planning: connecting…";
+
+        signInAnonymously(auth)
+          .then(() => {
+            firestoreConnected = true;
+            console.log("✅ Signed in anonymously");
+            document.getElementById("status-indicator").innerText =
+              "Planning: signed in";
+            startRealtime(); // ✅ only start after signed in
+          })
+          .catch((err) => {
+            console.error("❌ Auth failed", err);
+            document.getElementById("status-indicator").innerText =
+              "Auth failed: " + err.message;
+          });
+      } catch (err) {
+        console.error("Firebase init error", err);
+        document.getElementById("status-indicator").innerText =
+          "Planning init failed: " + err.message;
+      }
 
       // ---------- helpers for date parsing ----------
       function excelSerialToDate(serial) {
