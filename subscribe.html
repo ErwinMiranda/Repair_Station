@@ -1,45 +1,159 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Subscribe to Access</title>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Subscription Required</title>
+
+<link rel="icon" type="image/png" href="78.png">
+
+<style>
+  :root {
+    --bg-top: #0f172a;
+    --bg-bottom: #1e3a8a;
+    --card: rgba(255,255,255,0.08);
+    --muted: #cbd5e1;
+    --accent: #ffcc00; /* Lufthansa Yellow */
+    --radius: 14px;
+  }
+
+  * { 
+    box-sizing: border-box; 
+    font-family: "Segoe UI", Roboto, system-ui, sans-serif; 
+  }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    display: grid;
+    place-items: center;
+    background: linear-gradient(to bottom, var(--bg-top), var(--bg-bottom));
+  }
+
+  .card {
+    width: min(420px, 92vw);
+    background: var(--card);
+    backdrop-filter: blur(16px);
+    color: #f1f5f9;
+    padding: 32px;
+    border-radius: var(--radius);
+    box-shadow: 0 8px 28px rgba(0,0,0,.45);
+    text-align: center;
+    animation: fadeIn .6s ease;
+  }
+
+  @keyframes fadeIn {
+    from { opacity:0; transform: translateY(20px); }
+    to   { opacity:1; transform: translateY(0); }
+  }
+
+  .logo img {
+    max-width: 130px;
+    margin-bottom: 18px;
+  }
+
+  h1 {
+    margin: 0;
+    font-size: 1.4rem;
+    font-weight: 600;
+  }
+
+  p.desc {
+    margin: 10px 0 20px;
+    color: var(--muted);
+    font-size: .95rem;
+  }
+
+  .price {
+    font-size: 1.3rem;
+    font-weight: bold;
+    margin-bottom: 28px;
+  }
+
+  button {
+    width: 100%;
+    padding: 14px;
+    border: none;
+    border-radius: var(--radius);
+    background: var(--accent);
+    color: #111;
+    font-size: 1.05rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background .25s;
+  }
+  button:hover {
+    background: #eab308;
+  }
+
+  .username-tag {
+    margin-top: 10px;
+    font-size: .85rem;
+    color: #e2e8f0;
+  }
+</style>
 </head>
+
 <body>
-  <h2>Subscription Required</h2>
-  <p>Price: <strong>USD 300 / month</strong></p>
+
+<div class="card">
+  <div class="logo">
+    <img src="ltp-logo.png" alt="Lufthansa Technik Philippines" />
+  </div>
+
+  <h1>Subscription Required</h1>
+  <p class="desc">
+    Your account does not have an active subscription.<br>
+    Please subscribe to continue using the BM Planning Portal.
+  </p>
+
+  <div class="price">USD 300 / month</div>
 
   <button id="subscribeBtn">Subscribe Now</button>
 
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-functions.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"></script>
-  
-  <script>
-    const firebaseConfig = {
-      apiKey: "AIzaSyCUNjFesHA_nMEsULylFlEdNZHy-MlT7_o",
-      authDomain: "webmilestoneplan.firebaseapp.com",
-      projectId: "webmilestoneplan",
-    };
-    firebase.initializeApp(firebaseConfig);
+  <div class="username-tag" id="usernameLabel"></div>
+</div>
 
-    const functions = firebase.functions();
-  </script>
+<!-- Firebase COMPAT -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-functions-compat.js"></script>
 
-  <script>
-    const SESSION_KEY = "demo_session";
-    const sessionData = JSON.parse(localStorage.getItem(SESSION_KEY) || sessionStorage.getItem(SESSION_KEY));
+<script>
+  const firebaseConfig = {
+    apiKey: "AIzaSyCUNjFesHA_nMEsULylFlEdNZHy-MlT7_o",
+    authDomain: "webmilestoneplan.firebaseapp.com",
+    projectId: "webmilestoneplan",
+  };
+  firebase.initializeApp(firebaseConfig);
 
-    if (!sessionData) {
-      window.location.href = "/";
-    }
+  const functions = firebase.functions();
+</script>
 
-    document.getElementById("subscribeBtn").onclick = async () => {
+<script>
+  const SESSION_KEY = "demo_session";
+  const sessionData = JSON.parse(localStorage.getItem(SESSION_KEY) || sessionStorage.getItem(SESSION_KEY));
+
+  if (!sessionData) {
+    window.location.href = "/";
+  }
+
+  // Show username
+  document.getElementById("usernameLabel").textContent = 
+    "Logged in as: " + sessionData.username;
+
+  document.getElementById("subscribeBtn").onclick = async () => {
+    try {
       const createLink = firebase.functions().httpsCallable("createSubscriptionForUser");
 
       const res = await createLink({ username: sessionData.username });
 
-      window.location.href = res.data.linkUrl; // redirect to Xendit page
-    };
-  </script>
+      window.location.href = res.data.linkUrl;
+    } catch (err) {
+      console.error("Subscription error:", err);
+      alert("Failed to create subscription link.");
+    }
+  };
+</script>
 
 </body>
 </html>
