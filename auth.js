@@ -43,14 +43,14 @@ async function checkSubscriptionStatus(username) {
 
   if (!snap.exists) {
     // user exists but no subscription record
-    window.location.href = "/subscribe.html";
+    window.location.href = "/subscribe";
     return;
   }
 
   const status = snap.data().subscriptionStatus;
 
   if (status !== "active") {
-    window.location.href = "/subscribe.html";
+    window.location.href = "/subscribe";
     return;
   }
 
