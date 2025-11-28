@@ -20,7 +20,16 @@
   </script>
 
   <!-- Your auth system -->
-  <script src="auth.js"></script>
+     <script type="module">
+      import { requireLogin, logout } from "./auth.js";
+
+      document.addEventListener("DOMContentLoaded", () => {
+        requireLogin(); // 🔥 block admin page until subscription check passes
+      });
+
+      // Make logout global so your logout button still works
+      window.logout = logout;
+    </script>
 
   <script>
     // 🔥 BLOCK PAGE UNTIL LOGIN + SUBSCRIPTION VERIFIED
