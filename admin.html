@@ -970,16 +970,7 @@
          "ENG/CRG",
         "FLC/LDG",
       ];
-      try {
-        app = initializeApp(firebaseConfig);
-        db = getFirestore(app);
-        auth = getAuth(app);
-
-     
-            document.getElementById("status-indicator").innerText =
-              "Planning: signed in";
-            startRealtime(); // ✅ only start after signed in
-        
+      
 
       // ---------- helpers for date parsing ----------
       function excelSerialToDate(serial) {
